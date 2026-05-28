@@ -1,5 +1,18 @@
+/**
+ * Logging primitives for the core runtime.
+ * @pk
+ */
+
+/**
+ * Supported log levels.
+ * @pk
+ */
 export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
+/**
+ * Structured log entry payload.
+ * @pk
+ */
 export type LogEntry = {
   level: LogLevel;
   message: string;
@@ -8,10 +21,18 @@ export type LogEntry = {
   metadata: Record<string, unknown>;
 };
 
+/**
+ * Low-level logger driver interface.
+ * @pk
+ */
 export type LoggerDriver = {
   write(entry: LogEntry): void | Promise<void>;
 };
 
+/**
+ * Logger configuration options.
+ * @pk
+ */
 export type LoggerOptions = {
   level?: LogLevel;
   driver?: LoggerDriver;
@@ -27,7 +48,15 @@ const levelWeight: Record<LogLevel, number> = {
   fatal: 50,
 };
 
+/**
+ * Console-based logger driver.
+ * @pk
+ */
 export class ConsoleLoggerDriver implements LoggerDriver {
+  /**
+   * Write the log entry to the console.
+   * @pk
+   */
   write(entry: LogEntry): void {
     const payload = {
       ...entry.context,
@@ -38,12 +67,20 @@ export class ConsoleLoggerDriver implements LoggerDriver {
   }
 }
 
+/**
+ * Structured logger with level filtering.
+ * @pk
+ */
 export class Logger {
   private readonly level: LogLevel;
   private readonly driver: LoggerDriver;
   private readonly context: Record<string, unknown>;
   private readonly onWrite?: (entry: LogEntry) => void | Promise<void>;
 
+  /**
+   * Create a new logger instance.
+   * @pk
+   */
   constructor(options: LoggerOptions = {}) {
     this.level = options.level ?? "info";
     this.driver = options.driver ?? new ConsoleLoggerDriver();
@@ -51,6 +88,10 @@ export class Logger {
     this.onWrite = options.onWrite;
   }
 
+  /**
+   * Create a child logger with merged context.
+   * @pk
+   */
   child(context: Record<string, unknown>): Logger {
     return new Logger({
       level: this.level,
@@ -63,26 +104,50 @@ export class Logger {
     });
   }
 
+  /**
+   * Emit a debug log entry.
+   * @pk
+   */
   debug(message: string, metadata: Record<string, unknown> = {}): void {
     void this.write("debug", message, metadata);
   }
 
+  /**
+   * Emit an info log entry.
+   * @pk
+   */
   info(message: string, metadata: Record<string, unknown> = {}): void {
     void this.write("info", message, metadata);
   }
 
+  /**
+   * Emit a warning log entry.
+   * @pk
+   */
   warn(message: string, metadata: Record<string, unknown> = {}): void {
     void this.write("warn", message, metadata);
   }
 
+  /**
+   * Emit an error log entry.
+   * @pk
+   */
   error(message: string, metadata: Record<string, unknown> = {}): void {
     void this.write("error", message, metadata);
   }
 
+  /**
+   * Emit a fatal log entry.
+   * @pk
+   */
   fatal(message: string, metadata: Record<string, unknown> = {}): void {
     void this.write("fatal", message, metadata);
   }
 
+  /**
+   * Write a log entry if the level is enabled.
+   * @pk
+   */
   private async write(level: LogLevel, message: string, metadata: Record<string, unknown>): Promise<void> {
     if (levelWeight[level] < levelWeight[this.level]) {
       return;

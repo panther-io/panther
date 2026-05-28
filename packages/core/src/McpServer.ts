@@ -7,8 +7,16 @@ import type {
 import { assertValidServerName } from "./nameMapping.js";
 import type { PanterTransport, UserContext } from "./types.js";
 
+/**
+ * Resolve environment variables per user.
+ * @pk
+ */
 export type EnvResolver = Record<string, string> | ((user: UserContext) => Record<string, string>);
 
+/**
+ * Configuration for an MCP server wrapper.
+ * @pk
+ */
 export type McpServerOptions = {
   name: string;
   displayName?: string;
@@ -20,6 +28,10 @@ type EnvAwareTransport = PanterTransport & {
   withEnv(env: Record<string, string>): PanterTransport;
 };
 
+/**
+ * MCP server wrapper with optional per-user env injection.
+ * @pk
+ */
 export class McpServer {
   readonly name: string;
   readonly displayName: string;
@@ -28,6 +40,10 @@ export class McpServer {
   private readonly env?: EnvResolver;
   private readonly userTransports = new Map<string, PanterTransport>();
 
+  /**
+   * Create a new MCP server wrapper.
+   * @pk
+   */
   constructor(options: McpServerOptions) {
     assertValidServerName(options.name);
 
@@ -37,14 +53,26 @@ export class McpServer {
     this.env = options.env;
   }
 
+  /**
+   * List tools for a given user.
+   * @pk
+   */
   async listTools(params?: ListToolsRequest["params"], user: UserContext = {}): Promise<ListToolsResult> {
     return this.transportFor(user).listTools(params);
   }
 
+  /**
+   * Call a tool for a given user.
+   * @pk
+   */
   async callTool(params: CallToolRequest["params"], user: UserContext = {}): Promise<CallToolResult> {
     return this.transportFor(user).callTool(params);
   }
 
+  /**
+   * Close all transports.
+   * @pk
+   */
   async close(): Promise<void> {
     await Promise.all([...this.userTransports.values()].map((transport) => transport.close()));
     this.userTransports.clear();
@@ -73,6 +101,10 @@ export class McpServer {
   }
 }
 
+/**
+ * Type guard for env-aware transports.
+ * @pk
+ */
 function isEnvAwareTransport(transport: PanterTransport): transport is EnvAwareTransport {
   return "withEnv" in transport && typeof transport.withEnv === "function";
 }

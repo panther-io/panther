@@ -15,6 +15,10 @@ import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
 import { ResponseController, type Middleware, type MiddlewareContext, type ToolCallRequest, type UserContext } from "./types.js";
 
+/**
+ * Options for creating an MCP proxy server.
+ * @pk
+ */
 export type McpProxyOptions = {
   servers: McpServer[];
   port?: number;
@@ -25,16 +29,28 @@ export type McpProxyOptions = {
   version?: string;
 };
 
+/**
+ * Optional start overrides for the MCP proxy.
+ * @pk
+ */
 export type McpProxyStartOptions = {
   port?: number;
   path?: string;
 };
 
+/**
+ * Active MCP session state.
+ * @pk
+ */
 type SessionState = {
   transport: StreamableHTTPServerTransport;
   server: McpSdkServer;
 };
 
+/**
+ * HTTP proxy for multiple MCP servers.
+ * @pk
+ */
 export class McpProxy {
   private readonly servers: McpServer[];
   private readonly serverByName = new Map<string, McpServer>();
@@ -47,6 +63,10 @@ export class McpProxy {
   private readonly defaultPath: string;
   private httpServer: HttpServer | null = null;
 
+  /**
+   * Create a new MCP proxy instance.
+   * @pk
+   */
   constructor(options: McpProxyOptions) {
     this.servers = options.servers;
     this.logger = options.logger ?? new Logger();
@@ -64,12 +84,24 @@ export class McpProxy {
     }
   }
 
+  /**
+   * Register a middleware handler.
+   * @pk
+   */
   use(middleware: Middleware): this {
     this.middleware.push(middleware);
     return this;
   }
 
+  /**
+   * Start the HTTP server.
+   * @pk
+   */
   async start(onStarted?: () => void): Promise<HttpServer>;
+  /**
+   * Start the HTTP server with optional overrides.
+   * @pk
+   */
   async start(options?: McpProxyStartOptions, onStarted?: () => void): Promise<HttpServer>;
   async start(
     optionsOrCallback: McpProxyStartOptions | (() => void) = {},
@@ -109,6 +141,7 @@ export class McpProxy {
 
     await new Promise<void>((resolve) => {
       this.httpServer?.listen(port, () => {
+        this.printStartupBanner(port, path);
         callback?.();
         resolve();
       });
@@ -117,6 +150,10 @@ export class McpProxy {
     return this.httpServer;
   }
 
+  /**
+   * Close the HTTP server and all backends.
+   * @pk
+   */
   async close(): Promise<void> {
     const closeHttpServer = this.httpServer
       ? new Promise<void>((resolve, reject) => {
@@ -135,6 +172,10 @@ export class McpProxy {
     await Promise.all(this.servers.map((server) => server.close()));
   }
 
+  /**
+   * List tools across all configured servers.
+   * @pk
+   */
   async listTools(params?: ListToolsRequest["params"], user: UserContext = {}): Promise<ListToolsResult> {
     const results = await Promise.all(
       this.servers.map(async (server) => {
@@ -151,6 +192,10 @@ export class McpProxy {
     return { tools: results.flat() };
   }
 
+  /**
+   * Call a proxied tool with middleware dispatch.
+   * @pk
+   */
   async callTool(params: CallToolRequest["params"], user: UserContext = {}): Promise<CallToolResult> {
     const { serverName, toolName } = fromProxyToolName(params.name);
     const request: ToolCallRequest = {
@@ -175,6 +220,10 @@ export class McpProxy {
     return this.dispatchMiddleware(0, request, context, () => this.forwardToolCall(params, user));
   }
 
+  /**
+   * Handle an MCP HTTP request for session setup or routing.
+   * @pk
+   */
   private async handleMcpRequest(
     req: IncomingMessage,
     res: ServerResponse,
@@ -221,6 +270,10 @@ export class McpProxy {
     await transport.handleRequest(req, res);
   }
 
+  /**
+   * Create the MCP SDK server and attach handlers.
+   * @pk
+   */
   private createSdkServer(user: UserContext): McpSdkServer {
     const server = new McpSdkServer(
       { name: this.name, version: this.version },
@@ -239,6 +292,10 @@ export class McpProxy {
     return server;
   }
 
+  /**
+   * Execute middleware in sequence.
+   * @pk
+   */
   private async dispatchMiddleware(
     index: number,
     request: ToolCallRequest,
@@ -273,6 +330,64 @@ export class McpProxy {
     return this.dispatchMiddleware(index + 1, request, context, terminal);
   }
 
+  /**
+   * Print the startup banner to stderr.
+   * @pk
+   */
+  private printStartupBanner(port: number, path: string): void {
+    const art = [
+      "██████╗  █████╗ ███╗   ██╗████████╗██╗  ██╗███████╗██████╗",
+      "██╔══██╗██╔══██╗████╗  ██║╚══██╔══╝██║  ██║██╔════╝██╔══██╗",
+      "██████╔╝███████║██╔██╗ ██║   ██║   ███████║█████╗  ██████╔╝",
+      "██╔═══╝ ██╔══██║██║╚██╗██║   ██║   ██╔══██║██╔══╝  ██╔══██╗",
+      "██║     ██║  ██║██║ ╚████║   ██║   ██║  ██║███████╗██║  ██║",
+      "╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝",
+    ];
+
+    const width = Math.max(...art.map((line) => line.length));
+    const top = ` ╭${"─".repeat(width + 4)}╮`;
+    const bottom = ` ╰${"─".repeat(width + 4)}╯`;
+    const empty = ` │${" ".repeat(width + 4)}│`;
+
+    const gradientLine = (text: string): string => {
+      let output = "";
+      for (let i = 0; i < text.length; i += 1) {
+        const char = text[i];
+        if (char === " ") {
+          output += char;
+          continue;
+        }
+
+        const ratio = i / Math.max(1, text.length - 1);
+        const red = Math.round(79 + ratio * (6 - 79));
+        const green = Math.round(70 + ratio * (182 - 70));
+        const blue = Math.round(229 + ratio * (212 - 229));
+        output += `\x1b[38;2;${red};${green};${blue}m${char}`;
+      }
+
+      return `${output}\x1b[0m`;
+    };
+
+    console.error();
+    console.error(gradientLine(top));
+    console.error(gradientLine(empty));
+    for (const line of art) {
+      const padded = ` │  ${line}${" ".repeat(width - line.length)}  │`;
+      console.error(gradientLine(padded));
+    }
+    console.error(gradientLine(empty));
+    console.error(gradientLine(bottom));
+    console.error();
+    console.error(" \x1b[38;2;6;182;212m🐾 Panther Proxy\x1b[0m \x1b[90mv0.1.0\x1b[0m");
+    console.error(" \x1b[32m\x1b[1m🚀 Proxy ready\x1b[0m");
+    console.error(` \x1b[36m⚡ Listening on:\x1b[0m  http://localhost:${port}${path}`);
+    console.error();
+  }
+
+  /**
+   * Forward a tool call to the selected server.
+   * @pk
+   */
   private async forwardToolCall(params: CallToolRequest["params"], user: UserContext): Promise<CallToolResult> {
     const { serverName, toolName } = fromProxyToolName(params.name);
     const server = this.serverByName.get(serverName);
@@ -289,6 +404,10 @@ export class McpProxy {
     );
   }
 
+  /**
+   * Resolve the user context from the incoming request.
+   * @pk
+   */
   private async resolveUser(req: IncomingMessage): Promise<UserContext> {
     if (typeof this.userResolver === "function") {
       return this.userResolver(req);
@@ -298,20 +417,36 @@ export class McpProxy {
   }
 }
 
+/**
+ * Prefix tool descriptions with the server name.
+ * @pk
+ */
 function annotateDescription(serverName: string, description: string | undefined): string {
   return description ? `[${serverName}] ${description}` : `Proxied from ${serverName}`;
 }
 
+/**
+ * Send a JSON-RPC error response.
+ * @pk
+ */
 function sendJsonRpcError(res: ServerResponse, httpStatus: number, code: number, message: string): void {
   res.writeHead(httpStatus, { "content-type": "application/json" });
   res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
 }
 
+/**
+ * Send a plain text response.
+ * @pk
+ */
 function sendText(res: ServerResponse, status: number, body: string, headers: Record<string, string> = {}): void {
   res.writeHead(status, { "content-type": "text/plain", ...headers });
   res.end(body);
 }
 
+/**
+ * Get a safe error message for logging.
+ * @pk
+ */
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

@@ -9,6 +9,10 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { PanterTransport } from "../types.js";
 
+/**
+ * Options for the stdio transport.
+ * @pk
+ */
 export type StdioTransportOptions = {
   command: string;
   args?: string[];
@@ -18,11 +22,19 @@ export type StdioTransportOptions = {
   clientVersion?: string;
 };
 
+/**
+ * Stdio-based MCP transport implementation.
+ * @pk
+ */
 export class StdioTransport implements PanterTransport {
   private readonly options: StdioTransportOptions;
   private client: Client | null = null;
   private connectPromise: Promise<Client> | null = null;
 
+  /**
+   * Create a new stdio transport.
+   * @pk
+   */
   constructor(options: StdioTransportOptions) {
     if (!options.command.trim()) {
       throw new Error("StdioTransport command cannot be empty");
@@ -31,6 +43,10 @@ export class StdioTransport implements PanterTransport {
     this.options = options;
   }
 
+  /**
+   * Return a copy with merged environment variables.
+   * @pk
+   */
   withEnv(env: Record<string, string>): StdioTransport {
     return new StdioTransport({
       ...this.options,
@@ -41,6 +57,10 @@ export class StdioTransport implements PanterTransport {
     });
   }
 
+  /**
+   * List tools exposed by the MCP server.
+   * @pk
+   */
   async listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult> {
     const client = await this.getClient();
     if (!client.getServerCapabilities()?.tools) {
@@ -50,10 +70,18 @@ export class StdioTransport implements PanterTransport {
     return client.listTools(params);
   }
 
+  /**
+   * Call a tool on the MCP server.
+   * @pk
+   */
   async callTool(params: CallToolRequest["params"]): Promise<CallToolResult> {
     return (await this.getClient()).callTool(params, CallToolResultSchema) as Promise<CallToolResult>;
   }
 
+  /**
+   * Close the underlying client connection.
+   * @pk
+   */
   async close(): Promise<void> {
     await this.client?.close();
     this.client = null;

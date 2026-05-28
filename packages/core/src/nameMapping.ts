@@ -1,5 +1,14 @@
+/**
+ * Naming helpers for MCP proxy tool names.
+ * @pk
+ */
+
 const SEPARATOR = "__";
 
+/**
+ * Validate that a server name is safe to use in proxied tool names.
+ * @pk
+ */
 export function assertValidServerName(name: string): void {
   if (!name.trim()) {
     throw new Error("MCP server name cannot be empty");
@@ -10,11 +19,19 @@ export function assertValidServerName(name: string): void {
   }
 }
 
+/**
+ * Combine server and tool names into a proxied tool name.
+ * @pk
+ */
 export function toProxyToolName(serverName: string, toolName: string): string {
   assertValidServerName(serverName);
   return `${serverName}${SEPARATOR}${toolName}`;
 }
 
+/**
+ * Split a proxied tool name into server and tool parts.
+ * @pk
+ */
 export function fromProxyToolName(proxyToolName: string): {
   serverName: string;
   toolName: string;
