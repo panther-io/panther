@@ -128,6 +128,126 @@ describe("McpProxy", () => {
     });
   });
 
+  it("runs filtered call hooks before middleware", async () => {
+    const transport = new MockTransport();
+    const driver = new MemoryLogDriver();
+    const proxy = new McpProxy({
+      logger: new Logger({ level: "debug", driver }),
+      servers: [new McpServer({ name: "notion", transport })],
+    });
+    const seen: string[] = [];
+
+    proxy.on("call", { server: "notion" }, (req, ctx) => {
+      seen.push(`hook:${req.serverName}:${req.toolName}`);
+      ctx.log.annotate("integration_type", "enterprise_api");
+      ctx.log.setTag("billing_unit", "marketing_dept");
+      ctx.log.info("hooked");
+    });
+    proxy.use((req, ctx, next) => {
+      seen.push(`middleware:${req.serverName}:${req.toolName}`);
+      return next();
+    });
+
+    const result = await proxy.callTool({ name: "notion__read_page" });
+
+    expect(result.content).toEqual([{ type: "text", text: "called:read_page" }]);
+    expect(seen).toEqual(["hook:notion:read_page", "middleware:notion:read_page"]);
+    expect(driver.entries[0]).toMatchObject({
+      message: "hooked",
+      metadata: {
+        integration_type: "enterprise_api",
+        "tag.billing_unit": "marketing_dept",
+      },
+    });
+  });
+
+  it("lets call hooks short-circuit matched calls", async () => {
+    const transport = new MockTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "prod-db", transport })],
+    });
+
+    proxy.on("call", { server: "prod-db", tool: "drop_table" }, (_, ctx) => {
+      return ctx.res.deny("blocked by hook");
+    });
+
+    const result = await proxy.callTool({ name: "prod-db__drop_table" });
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "blocked by hook" }],
+      isError: true,
+    });
+    expect(transport.callTool).not.toHaveBeenCalled();
+  });
+
+  it("transforms listed tools with onListTools hooks", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+
+    proxy.onListTools((tools, ctx) => {
+      expect(ctx.user.id).toBe("beta-user");
+      return [
+        ...tools,
+        {
+          name: "experimental_tool",
+          description: "Only for testers",
+          inputSchema: { type: "object" },
+        },
+      ];
+    });
+
+    const result = await proxy.listTools(undefined, { id: "beta-user" });
+
+    expect(result.tools.map((tool) => tool.name)).toEqual(["github__create_issue", "experimental_tool"]);
+  });
+
+  it("injects guidance into successful tool responses", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+
+    proxy.use((_, ctx, next) => {
+      ctx.res.injectToAgent("Try a narrower query next.");
+      return next();
+    });
+
+    const result = await proxy.callTool({ name: "github__create_issue" });
+
+    expect(result.content).toEqual([
+      { type: "text", text: "called:create_issue" },
+      { type: "text", text: "Try a narrower query next." },
+    ]);
+  });
+
+  it("lets response error handlers inject guidance when upstream fails", async () => {
+    class FailingTransport extends MockTransport {
+      override readonly callTool = vi.fn(async (): Promise<CallToolResult> => {
+        throw new Error("upstream overloaded");
+      });
+    }
+
+    const transport = new FailingTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    proxy.use((_, ctx, next) => {
+      ctx.res.on("error", (error) => {
+        ctx.log.error("Upstream failed", { error: error.message });
+        ctx.res.injectToAgent("The server is overloaded. Reduce query complexity and retry.");
+      });
+      return next();
+    });
+
+    const result = await proxy.callTool({ name: "github__create_issue" });
+
+    expect(result).toEqual({
+      content: [{ type: "text", text: "The server is overloaded. Reduce query complexity and retry." }],
+      isError: true,
+    });
+  });
+
   it("lets middleware deny a tool call without touching the upstream", async () => {
     const transport = new MockTransport();
     const proxy = new McpProxy({
