@@ -34,10 +34,56 @@ export type ToolCallRequest = {
 };
 
 /**
+ * Filter for proxy call hooks.
+ * @pk
+ */
+export type ToolCallHookFilter = {
+  server?: string;
+  tool?: string;
+  proxyTool?: string;
+};
+
+/**
+ * Event names supported by the proxy hook system.
+ * @pk
+ */
+export type ProxyHookEvent = "call";
+
+/**
+ * Hook invoked for matched tool calls.
+ * @pk
+ */
+export type ToolCallHook = (
+  request: ToolCallRequest,
+  context: MiddlewareContext,
+) => MaybePromise<void | CallToolResult>;
+
+/**
+ * Hook invoked after upstream tool discovery and before returning tools to the client.
+ * @pk
+ */
+export type ListToolsHook = (
+  tools: ListToolsResult["tools"],
+  context: ListToolsContext,
+) => MaybePromise<ListToolsResult["tools"] | ListToolsResult | void>;
+
+/**
+ * Context passed to list tool hooks.
+ * @pk
+ */
+export type ListToolsContext = {
+  user: UserContext;
+  log: Logger;
+};
+
+/**
  * Helper for returning allow/deny responses from middleware.
  * @pk
  */
 export class ResponseController {
+  private readonly agentMessages: string[] = [];
+  private readonly errorHandlers: Array<(error: Error) => MaybePromise<void>> = [];
+
   /**
    * Deny a tool call with a message.
    * @pk
@@ -55,6 +101,73 @@ export class ResponseController {
    */
   continue(): undefined {
     return undefined;
+  }
+
+  /**
+   * Add guidance for the calling agent to the eventual tool response.
+   * @pk
+   */
+  injectToAgent(message: string): void {
+    if (message.trim()) {
+      this.agentMessages.push(message);
+    }
+  }
+
+  /**
+   * Register a response event handler.
+   * @pk
+   */
+  on(event: "error", handler: (error: Error) => MaybePromise<void>): void {
+    this.errorHandlers.push(handler);
+  }
+
+  /**
+   * Run registered error handlers.
+   * @internal
+   */
+  async notifyError(error: Error): Promise<void> {
+    for (const handler of this.errorHandlers) {
+      await handler(error);
+    }
+  }
+
+  /**
+   * Apply queued agent guidance to a tool result.
+   * @internal
+   */
+  applyInjections(result: CallToolResult): CallToolResult {
+    if (this.agentMessages.length === 0) {
+      return result;
+    }
+
+    return {
+      ...result,
+      content: [
+        ...result.content,
+        ...this.agentMessages.map((text) => ({
+          type: "text" as const,
+          text,
+        })),
+      ],
+    };
+  }
+
+  /**
+   * Return queued agent guidance as an error result.
+   * @internal
+   */
+  injectedErrorResult(): CallToolResult | undefined {
+    if (this.agentMessages.length === 0) {
+      return undefined;
+    }
+
+    return {
+      content: this.agentMessages.map((text) => ({
+        type: "text" as const,
+        text,
+      })),
+      isError: true,
+    };
   }
 }
 

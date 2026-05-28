@@ -13,7 +13,17 @@ import {
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
-import { ResponseController, type Middleware, type MiddlewareContext, type ToolCallRequest, type UserContext } from "./types.js";
+import {
+  ResponseController,
+  type ListToolsHook,
+  type Middleware,
+  type MiddlewareContext,
+  type ProxyHookEvent,
+  type ToolCallHook,
+  type ToolCallHookFilter,
+  type ToolCallRequest,
+  type UserContext,
+} from "./types.js";
 
 /**
  * Options for creating an MCP proxy server.
@@ -55,6 +65,8 @@ export class McpProxy {
   private readonly servers: McpServer[];
   private readonly serverByName = new Map<string, McpServer>();
   private readonly middleware: Middleware[] = [];
+  private readonly callHooks: Array<{ filter: ToolCallHookFilter; handler: ToolCallHook }> = [];
+  private readonly listToolsHooks: ListToolsHook[] = [];
   private readonly logger: Logger;
   private readonly userResolver?: McpProxyOptions["user"];
   private readonly name: string;
@@ -90,6 +102,40 @@ export class McpProxy {
    */
   use(middleware: Middleware): this {
     this.middleware.push(middleware);
+    return this;
+  }
+
+  /**
+   * Register an event hook.
+   * @pk
+   */
+  on(event: "call", handler: ToolCallHook): this;
+  /**
+   * Register a filtered event hook.
+   * @pk
+   */
+  on(event: "call", filter: ToolCallHookFilter, handler: ToolCallHook): this;
+  on(event: ProxyHookEvent, filterOrHandler: ToolCallHookFilter | ToolCallHook, maybeHandler?: ToolCallHook): this {
+    if (event !== "call") {
+      throw new Error(`Unsupported proxy hook event "${event}"`);
+    }
+
+    const filter = typeof filterOrHandler === "function" ? {} : filterOrHandler;
+    const handler = typeof filterOrHandler === "function" ? filterOrHandler : maybeHandler;
+    if (!handler) {
+      throw new Error(`Missing handler for proxy hook event "${event}"`);
+    }
+
+    this.callHooks.push({ filter, handler });
+    return this;
+  }
+
+  /**
+   * Register a hook that can transform listed tools.
+   * @pk
+   */
+  onListTools(hook: ListToolsHook): this {
+    this.listToolsHooks.push(hook);
     return this;
   }
 
@@ -189,7 +235,19 @@ export class McpProxy {
       }),
     );
 
-    return { tools: results.flat() };
+    let tools: ListToolsResult["tools"] = results.flat();
+    const log = this.logger.child({ userId: user.id, event: "listTools" });
+
+    for (const hook of this.listToolsHooks) {
+      const result = await hook(tools, { user, log });
+      if (Array.isArray(result)) {
+        tools = result;
+      } else if (result?.tools) {
+        tools = result.tools;
+      }
+    }
+
+    return { tools };
   }
 
   /**
@@ -217,7 +275,20 @@ export class McpProxy {
       res: new ResponseController(),
     };
 
-    return this.dispatchMiddleware(0, request, context, () => this.forwardToolCall(params, user));
+    try {
+      const hookResult = await this.dispatchCallHooks(request, context);
+      const result =
+        hookResult ?? (await this.dispatchMiddleware(0, request, context, () => this.forwardToolCall(params, user)));
+      return context.res.applyInjections(result);
+    } catch (error) {
+      const normalizedError = normalizeError(error);
+      await context.res.notifyError(normalizedError);
+      const injectedResult = context.res.injectedErrorResult();
+      if (injectedResult) {
+        return injectedResult;
+      }
+      throw normalizedError;
+    }
   }
 
   /**
@@ -328,6 +399,28 @@ export class McpProxy {
     }
 
     return this.dispatchMiddleware(index + 1, request, context, terminal);
+  }
+
+  /**
+   * Execute matching call hooks in registration order.
+   * @pk
+   */
+  private async dispatchCallHooks(
+    request: ToolCallRequest,
+    context: MiddlewareContext,
+  ): Promise<CallToolResult | undefined> {
+    for (const hook of this.callHooks) {
+      if (!matchesCallHook(hook.filter, request)) {
+        continue;
+      }
+
+      const result = await hook.handler(request, context);
+      if (result) {
+        return result;
+      }
+    }
+
+    return undefined;
   }
 
   /**
@@ -449,4 +542,32 @@ function sendText(res: ServerResponse, status: number, body: string, headers: Re
  */
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Normalize thrown values into Error instances.
+ * @pk
+ */
+function normalizeError(error: unknown): Error {
+  return error instanceof Error ? error : new Error(String(error));
+}
+
+/**
+ * Match a call hook filter against a request.
+ * @pk
+ */
+function matchesCallHook(filter: ToolCallHookFilter, request: ToolCallRequest): boolean {
+  if (filter.server && filter.server !== request.serverName) {
+    return false;
+  }
+
+  if (filter.tool && filter.tool !== request.toolName) {
+    return false;
+  }
+
+  if (filter.proxyTool && filter.proxyTool !== request.proxyToolName) {
+    return false;
+  }
+
+  return true;
 }

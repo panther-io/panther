@@ -53,11 +53,16 @@ export { ResponseController } from "./types.js";
  * @pk
  */
 export type {
+  ListToolsContext,
+  ListToolsHook,
   MaybePromise,
   Middleware,
   MiddlewareContext,
   Next,
   PanterTransport,
+  ProxyHookEvent,
+  ToolCallHook,
+  ToolCallHookFilter,
   ToolCallRequest,
   UserContext,
 } from "./types.js";

@@ -75,6 +75,7 @@ export class Logger {
   private readonly level: LogLevel;
   private readonly driver: LoggerDriver;
   private readonly context: Record<string, unknown>;
+  private readonly annotations: Record<string, unknown>;
   private readonly onWrite?: (entry: LogEntry) => void | Promise<void>;
 
   /**
@@ -85,6 +86,7 @@ export class Logger {
     this.level = options.level ?? "info";
     this.driver = options.driver ?? new ConsoleLoggerDriver();
     this.context = options.context ?? {};
+    this.annotations = {};
     this.onWrite = options.onWrite;
   }
 
@@ -93,7 +95,7 @@ export class Logger {
    * @pk
    */
   child(context: Record<string, unknown>): Logger {
-    return new Logger({
+    const child = new Logger({
       level: this.level,
       driver: this.driver,
       context: {
@@ -102,6 +104,26 @@ export class Logger {
       },
       onWrite: this.onWrite,
     });
+    Object.assign(child.annotations, this.annotations);
+    return child;
+  }
+
+  /**
+   * Add mutable metadata that will be included in future log writes.
+   * @pk
+   */
+  annotate(key: string, value: unknown): this {
+    this.annotations[key] = value;
+    return this;
+  }
+
+  /**
+   * Add a tag to future log writes.
+   * @pk
+   */
+  setTag(key: string, value: unknown): this {
+    this.annotations[`tag.${key}`] = value;
+    return this;
   }
 
   /**
@@ -158,7 +180,10 @@ export class Logger {
       message,
       timestamp: new Date(),
       context: this.context,
-      metadata,
+      metadata: {
+        ...this.annotations,
+        ...metadata,
+      },
     };
 
     await this.driver.write(entry);

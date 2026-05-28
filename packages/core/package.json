@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
+    "test": "vitest run src",
     "clean": "rm -rf dist"
   },
   "keywords": [],
@@ -21,6 +22,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^25.9.1"
+    "@types/node": "^25.9.1",
+    "vitest": "^4.1.7"
   }
 }
