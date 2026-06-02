@@ -13,7 +13,7 @@
 ## 3. Registry and secrets
 
 - [x] 3.1 Implement Registry interface and MemoryRegistry
-- [ ] 3.2 Implement RedisRegistry with connection and get/set semantics
+- [x] 3.2 Implement RedisRegistry with connection and get/set semantics
 - [ ] 3.3 Wire Registry into identity/policy resolution and env injection
 
 ## 4. Rate limiting and quotas

@@ -1,6 +1,24 @@
 import type { Registry, UserContext } from "./types.js";
 
 /**
+ * Minimal Redis-compatible client contract.
+ * @pk
+ */
+export type RedisRegistryClient = {
+  get(key: string): Promise<string | null> | string | null;
+  set(key: string, value: string): Promise<unknown> | unknown;
+};
+
+/**
+ * Options for Redis-backed registry storage.
+ * @pk
+ */
+export type RedisRegistryOptions = {
+  client: RedisRegistryClient;
+  keyPrefix?: string;
+};
+
+/**
  * Development registry backed by in-memory maps.
  * @pk
  */
@@ -72,5 +90,76 @@ export class MemoryRegistry implements Registry {
 
   private clone<T extends Record<string, unknown>>(value: T | undefined): T | null {
     return value ? ({ ...value } as T) : null;
+  }
+}
+
+/**
+ * Redis-backed registry using JSON values.
+ * @pk
+ */
+export class RedisRegistry implements Registry {
+  private readonly client: RedisRegistryClient;
+  private readonly keyPrefix: string;
+
+  /**
+   * Create a Redis-backed registry.
+   * @pk
+   */
+  constructor(options: RedisRegistryOptions) {
+    this.client = options.client;
+    this.keyPrefix = options.keyPrefix ?? "panther:registry";
+  }
+
+  /**
+   * Store or replace a user record.
+   * @pk
+   */
+  async setUser(userId: string, user: UserContext): Promise<void> {
+    await this.setJson(this.key("users", userId), { ...user, id: user.id ?? userId });
+  }
+
+  /**
+   * Store or replace user secrets.
+   * @pk
+   */
+  async setSecrets(userId: string, secrets: Record<string, string>): Promise<void> {
+    await this.setJson(this.key("secrets", userId), secrets);
+  }
+
+  /**
+   * Store or replace user tokens.
+   * @pk
+   */
+  async setTokens(userId: string, tokens: Record<string, string>): Promise<void> {
+    await this.setJson(this.key("tokens", userId), tokens);
+  }
+
+  async getUser(userId: string): Promise<UserContext | null> {
+    return this.getJson<UserContext>(this.key("users", userId));
+  }
+
+  async getSecrets(userId: string): Promise<Record<string, string> | null> {
+    return this.getJson<Record<string, string>>(this.key("secrets", userId));
+  }
+
+  async getTokens(userId: string): Promise<Record<string, string> | null> {
+    return this.getJson<Record<string, string>>(this.key("tokens", userId));
+  }
+
+  private key(kind: "users" | "secrets" | "tokens", userId: string): string {
+    return `${this.keyPrefix}:${kind}:${userId}`;
+  }
+
+  private async getJson<T>(key: string): Promise<T | null> {
+    const value = await this.client.get(key);
+    if (!value) {
+      return null;
+    }
+
+    return JSON.parse(value) as T;
+  }
+
+  private async setJson(key: string, value: unknown): Promise<void> {
+    await this.client.set(key, JSON.stringify(value));
   }
 }

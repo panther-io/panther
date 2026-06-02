@@ -91,4 +91,5 @@ export { SimplePolicy, filterToolsByPolicy, getToolPermission, isToolAllowedByPe
  * Registry implementations.
  * @pk
  */
-export { MemoryRegistry } from "./registry.js";
+export { MemoryRegistry, RedisRegistry } from "./registry.js";
+export type { RedisRegistryClient, RedisRegistryOptions } from "./registry.js";
