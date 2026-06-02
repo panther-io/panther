@@ -53,6 +53,10 @@ export { ResponseController } from "./types.js";
  * @pk
  */
 export type {
+  ErrorMapper,
+  GovernanceContext,
+  IdentityStrategy,
+  Isolation,
   ListToolsContext,
   ListToolsHook,
   MaybePromise,
@@ -60,10 +64,16 @@ export type {
   MiddlewareContext,
   Next,
   PanterTransport,
+  Policy,
+  PolicyDecision,
   ProxyHookEvent,
+  RateLimitStore,
+  RateLimiter,
+  Registry,
   ToolCallHook,
   ToolCallHookFilter,
   ToolCallRequest,
+  ToolPermission,
   UserContext,
 } from "./types.js";
 /**
@@ -71,3 +81,8 @@ export type {
  * @pk
  */
 export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+/**
+ * Policy engine and evaluation.
+ * @pk
+ */
+export { SimplePolicy, filterToolsByPolicy } from "./policy.js";
