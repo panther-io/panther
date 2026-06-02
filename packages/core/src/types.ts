@@ -18,6 +18,8 @@ export type MaybePromise<T> = T | Promise<T>;
  */
 export type UserContext = {
   id?: string;
+  secrets?: Record<string, string>;
+  tokens?: Record<string, string>;
   [key: string]: unknown;
 };
 

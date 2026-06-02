@@ -21,6 +21,7 @@ import {
   type MiddlewareContext,
   type Policy,
   type ProxyHookEvent,
+  type Registry,
   type ToolCallHook,
   type ToolCallHookFilter,
   type ToolCallRequest,
@@ -38,6 +39,7 @@ export type McpProxyOptions = {
   logger?: Logger;
   user?: UserContext | ((request: IncomingMessage) => UserContext | Promise<UserContext>);
   policy?: Policy;
+  registry?: Registry;
   name?: string;
   version?: string;
 };
@@ -73,6 +75,7 @@ export class McpProxy {
   private readonly logger: Logger;
   private readonly userResolver?: McpProxyOptions["user"];
   private readonly policy?: Policy;
+  private readonly registry?: Registry;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
@@ -88,6 +91,7 @@ export class McpProxy {
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
     this.policy = options.policy;
+    this.registry = options.registry;
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -228,9 +232,10 @@ export class McpProxy {
    * @pk
    */
   async listTools(params?: ListToolsRequest["params"], user: UserContext = {}): Promise<ListToolsResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const result = await server.listTools(params, user);
+        const result = await server.listTools(params, resolvedUser);
         const tools = this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
         return tools.map((tool) => ({
           ...tool,
@@ -242,10 +247,10 @@ export class McpProxy {
     );
 
     let tools: ListToolsResult["tools"] = results.flat();
-    const log = this.logger.child({ userId: user.id, event: "listTools" });
+    const log = this.logger.child({ userId: resolvedUser.id, event: "listTools" });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, { user, log, policy: this.policy });
+      const result = await hook(tools, { user: resolvedUser, log, policy: this.policy });
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
@@ -261,6 +266,7 @@ export class McpProxy {
    * @pk
    */
   async callTool(params: CallToolRequest["params"], user: UserContext = {}): Promise<CallToolResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
     const { serverName, toolName } = fromProxyToolName(params.name);
     const request: ToolCallRequest = {
       serverName,
@@ -270,19 +276,20 @@ export class McpProxy {
       raw: params,
     };
     const log = this.logger.child({
-      userId: user.id,
+      userId: resolvedUser.id,
       serverName,
       toolName,
       proxyToolName: params.name,
     });
     const context: MiddlewareContext = {
-      user,
+      user: resolvedUser,
       log,
       res: new ResponseController(),
       policy: this.policy,
+      registry: this.registry,
     };
     if (this.policy) {
-      context.policyDecision = await this.policy.evaluate(request, user, context);
+      context.policyDecision = await this.policy.evaluate(request, resolvedUser, context);
     }
 
     try {
@@ -294,7 +301,7 @@ export class McpProxy {
             return Promise.resolve(context.res.deny(context.policyDecision.reason ?? "Tool call denied by policy"));
           }
 
-          return this.forwardToolCall(params, user);
+          return this.forwardToolCall(params, resolvedUser);
         }));
       return context.res.applyInjections(result);
     } catch (error) {
@@ -524,6 +531,26 @@ export class McpProxy {
     }
 
     return this.userResolver ?? {};
+  }
+
+  private async resolveRegistryUser(user: UserContext): Promise<UserContext> {
+    if (!this.registry || !user.id) {
+      return user;
+    }
+
+    const [registryUser, secrets, tokens] = await Promise.all([
+      this.registry.getUser(user.id),
+      this.registry.getSecrets(user.id),
+      this.registry.getTokens(user.id),
+    ]);
+
+    return {
+      ...(registryUser ?? {}),
+      ...user,
+      id: user.id,
+      ...(secrets ? { secrets } : {}),
+      ...(tokens ? { tokens } : {}),
+    };
   }
 }
 
