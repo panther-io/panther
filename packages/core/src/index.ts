@@ -55,6 +55,7 @@ export { ResponseController } from "./types.js";
 export type {
   ErrorMapper,
   GovernanceContext,
+  IdentityMetadata,
   IdentityStrategy,
   Isolation,
   ListToolsContext,
