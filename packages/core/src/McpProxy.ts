@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -10,15 +10,24 @@ import {
   type ListToolsRequest,
   type ListToolsResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+import { filterToolsByPolicy } from "./policy.js";
 import {
   ResponseController,
+  type ErrorMapper,
   type ListToolsHook,
   type Middleware,
   type MiddlewareContext,
+  type IdentityMetadata,
+  type IdentityStrategy,
+  type LifecycleHook,
+  type LifecycleHookEvent,
+  type Policy,
   type ProxyHookEvent,
+  type Registry,
   type ToolCallHook,
   type ToolCallHookFilter,
   type ToolCallRequest,
@@ -35,8 +44,33 @@ export type McpProxyOptions = {
   path?: string;
   logger?: Logger;
   user?: UserContext | ((request: IncomingMessage) => UserContext | Promise<UserContext>);
+  identity?: IdentityStrategy | IdentityResolverOptions;
+  policy?: Policy;
+  registry?: Registry;
+  autoLog?: boolean | AutoLogOptions;
+  errorMapper?: ErrorMapper;
   name?: string;
   version?: string;
+};
+
+/**
+ * Auto-log configuration for proxied tool calls.
+ * @pk
+ */
+export type AutoLogOptions = {
+  enabled?: boolean;
+  startLevel?: "debug" | "info";
+  successLevel?: "debug" | "info";
+  failureLevel?: "warn" | "error";
+};
+
+/**
+ * Identity resolver configuration for proxy-edge auth.
+ * @pk
+ */
+export type IdentityResolverOptions = {
+  strategy: IdentityStrategy;
+  required?: boolean;
 };
 
 /**
@@ -55,6 +89,8 @@ export type McpProxyStartOptions = {
 type SessionState = {
   transport: StreamableHTTPServerTransport;
   server: McpSdkServer;
+  user: UserContext;
+  identity?: IdentityMetadata;
 };
 
 /**
@@ -66,9 +102,15 @@ export class McpProxy {
   private readonly serverByName = new Map<string, McpServer>();
   private readonly middleware: Middleware[] = [];
   private readonly callHooks: Array<{ filter: ToolCallHookFilter; handler: ToolCallHook }> = [];
+  private readonly lifecycleHooks: LifecycleHook[] = [];
   private readonly listToolsHooks: ListToolsHook[] = [];
   private readonly logger: Logger;
   private readonly userResolver?: McpProxyOptions["user"];
+  private readonly identityOptions?: IdentityResolverOptions;
+  private readonly policy?: Policy;
+  private readonly registry?: Registry;
+  private readonly autoLog: Required<AutoLogOptions> | null;
+  private readonly errorMapper: ErrorMapper;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
@@ -83,6 +125,11 @@ export class McpProxy {
     this.servers = options.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
+    this.identityOptions = normalizeIdentityOptions(options.identity);
+    this.policy = options.policy;
+    this.registry = options.registry;
+    this.autoLog = normalizeAutoLog(options.autoLog);
+    this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -131,6 +178,21 @@ export class McpProxy {
   }
 
   /**
+   * Register a lifecycle hook.
+   * @pk
+   */
+  onLifecycle(event: LifecycleHookEvent, handler: LifecycleHook): this {
+    this.lifecycleHooks.push((emittedEvent, context) => {
+      if (emittedEvent === event) {
+        return handler(emittedEvent, context);
+      }
+
+      return undefined;
+    });
+    return this;
+  }
+
+  /**
    * Register a hook that can transform listed tools.
    * @pk
    */
@@ -175,8 +237,13 @@ export class McpProxy {
       }
 
       try {
-        const user = await this.resolveUser(req);
-        await this.handleMcpRequest(req, res, sessions, user);
+        const { user, identity } = await this.resolveUser(req);
+        if (this.identityOptions?.required && !identity?.authenticated) {
+          sendJsonRpcError(res, 401, PantherErrorCode.Unauthorized, "Unauthorized");
+          return;
+        }
+
+        await this.handleMcpRequest(req, res, sessions, user, identity);
       } catch (error) {
         this.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
         if (!res.headersSent) {
@@ -222,11 +289,17 @@ export class McpProxy {
    * List tools across all configured servers.
    * @pk
    */
-  async listTools(params?: ListToolsRequest["params"], user: UserContext = {}): Promise<ListToolsResult> {
+  async listTools(
+    params?: ListToolsRequest["params"],
+    user: UserContext = {},
+    identity?: IdentityMetadata,
+  ): Promise<ListToolsResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const result = await server.listTools(params, user);
-        return result.tools.map((tool) => ({
+        const result = await server.listTools(params, resolvedUser);
+        const tools = this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
+        return tools.map((tool) => ({
           ...tool,
           name: toProxyToolName(server.name, tool.name),
           title: tool.title ?? `${server.displayName}: ${tool.name}`,
@@ -236,10 +309,10 @@ export class McpProxy {
     );
 
     let tools: ListToolsResult["tools"] = results.flat();
-    const log = this.logger.child({ userId: user.id, event: "listTools" });
+    const log = this.logger.child({ userId: resolvedUser.id, event: "listTools" });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, { user, log });
+      const result = await hook(tools, { user: resolvedUser, identity, log, policy: this.policy });
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
@@ -254,7 +327,12 @@ export class McpProxy {
    * Call a proxied tool with middleware dispatch.
    * @pk
    */
-  async callTool(params: CallToolRequest["params"], user: UserContext = {}): Promise<CallToolResult> {
+  async callTool(
+    params: CallToolRequest["params"],
+    user: UserContext = {},
+    identity?: IdentityMetadata,
+  ): Promise<CallToolResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
     const { serverName, toolName } = fromProxyToolName(params.name);
     const request: ToolCallRequest = {
       serverName,
@@ -264,30 +342,61 @@ export class McpProxy {
       raw: params,
     };
     const log = this.logger.child({
-      userId: user.id,
+      userId: resolvedUser.id,
       serverName,
       toolName,
       proxyToolName: params.name,
     });
     const context: MiddlewareContext = {
-      user,
+      user: resolvedUser,
+      identity,
       log,
       res: new ResponseController(),
+      policy: this.policy,
+      registry: this.registry,
     };
+    if (this.policy) {
+      context.policyDecision = await this.policy.evaluate(request, resolvedUser, context);
+    }
 
+    const startedAt = Date.now();
+    this.writeAutoLog("start", log, request, context, startedAt);
     try {
       const hookResult = await this.dispatchCallHooks(request, context);
       const result =
-        hookResult ?? (await this.dispatchMiddleware(0, request, context, () => this.forwardToolCall(params, user)));
-      return context.res.applyInjections(result);
+        hookResult ??
+        (await this.dispatchMiddleware(0, request, context, () => {
+          if (context.policyDecision && !context.policyDecision.allowed) {
+            return Promise.resolve(
+              context.res.fail(
+                PantherErrorCode.PolicyDenied,
+                context.policyDecision.reason ?? "Tool call denied by policy",
+              ),
+            );
+          }
+
+          return this.forwardToolCall(params, resolvedUser);
+        }));
+      const response = context.res.applyInjections(result);
+      this.writeAutoLog("success", log, request, context, startedAt, response);
+      return response;
     } catch (error) {
       const normalizedError = normalizeError(error);
+      const mappedError = this.errorMapper.mapError(normalizedError, { serverName, toolName });
+      this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
+      await this.emitLifecycle("toolFailure", {
+        user: resolvedUser,
+        identity,
+        request,
+        error: normalizedError,
+        log,
+      });
       await context.res.notifyError(normalizedError);
       const injectedResult = context.res.injectedErrorResult();
       if (injectedResult) {
         return injectedResult;
       }
-      throw normalizedError;
+      return context.res.fail(mappedError.code, mappedError.message);
     }
   }
 
@@ -300,6 +409,7 @@ export class McpProxy {
     res: ServerResponse,
     sessions: Map<string, SessionState>,
     user: UserContext,
+    identity: IdentityMetadata | undefined,
   ): Promise<void> {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -319,13 +429,19 @@ export class McpProxy {
       return;
     }
 
-    const sdkServer = this.createSdkServer(user);
+    const sdkServer = this.createSdkServer(user, identity);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
       onsessioninitialized: (newSessionId) => {
-        sessions.set(newSessionId, { transport, server: sdkServer });
+        sessions.set(newSessionId, { transport, server: sdkServer, user, identity });
         this.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
+        void this.emitLifecycle("sessionStart", {
+          user,
+          identity,
+          sessionId: newSessionId,
+          log: this.logger.child({ userId: user.id, sessionId: newSessionId }),
+        });
       },
     });
 
@@ -334,6 +450,12 @@ export class McpProxy {
       if (initializedSessionId) {
         sessions.delete(initializedSessionId);
       }
+      await this.emitLifecycle("sessionEnd", {
+        user,
+        identity,
+        sessionId: initializedSessionId,
+        log: this.logger.child({ userId: user.id, sessionId: initializedSessionId }),
+      });
       await sdkServer.close();
     };
 
@@ -345,7 +467,7 @@ export class McpProxy {
    * Create the MCP SDK server and attach handlers.
    * @pk
    */
-  private createSdkServer(user: UserContext): McpSdkServer {
+  private createSdkServer(user: UserContext, identity?: IdentityMetadata): McpSdkServer {
     const server = new McpSdkServer(
       { name: this.name, version: this.version },
       {
@@ -357,8 +479,8 @@ export class McpProxy {
       },
     );
 
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user));
+    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity));
+    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity));
 
     return server;
   }
@@ -501,12 +623,88 @@ export class McpProxy {
    * Resolve the user context from the incoming request.
    * @pk
    */
-  private async resolveUser(req: IncomingMessage): Promise<UserContext> {
-    if (typeof this.userResolver === "function") {
-      return this.userResolver(req);
+  private async resolveUser(req: IncomingMessage): Promise<{ user: UserContext; identity?: IdentityMetadata }> {
+    if (this.identityOptions) {
+      const resolved = await this.identityOptions.strategy.resolve({ headers: normalizeHeaders(req.headers), request: req });
+      return {
+        user: resolved ?? {},
+        identity: {
+          strategy: this.identityOptions.strategy.name,
+          authenticated: Boolean(resolved),
+          userId: resolved?.id,
+        },
+      };
     }
 
-    return this.userResolver ?? {};
+    if (typeof this.userResolver === "function") {
+      const user = await this.userResolver(req);
+      return { user };
+    }
+
+    return { user: this.userResolver ?? {} };
+  }
+
+  private async resolveRegistryUser(user: UserContext): Promise<UserContext> {
+    if (!this.registry || !user.id) {
+      return user;
+    }
+
+    const [registryUser, secrets, tokens] = await Promise.all([
+      this.registry.getUser(user.id),
+      this.registry.getSecrets(user.id),
+      this.registry.getTokens(user.id),
+    ]);
+
+    return {
+      ...(registryUser ?? {}),
+      ...user,
+      id: user.id,
+      ...(secrets ? { secrets } : {}),
+      ...(tokens ? { tokens } : {}),
+    };
+  }
+
+  private writeAutoLog(
+    event: "start" | "success" | "failure",
+    log: Logger,
+    request: ToolCallRequest,
+    context: MiddlewareContext,
+    startedAt: number,
+    result?: CallToolResult,
+    error?: Error,
+  ): void {
+    if (!this.autoLog) {
+      return;
+    }
+
+    const metadata = {
+      event: `tool.${event}`,
+      durationMs: event === "start" ? undefined : Date.now() - startedAt,
+      userId: context.user.id,
+      identity: context.identity,
+      policy: context.policyDecision?.metadata,
+      allowed: context.policyDecision?.allowed,
+      isError: result?.isError,
+      error: error?.message,
+      arguments: event === "start" ? request.arguments : undefined,
+    };
+
+    if (event === "start") {
+      log[this.autoLog.startLevel]("Tool call started", metadata);
+    } else if (event === "success") {
+      log[this.autoLog.successLevel]("Tool call completed", metadata);
+    } else {
+      log[this.autoLog.failureLevel]("Tool call failed", metadata);
+    }
+  }
+
+  private async emitLifecycle(
+    event: LifecycleHookEvent,
+    context: Parameters<LifecycleHook>[1],
+  ): Promise<void> {
+    for (const hook of this.lifecycleHooks) {
+      await hook(event, context);
+    }
   }
 }
 
@@ -550,6 +748,47 @@ function safeErrorMessage(error: unknown): string {
  */
 function normalizeError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+function normalizeIdentityOptions(
+  identity: McpProxyOptions["identity"] | undefined,
+): IdentityResolverOptions | undefined {
+  if (!identity) {
+    return undefined;
+  }
+
+  return "strategy" in identity ? identity : { strategy: identity };
+}
+
+function normalizeHeaders(headers: IncomingHttpHeaders): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (Array.isArray(value)) {
+      normalized[key.toLowerCase()] = value.join(", ");
+    } else if (value !== undefined) {
+      normalized[key.toLowerCase()] = value;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Required<AutoLogOptions> | null {
+  if (!autoLog) {
+    return null;
+  }
+
+  const options = autoLog === true ? {} : autoLog;
+  if (options.enabled === false) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    startLevel: options.startLevel ?? "debug",
+    successLevel: options.successLevel ?? "info",
+    failureLevel: options.failureLevel ?? "error",
+  };
 }
 
 /**

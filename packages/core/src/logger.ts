@@ -68,6 +68,45 @@ export class ConsoleLoggerDriver implements LoggerDriver {
 }
 
 /**
+ * Minimal Redis-compatible logger client contract.
+ * @pk
+ */
+export type RedisLoggerClient = {
+  rpush(key: string, value: string): void | Promise<unknown>;
+};
+
+/**
+ * Redis logger driver options.
+ * @pk
+ */
+export type RedisLoggerDriverOptions = {
+  client: RedisLoggerClient;
+  key?: string;
+};
+
+/**
+ * Redis-backed logger driver that appends JSON log entries to a list.
+ * @pk
+ */
+export class RedisLoggerDriver implements LoggerDriver {
+  private readonly client: RedisLoggerClient;
+  private readonly key: string;
+
+  /**
+   * Create a Redis logger driver.
+   * @pk
+   */
+  constructor(options: RedisLoggerDriverOptions) {
+    this.client = options.client;
+    this.key = options.key ?? "panther:logs";
+  }
+
+  async write(entry: LogEntry): Promise<void> {
+    await this.client.rpush(this.key, JSON.stringify(entry));
+  }
+}
+
+/**
  * Structured logger with level filtering.
  * @pk
  */

@@ -5,7 +5,7 @@ import type {
   ListToolsResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
-import type { PanterTransport, UserContext } from "./types.js";
+import type { Isolation, PanterTransport, UserContext } from "./types.js";
 
 /**
  * Resolve environment variables per user.
@@ -22,6 +22,8 @@ export type McpServerOptions = {
   displayName?: string;
   transport: PanterTransport;
   env?: EnvResolver;
+  isolation?: Isolation;
+  isolationTimeout?: number;
 };
 
 type EnvAwareTransport = PanterTransport & {
@@ -38,6 +40,8 @@ export class McpServer {
 
   private readonly transport: PanterTransport;
   private readonly env?: EnvResolver;
+  private readonly isolation?: Isolation;
+  private readonly isolationTimeout?: number;
   private readonly userTransports = new Map<string, PanterTransport>();
 
   /**
@@ -51,6 +55,8 @@ export class McpServer {
     this.displayName = options.displayName ?? options.name;
     this.transport = options.transport;
     this.env = options.env;
+    this.isolation = options.isolation;
+    this.isolationTimeout = options.isolationTimeout;
   }
 
   /**
@@ -66,7 +72,15 @@ export class McpServer {
    * @pk
    */
   async callTool(params: CallToolRequest["params"], user: UserContext = {}): Promise<CallToolResult> {
-    return this.transportFor(user).callTool(params);
+    if (!this.isolation) {
+      return this.transportFor(user).callTool(params);
+    }
+
+    return this.isolation.queue(
+      user.id ?? "anonymous",
+      () => this.transportFor(user).callTool(params),
+      this.isolationTimeout,
+    );
   }
 
   /**
@@ -76,6 +90,7 @@ export class McpServer {
   async close(): Promise<void> {
     await Promise.all([...this.userTransports.values()].map((transport) => transport.close()));
     this.userTransports.clear();
+    await this.isolation?.close();
     await this.transport.close();
   }
 
