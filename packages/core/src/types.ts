@@ -232,6 +232,7 @@ export type PanterTransport = {
  */
 export type ToolPermission = {
   tool: string;
+  effect?: "allow" | "deny";
   limiter?: RateLimiter;
   approval?: (request: ToolCallRequest, context: MiddlewareContext) => MaybePromise<boolean>;
   metadata?: Record<string, unknown>;
@@ -255,7 +256,11 @@ export interface Policy {
   name: string;
   description?: string;
   getPermissions(serverName: string): ToolPermission[];
-  evaluate(request: ToolCallRequest, user: UserContext): MaybePromise<PolicyDecision>;
+  evaluate(
+    request: ToolCallRequest,
+    user: UserContext,
+    context?: MiddlewareContext,
+  ): MaybePromise<PolicyDecision>;
   metadata?: {
     maxDailyCalls?: number;
     requiresApproval?: boolean;

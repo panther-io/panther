@@ -1,4 +1,5 @@
 import type {
+  MiddlewareContext,
   Policy,
   PolicyDecision,
   ToolCallRequest,
@@ -44,30 +45,63 @@ export class SimplePolicy implements Policy {
    * Evaluate if a tool call is allowed.
    * @pk
    */
-  async evaluate(request: ToolCallRequest, user: UserContext): Promise<PolicyDecision> {
+  async evaluate(
+    request: ToolCallRequest,
+    user: UserContext,
+    context?: MiddlewareContext,
+  ): Promise<PolicyDecision> {
     const permissions = this.getPermissions(request.serverName);
+    const permission = findMatchingPermission(permissions, request.toolName);
 
-    // Check for wildcard permission
-    const wildcardPerm = permissions.find((p) => p.tool === "*");
-    if (wildcardPerm) {
-      return { allowed: true };
+    if (!permission) {
+      return this.decision(false, request, user, undefined, {
+        reason: `Tool "${request.toolName}" not permitted on server "${request.serverName}"`,
+      });
     }
 
-    // Check for specific tool permission
-    const toolPerm = permissions.find((p) => p.tool === request.toolName);
-    if (!toolPerm) {
-      return { allowed: false, reason: `Tool "${request.toolName}" not permitted on server "${request.serverName}"` };
+    if (permission.effect === "deny") {
+      return this.decision(false, request, user, permission, {
+        reason: `Tool "${request.toolName}" denied by policy "${this.name}"`,
+      });
     }
 
-    // Check approval if required
-    if (toolPerm.approval) {
-      const approved = await toolPerm.approval(request, { user, log: null as any, res: null as any });
+    if (permission.approval) {
+      if (!context) {
+        return this.decision(false, request, user, permission, {
+          reason: "Approval requires middleware context",
+        });
+      }
+
+      const approved = await permission.approval(request, context);
       if (!approved) {
-        return { allowed: false, reason: "Approval required but not granted" };
+        return this.decision(false, request, user, permission, {
+          reason: "Approval required but not granted",
+        });
       }
     }
 
-    return { allowed: true, metadata: toolPerm.metadata };
+    return this.decision(true, request, user, permission);
+  }
+
+  private decision(
+    allowed: boolean,
+    request: ToolCallRequest,
+    user: UserContext,
+    permission?: ToolPermission,
+    options: { reason?: string } = {},
+  ): PolicyDecision {
+    return {
+      allowed,
+      reason: options.reason,
+      metadata: {
+        policyName: this.name,
+        serverName: request.serverName,
+        toolName: request.toolName,
+        userId: user.id,
+        permission: permission?.metadata,
+        effect: permission?.effect ?? (allowed ? "allow" : "deny"),
+      },
+    };
   }
 }
 
@@ -88,6 +122,10 @@ export function filterToolsByPolicy(
   }
 
   // Filter to only permitted tools
-  const permitted = new Set(permissions.map((p) => p.tool));
+  const permitted = new Set(permissions.filter((p) => p.effect !== "deny").map((p) => p.tool));
   return tools.filter((tool) => permitted.has(tool.name));
+}
+
+function findMatchingPermission(permissions: ToolPermission[], toolName: string): ToolPermission | undefined {
+  return permissions.find((permission) => permission.tool === toolName) ?? permissions.find((permission) => permission.tool === "*");
 }
