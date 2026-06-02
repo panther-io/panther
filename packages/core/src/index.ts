@@ -93,3 +93,8 @@ export { SimplePolicy, filterToolsByPolicy, getToolPermission, isToolAllowedByPe
  */
 export { MemoryRegistry, RedisRegistry } from "./registry.js";
 export type { RedisRegistryClient, RedisRegistryOptions } from "./registry.js";
+/**
+ * Rate limit store implementations.
+ * @pk
+ */
+export { MemoryRateLimitStore } from "./rateLimit.js";
