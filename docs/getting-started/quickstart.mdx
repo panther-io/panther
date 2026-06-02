@@ -1,0 +1,55 @@
+---
+title: "Quickstart"
+description: "Stand up a Panther proxy in minutes."
+---
+
+This quickstart creates a local MCP proxy that aggregates a filesystem server.
+
+## 1. Install Panther
+
+<CodeGroup>
+  ```bash pnpm theme={null}
+  pnpm add @panther/core
+  ```
+
+  ```bash npm theme={null}
+  npm i @panther/core
+  ```
+</CodeGroup>
+
+## 2. Create a proxy
+
+```ts theme={null}
+import { McpProxy, McpServer, StdioTransport } from "@panther/core";
+
+const filesystem = new McpServer({
+  name: "filesystem",
+  displayName: "Filesystem",
+  transport: new StdioTransport({
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+  }),
+});
+
+const proxy = new McpProxy({
+  servers: [filesystem],
+  port: 3000,
+  path: "/mcp",
+});
+
+await proxy.start();
+```
+
+## 3. Connect a client
+
+Point your MCP client to `http://localhost:3000/mcp`.
+
+<Tip>
+  Tool names are prefixed as `server__tool` to prevent collisions.
+</Tip>
+
+## Next step
+
+<Card title="Tutorial" icon="map" href="/getting-started/tutorial" horizontal>
+  Build a multi-server proxy with middleware and hooks.
+</Card>

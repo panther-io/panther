@@ -1,0 +1,92 @@
+---
+title: "Hooks"
+description: "Intercept tool calls with fine-grained filters."
+---
+
+Hooks provide targeted interception without wrapping every request. They are best for focused events like auditing a single server or capturing diagnostics for specific tools.
+
+If you need to enforce policy for *all* tool calls, use [Middleware](/guides/middleware).
+
+## When to use hooks
+
+- You only care about a single server or a small subset of tools.
+- You want audit logs without changing the control flow.
+- You want lightweight metrics without blocking requests.
+
+## Call hook
+
+```ts theme={null}
+proxy.on("call", async (request, context) => {
+  context.log.info("hook.call", { tool: request.proxyToolName });
+});
+```
+
+## Filtered hook
+
+```ts theme={null}
+proxy.on("call", { server: "diagnostics" }, async (request, context) => {
+  context.log.info("diagnostics", { tool: request.toolName });
+});
+```
+
+## Available filters
+
+- `server`: match the upstream server name.
+- `tool`: match the original tool name.
+- `proxyTool`: match the prefixed tool name.
+
+Hooks run before middleware and can return a tool result to short-circuit the call.
+
+## Use hooks for audits
+
+```ts theme={null}
+proxy.on("call", { proxyTool: "filesystem__delete" }, async (request, context) => {
+  context.log.warn("audit.delete", {
+    userId: context.user.id,
+    tool: request.proxyToolName,
+  });
+});
+```
+
+## Use hooks for metrics
+
+```ts theme={null}
+proxy.on("call", async (request, context) => {
+  context.log.info("metric.tool", {
+    tool: request.proxyToolName,
+    server: request.serverName,
+  });
+});
+```
+
+## Combine hooks with middleware
+
+Hooks can collect data while middleware enforces policy. This lets you capture metrics without blocking the request.
+
+```ts theme={null}
+proxy.on("call", async (request, context) => {
+  context.log.info("hook.metric", { tool: request.proxyToolName });
+});
+
+proxy.use(async (request, context, next) => {
+  if (request.proxyToolName === "filesystem__delete") {
+    return context.res.deny("Delete is disabled.");
+  }
+  return next();
+});
+```
+
+## Debugging hooks
+
+If a hook is not firing, verify the filter values and check the `proxyToolName` from logs. Most issues are due to mismatched prefixes.
+
+## Best practices
+
+- Use hooks for observation, middleware for control.
+- Keep hook handlers fast and non-blocking.
+- Prefer `proxyTool` filtering for clarity.
+- Avoid mutations in hooks; keep them side-effect free when possible.
+
+## Reference links
+
+- MCP SDK: https://github.com/modelcontextprotocol/sdk

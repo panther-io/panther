@@ -1,0 +1,171 @@
+---
+title: "Logger"
+description: "Configure Panther logging in detail, parameter by parameter."
+---
+
+This guide explains how Panther logging works and how to configure it in depth. You will learn every configurable parameter, see examples, and get practical tips for production.
+
+If you only need the high-level concept, see [Core logger](/core/logger).
+
+## Overview
+
+Panther uses a structured `Logger` with a pluggable `LoggerDriver`. The logger is available in middleware and hooks as `context.log` and is also used internally by the proxy.
+
+At a minimum you can instantiate a default logger:
+
+```ts theme={null}
+import { Logger } from "@panther/core";
+
+const logger = new Logger();
+```
+
+Then pass it to the proxy:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  logger,
+});
+```
+
+## Logger parameters
+
+The `Logger` constructor accepts an options object. The most important parameter is the `driver`.
+
+### driver
+
+`driver` defines where log entries are written. It must implement a `write(entry)` method.
+
+```ts theme={null}
+const logger = new Logger({
+  driver: {
+    write(entry) {
+      console.info(entry.message, entry.metadata);
+    },
+  },
+});
+```
+
+**Tip:** If you already use a log aggregator, forward `entry` to it inside `write`.
+
+## Logger entry shape
+
+The logger emits structured entries with a consistent shape. Use this structure for querying and analytics.
+
+```ts theme={null}
+type LogEntry = {
+  level: "debug" | "info" | "warn" | "error";
+  message: string;
+  metadata?: Record<string, unknown>;
+  tags?: Record<string, string>;
+  timestamp: string;
+};
+```
+
+## Logging levels
+
+Use these levels consistently:
+
+- `debug`: noisy, development or diagnostics only.
+- `info`: normal operations like tool calls and routing.
+- `warn`: recoverable issues or policy denies.
+- `error`: failures that need attention.
+
+```ts theme={null}
+context.log.debug("tool.input", { tool: request.proxyToolName });
+context.log.info("tool.call", { tool: request.proxyToolName });
+context.log.warn("tool.deny", { reason: "policy" });
+context.log.error("tool.error", { message: "upstream failed" });
+```
+
+## Tags and metadata
+
+Tags are indexed keys you want on every log line, like `traceId` or `tenantId`. Metadata is per-entry detail.
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.setTag("trace", context.user.traceId ?? "no-trace");
+  context.log.setTag("tenant", String(context.user.tenantId ?? "unknown"));
+
+  context.log.info("tool.call", {
+    tool: request.proxyToolName,
+    server: request.serverName,
+  });
+
+  return next();
+});
+```
+
+**Tip:** Keep tags short and stable. They should be consistent across all events.
+
+## Custom driver examples
+
+### JSON log lines
+
+```ts theme={null}
+const logger = new Logger({
+  driver: {
+    write(entry) {
+      process.stdout.write(`${JSON.stringify(entry)}\n`);
+    },
+  },
+});
+```
+
+### Forward to a logging service
+
+```ts theme={null}
+const logger = new Logger({
+  driver: {
+    write(entry) {
+      sendToLogPipeline({
+        level: entry.level,
+        message: entry.message,
+        tags: entry.tags,
+        metadata: entry.metadata,
+        ts: entry.timestamp,
+      });
+    },
+  },
+});
+```
+
+## Logger in middleware and hooks
+
+The same logger instance is exposed as `context.log`. Use it to keep all events uniform.
+
+```ts theme={null}
+proxy.on("call", async (request, context) => {
+  context.log.info("hook.call", {
+    tool: request.proxyToolName,
+    server: request.serverName,
+  });
+});
+```
+
+## Error handling and logging
+
+When you catch errors in middleware, log them with a stable message and include safe metadata.
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  try {
+    return await next();
+  } catch (error) {
+    context.log.error("tool.error", { message: String(error) });
+    return context.res.deny("Tool failed. Try again later.");
+  }
+});
+```
+
+## Best practices
+
+- Prefer structured fields (`tool`, `server`, `userId`) over free-form strings.
+- Avoid logging secrets or raw payloads.
+- Use tags for correlation (`traceId`, `tenantId`).
+- Keep message names consistent (`tool.call`, `tool.deny`).
+- Log denies at `warn` to make policy violations visible.
+
+## Reference links
+
+- API reference for Logger: `/reference/logger`

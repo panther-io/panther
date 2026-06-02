@@ -1,0 +1,101 @@
+---
+title: "Setup"
+description: "Full Panther setup with TypeScript."
+---
+
+## Prerequisites
+
+- Node.js 20+ (LTS recommended)
+- pnpm or npm
+
+## 1. Install the package
+
+<CodeGroup>
+  ```bash pnpm theme={null}
+  pnpm add @panther/core
+  ```
+
+  ```bash npm theme={null}
+  npm i @panther/core
+  ```
+</CodeGroup>
+
+## 2. Configure servers
+
+```ts theme={null}
+import { McpServer, StdioTransport } from "@panther/core";
+
+const filesystem = new McpServer({
+  name: "filesystem",
+  displayName: "Filesystem",
+  transport: new StdioTransport({
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+  }),
+});
+
+const custom = new McpServer({
+  name: "custom",
+  displayName: "Custom Tools",
+  transport: new StdioTransport({
+    command: "node",
+    args: ["./dist/server.js"],
+  }),
+  env: (user) => ({
+    USER_ID: user.id ?? "anonymous",
+  }),
+});
+```
+
+## 3. Start the proxy
+
+```ts theme={null}
+import { McpProxy } from "@panther/core";
+
+const proxy = new McpProxy({
+  servers: [filesystem, custom],
+  port: 3000,
+  path: "/mcp",
+  name: "panther-proxy",
+  version: "0.1.0",
+});
+
+await proxy.start();
+```
+
+## 4. Add middleware (optional)
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.info("tool-call", {
+    server: request.serverName,
+    tool: request.toolName,
+    proxyTool: request.proxyToolName,
+  });
+
+  return next();
+});
+```
+
+## 5. Connect an MCP client
+
+Point your MCP client to `http://localhost:3000/mcp`. Panther forwards requests to the configured servers.
+
+<Tip>
+  Change `port` and `path` in `McpProxy` to align with your environments.
+</Tip>
+
+## 6. Verify available tools
+
+If you are working in Node, you can list tools directly:
+
+```ts theme={null}
+const tools = await proxy.listTools(undefined, { id: "demo-user" });
+console.log(tools.tools.map((tool) => tool.name));
+```
+
+## Next steps
+
+- Use `proxy.on("call", ...)` to filter specific tools.
+- Use `env` to pass user-specific secrets or settings.
+- Integrate custom logging with `Logger` and `ConsoleLoggerDriver`.

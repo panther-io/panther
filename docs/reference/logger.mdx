@@ -1,0 +1,43 @@
+---
+title: "Logger"
+description: "Reference for Panther logging primitives."
+---
+
+Panther ships a structured logger with pluggable drivers.
+
+## Logger
+
+```ts theme={null}
+new Logger({
+  level,
+  driver,
+  context,
+  onWrite,
+});
+```
+
+### Options
+
+- `level`: `debug`, `info`, `warn`, `error`, `fatal`.
+- `driver`: implements `write(entry)`.
+- `context`: base context merged into every log.
+- `onWrite`: callback for side effects.
+
+### Methods
+
+- `debug(message, metadata?)`
+- `info(message, metadata?)`
+- `warn(message, metadata?)`
+- `error(message, metadata?)`
+- `fatal(message, metadata?)`
+- `child(context)` to derive a logger.
+- `annotate(key, value)` to add metadata.
+- `setTag(key, value)` to tag entries.
+
+## ConsoleLoggerDriver
+
+```ts theme={null}
+new ConsoleLoggerDriver();
+```
+
+Writes logs to stdout using structured metadata.

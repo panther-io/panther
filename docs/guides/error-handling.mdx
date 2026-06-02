@@ -1,0 +1,89 @@
+---
+title: "Error handling"
+description: "How Panther surfaces errors and how to customize them."
+---
+
+Panther normalizes errors and provides helpers to return safe responses. The goal is simple: do not leak sensitive details to the caller, while still producing actionable logs for operators.
+
+If you are new to the request lifecycle, review the [Flow diagrams](/guides/flows).
+
+## Error surface overview
+
+There are three primary error surfaces:
+
+1. **Policy errors** (explicit denies) returned by middleware.
+2. **Tool errors** returned by upstream servers.
+3. **Unexpected failures** (exceptions) thrown in hooks or middleware.
+
+Panther maps each to a safe JSON-RPC error response for the client while keeping detailed logs internally.
+
+## Deny a tool call
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  if (request.serverName === "filesystem" && request.toolName === "delete") {
+    return context.res.deny("Delete is disabled in this environment.");
+  }
+  return next();
+});
+```
+
+Use `deny` for policy violations. It returns a structured error to the MCP client without throwing.
+
+## Inject a safe error message
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.res.injectToAgent("If this fails, request a human review.");
+  return next();
+});
+```
+
+This is helpful when the client is an LLM and you want to steer behavior without failing the call.
+
+## Catch middleware errors
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.res.on("error", (error) => {
+    context.log.error("middleware-error", { message: error.message });
+  });
+
+  return next();
+});
+```
+
+If an upstream server throws, the proxy will return a JSON-RPC error response. Use this hook to capture those events for observability.
+
+## Handle upstream errors safely
+
+If you wrap tool calls or integrate custom transports, make sure to normalize errors and avoid leaking stack traces to clients.
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  try {
+    return await next();
+  } catch (error) {
+    context.log.error("tool.error", { message: String(error) });
+    return context.res.deny("Tool failed. Try again later.");
+  }
+});
+```
+
+## Common error patterns
+
+- Return `context.res.deny(...)` for policy violations.
+- Throw errors for unexpected failures; Panther returns a JSON-RPC error.
+- Use `context.res.on("error", ...)` for telemetry hooks.
+
+## Best practices
+
+- Always sanitize error messages returned to clients.
+- Log the full error internally with correlation ids.
+- Prefer explicit `deny` responses for known invalid states.
+- Keep denial reasons user-friendly; they often appear in UI.
+- Normalize errors in custom transports before returning them.
+
+## Reference links
+
+- MCP SDK: https://github.com/modelcontextprotocol/sdk

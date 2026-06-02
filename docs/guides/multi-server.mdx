@@ -1,0 +1,101 @@
+---
+title: "Multi-server routing"
+description: "Aggregate multiple MCP servers behind one proxy."
+---
+
+Panther makes it straightforward to expose multiple servers through a single endpoint. This is the most common deployment pattern: one public MCP endpoint, many internal servers.
+
+If you have multiple teams shipping MCP servers, the proxy becomes the central control plane for tool naming, policy, and observability.
+
+## Why multi-server matters
+
+Multi-server routing lets you keep MCP servers small and domain-focused while exposing a unified experience to clients. You can version servers independently, deploy them separately, and still keep a single MCP endpoint.
+
+## Add servers
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem, diagnostics, analytics],
+  port: 3000,
+  path: "/mcp",
+});
+```
+
+**Tip:** keep the `name` of each server stable. Tool names are derived from it, so clients rely on that prefix.
+
+## List tools across servers
+
+```ts theme={null}
+const tools = await proxy.listTools();
+```
+
+Each tool name is prefixed with the server name, so collisions are avoided even when servers expose the same tool.
+
+This also lets you segment tools by team or domain (for example: `billing__create_invoice` vs `support__create_ticket`).
+
+## Per-server environment
+
+Use `env` on `McpServer` to inject user-aware values.
+
+```ts theme={null}
+const analytics = new McpServer({
+  name: "analytics",
+  displayName: "Analytics",
+  transport: analyticsTransport,
+  env: (user) => ({
+    TENANT_ID: user.id ?? "unknown",
+  }),
+});
+```
+
+Use `env` to pass secrets or tenant identifiers without exposing them through user-controlled inputs.
+
+## Route based on user context
+
+Sometimes you want to choose different servers based on the user. You can do this by registering multiple servers and filtering tool lists per user.
+
+```ts theme={null}
+proxy.onListTools((tools, { user }) => {
+  if (user.plan === "enterprise") {
+    return tools;
+  }
+
+  return tools.filter((tool) => !tool.name.startsWith("analytics__"));
+});
+```
+
+## Separate concerns by server
+
+Consider grouping MCP servers by responsibility:
+
+- **filesystem** for file operations.
+- **analytics** for data access.
+- **support** for tickets or workflows.
+
+This makes policy decisions clearer and lets you deploy teams independently.
+
+## Example: server-specific middleware
+
+You can apply policies based on `serverName` to keep the rules readable.
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  if (request.serverName === "analytics" && context.user.role !== "analyst") {
+    return context.res.deny("Analytics tools require the analyst role.");
+  }
+  return next();
+});
+```
+
+## Best practices
+
+- Keep server names consistent across environments.
+- Use `displayName` for human-friendly UI only.
+- Filter tools at list time for better security.
+- Keep env injection per server, not in middleware.
+- Prefer small, focused servers over one large, monolithic server.
+
+## Reference links
+
+- MCP SDK: https://github.com/modelcontextprotocol/sdk
+- MCP servers list: https://github.com/modelcontextprotocol/servers

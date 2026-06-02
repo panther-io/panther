@@ -1,0 +1,169 @@
+#content-area {
+  max-width: 96rem;
+}
+
+#content {
+  max-width: 100%;
+}
+
+@media (min-width: 1024px) {
+  #content-area {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+
+body[data-page="index"] aside,
+body[data-page="index"] #sidebar,
+body[data-page="index"] [data-testid="sidebar"] {
+  display: block !important;
+  visibility: visible !important;
+}
+
+body[data-page="index"] #content-area {
+  padding-bottom: 4rem;
+}
+
+pre code {
+  background: #040404 !important;
+}
+
+pre {
+  background: #040404 !important;
+  border-color: #040404 !important;
+}
+
+pre > code {
+  border-color: #040404 !important;
+}
+
+.codeblock,
+.codeblock pre,
+.codeblock > pre,
+.codeblock [data-language],
+.codeblock [data-codeblock],
+.codeblock [data-rehype-pretty-code-fragment],
+[data-rehype-pretty-code-fragment],
+[data-rehype-pretty-code-fragment] pre,
+[data-rehype-pretty-code-fragment] code,
+.codeblock-header,
+.codeblock-toolbar,
+.codeblock-title,
+.codeblock-tabs,
+.codeblock-tab,
+.codeblock-copy,
+.codeblock-copy button,
+.codeblock-container,
+.codeblock-wrapper,
+[data-component-part="code-block-root"] {
+  border-color: #040404 !important;
+  box-shadow: none !important;
+}
+
+[data-component-part="code-block-root"] {
+  background: #040404 !important;
+  background-color: #040404 !important;
+  border: 1px solid #040404 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-component-part="code-block-root"] pre,
+[data-component-part="code-block-root"] code {
+  background: #040404 !important;
+  background-color: #040404 !important;
+  border-color: #040404 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-component-part="code-block-root"].code-block-background,
+.code-block-background,
+.code-block-background *,
+.shiki,
+.shiki pre,
+.shiki code {
+  background: #040404 !important;
+  background-color: #040404 !important;
+  --shiki-dark-bg: #040404 !important;
+}
+
+[data-component-part="code-block-root"] {
+  --shiki-dark-bg: #040404 !important;
+}
+
+[data-component-part="code-block-root"] pre.shiki,
+pre.shiki {
+  background: #040404 !important;
+  background-color: #040404 !important;
+}
+
+[data-component-part="code-block-root"]:focus,
+[data-component-part="code-block-root"]:focus-visible,
+[data-component-part="code-block-root"] *:focus,
+[data-component-part="code-block-root"] *:focus-visible {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+[data-component-part="code-block-root"] * {
+  border-color: #040404 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+pre code,
+code {
+  color: #f8fafc;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #64748b;
+}
+
+.token.punctuation {
+  color: #e2e8f0;
+}
+
+.token.property,
+.token.tag,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  color: #f43f5e;
+}
+
+.token.boolean,
+.token.number {
+  color: #facc15;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: #22c55e;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.token.variable {
+  color: #f97316;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.function,
+.token.class-name {
+  color: #38bdf8;
+}
+
+.token.keyword {
+  color: #fb7185;
+}

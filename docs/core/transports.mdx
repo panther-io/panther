@@ -1,0 +1,172 @@
+---
+title: "Transports"
+description: "Connect MCP servers using Panther transports."
+---
+
+Panther uses transports to connect to MCP servers. A transport must list tools, call tools, and close the connection.
+
+Transports are the boundary between Panther and the MCP server runtime. They decide *how* bytes move and *where* the server runs (local process, remote HTTP server, or event stream).
+
+## Transport interface
+
+All Panther transports implement the same interface:
+
+```ts theme={null}
+export type PanterTransport = {
+  listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
+  callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
+  close(): Promise<void>;
+};
+```
+
+This means you can write your own transport and still plug it into `McpServer` with zero other changes.
+
+## Transport lifecycle
+
+1. **Connect** on first use (listTools or callTool).
+2. **Serve requests** as tool calls arrive.
+3. **Close** when the proxy shuts down or the server is removed.
+
+For long-lived transports, connection reuse is expected. For short-lived transports, you can create per-request connections, but be aware of latency and resource overhead.
+
+## StdioTransport
+
+`StdioTransport` connects to a local MCP server over stdio. It is the simplest way to integrate existing MCP servers and is built on top of the official Model Context Protocol SDK.
+
+The underlying implementation uses the MCP SDK stdio client transport, so it follows the same semantics, lifecycle, and error behavior as the official reference. See the MCP SDK documentation for the stdio transport for deeper protocol details and compatibility guidance: https://github.com/modelcontextprotocol/sdk
+
+```ts theme={null}
+import { StdioTransport } from "@panther/core";
+
+const transport = new StdioTransport({
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+});
+```
+
+### Options
+
+- `command`: executable to spawn.
+- `args`: argument list for the MCP server.
+- `env`: environment variables to pass.
+- `stderr`: how to handle stderr (`inherit`, `pipe`, `overlapped`, `ignore`).
+- `clientName` and `clientVersion`: identify the proxy as an MCP client.
+
+### How stdio works end-to-end
+
+Stdio is a local process transport. Panther spawns the server process, connects the MCP SDK client over stdin/stdout, and manages request/response framing for tool calls. This is the most reliable choice for local development and for running existing MCP servers in the same host or container.
+
+Under the hood the flow is:
+
+1. Panther constructs a `StdioTransport` with the command + args you provide.
+2. When a tool call arrives, Panther ensures the client is connected.
+3. The MCP SDK client sends `listTools` and `callTool` frames through stdio.
+4. When the proxy shuts down, the transport closes the client and the spawned process exits.
+
+### When to use stdio
+
+- Local development and tests.
+- Running MCP servers in the same container.
+- When you want the official MCP SDK behavior with minimal wiring.
+
+### Common stdio pitfalls
+
+- **Missing executable:** ensure `command` resolves in the environment where Panther runs.
+- **Hanging process:** always handle `SIGTERM` and call `proxy.close()`.
+- **Silent stderr:** use `stderr: "inherit"` to see server logs.
+
+### Recommended stdio setup
+
+- Prefer `npx -y` for official servers during local dev to avoid manual installs.
+- Pass env variables via `env` to avoid leaking secrets into user context.
+- Use `stderr: "inherit"` so server logs appear in your terminal.
+
+```ts theme={null}
+import { McpServer, StdioTransport } from "@panther/core";
+
+const filesystem = new McpServer({
+  name: "filesystem",
+  displayName: "Filesystem",
+  transport: new StdioTransport({
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    env: { LOG_LEVEL: "info" },
+    stderr: "inherit",
+  }),
+});
+```
+
+## SSE transport patterns
+
+Panther does not currently ship a dedicated SSE client transport implementation, but you can integrate an SSE-based MCP server by wrapping the MCP SDK transport (or a custom transport) behind a `PanterTransport` interface.
+
+An SSE transport typically works by:
+
+1. Opening a long-lived SSE connection for server events.
+2. Sending tool calls over HTTP (often POST requests).
+3. Correlating responses by request id.
+
+If you already have an SSE-capable MCP server, implement a custom transport that:
+
+- Establishes the SSE stream on `listTools` or on the first `callTool`.
+- Buffers incoming server events and routes them back to the MCP client response.
+- Closes the SSE connection in `close()`.
+
+For reference on the protocol and framing, follow the MCP SDK docs: https://github.com/modelcontextprotocol/sdk
+
+## HTTP transport patterns
+
+HTTP transports are useful when your MCP servers live in another process or host. Panther already exposes an HTTP endpoint for clients via the SDK streamable HTTP server transport, so your internal topology can remain HTTP end-to-end.
+
+The common approach is to:
+
+1. Host your MCP server with the MCP SDK HTTP transport.
+2. Write a `PanterTransport` adapter in Panther that forwards `listTools` and `callTool` via HTTP.
+3. Apply auth and rate limits at the HTTP layer.
+
+Example sketch of a minimal HTTP transport adapter:
+
+```ts theme={null}
+import type { CallToolRequest, CallToolResult, ListToolsResult } from "@modelcontextprotocol/sdk/types";
+import type { PanterTransport } from "@panther/core";
+
+class HttpTransport implements PanterTransport {
+  constructor(private readonly baseUrl: string, private readonly token?: string) {}
+
+  async listTools(): Promise<ListToolsResult> {
+    const res = await fetch(`${this.baseUrl}/listTools`, {
+      headers: this.authHeaders(),
+    });
+    return res.json();
+  }
+
+  async callTool(params: CallToolRequest["params"]): Promise<CallToolResult> {
+    const res = await fetch(`${this.baseUrl}/callTool`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...this.authHeaders() },
+      body: JSON.stringify(params),
+    });
+    return res.json();
+  }
+
+  async close(): Promise<void> {}
+
+  private authHeaders(): Record<string, string> {
+    return this.token ? { authorization: `Bearer ${this.token}` } : {};
+  }
+}
+```
+
+This adapter pattern keeps Panther transport-agnostic while letting you adopt any MCP server deployment model.
+
+## Choosing a transport
+
+- **Stdio:** best for local and containerized servers; simplest to operate.
+- **HTTP:** best for remote servers and scaling independently from Panther.
+- **SSE:** best for streaming event-driven servers; requires custom adapter today.
+
+Start with stdio for fastest development, then move to HTTP when you need horizontal scaling or separate deployment lifecycles.
+
+## Env-aware transports
+
+If a transport implements `withEnv`, Panther can inject user-specific environment variables per request.

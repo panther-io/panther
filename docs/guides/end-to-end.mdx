@@ -1,0 +1,128 @@
+---
+title: "End-to-end examples"
+description: "Full examples with multi-server routing, policy, and logging."
+---
+
+This guide provides real-world, end-to-end examples that combine multiple Panther features. Each example includes the “why”, the wiring, and the operational considerations so you can apply it directly in production.
+
+## Example 1: Multi-tenant tool routing
+
+Use `UserContext` to route requests and inject tenant-specific environment variables.
+
+```ts theme={null}
+import { McpProxy, McpServer, StdioTransport } from "@panther/core";
+
+const analytics = new McpServer({
+  name: "analytics",
+  displayName: "Analytics",
+  transport: new StdioTransport({
+    command: "node",
+    args: ["./dist/analytics-server.js"],
+  }),
+  env: (user) => ({
+    TENANT_ID: String(user.tenantId ?? "unknown"),
+  }),
+});
+
+const proxy = new McpProxy({
+  servers: [analytics],
+  user: (req) => ({
+    id: req.headers["x-user-id"],
+    tenantId: req.headers["x-tenant-id"],
+  }),
+});
+
+await proxy.start();
+```
+
+### Why it matters
+
+- Each tenant sees only their own data.
+- You can keep the MCP server unchanged.
+
+### Operational tips
+
+- Use a consistent `tenantId` key across middleware, logs, and env injection.
+- Validate headers at the edge; never trust user input directly.
+
+## Example 2: Policy enforcement with middleware
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  const isAdmin = context.user.role === "admin";
+  if (request.proxyToolName === "filesystem__delete" && !isAdmin) {
+    return context.res.deny("Only admins can delete files.");
+  }
+
+  return next();
+});
+```
+
+### Why it matters
+
+- Centralized access control.
+- A single place to audit policy changes.
+
+### Operational tips
+
+- Log denies with the reason and `user.id`.
+- Keep policy text human-readable; it becomes part of your audit trail.
+
+## Example 3: Observability with trace tags
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.setTag("trace", context.user.traceId ?? "no-trace");
+  context.log.info("tool-call", { tool: request.proxyToolName });
+  return next();
+});
+```
+
+### Why it matters
+
+- Correlate tool calls across services.
+- Keep logs structured and consistent.
+
+### Operational tips
+
+- Make sure `traceId` is propagated from your API gateway.
+- Avoid logging payloads that may contain PII.
+
+## Example 4: Custom hook for diagnostics
+
+```ts theme={null}
+proxy.on("call", { server: "diagnostics" }, async (request, context) => {
+  context.log.info("diagnostics", { tool: request.toolName });
+});
+```
+
+### Why it matters
+
+- Hooks let you target a subset of tool calls.
+- Perfect for audits and analytics.
+
+### Operational tips
+
+- Send diagnostic logs to a lower-retention index.
+- Use `proxyTool` filters to avoid ambiguity.
+
+## Putting it all together
+
+In a real deployment, you will combine these patterns:
+
+- **User resolver** for tenant identity and trace info.
+- **Middleware** for policy and environment-specific rules.
+- **Hooks** for targeted audits and analytics.
+
+When in doubt, start with the [Tutorial](/getting-started/tutorial) and expand from there.
+
+## Common pitfalls
+
+- Forgetting to close the proxy leads to orphaned server processes.
+- Using unstable server names breaks tool prefixes for clients.
+- Logging sensitive payloads can create compliance issues.
+
+## Reference links
+
+- MCP SDK: https://github.com/modelcontextprotocol/sdk
+- MCP servers list: https://github.com/modelcontextprotocol/servers

@@ -1,0 +1,82 @@
+---
+title: "Security"
+description: "Security practices and patterns for Panther proxies."
+---
+
+Panther gives you centralized policy control. Use these practices to keep deployments safe, especially when your proxy is exposed publicly or serves multiple teams.
+
+Security is most effective when it is layered: hide tools, validate identity, and observe every decision.
+
+## Guard destructive tools
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  const destructive = ["filesystem__delete", "filesystem__write"];
+  if (destructive.includes(request.proxyToolName) && context.user.role !== "admin") {
+    return context.res.deny("Insufficient permissions for destructive action.");
+  }
+
+  return next();
+});
+```
+
+Make destructive policies explicit and keep them centralized. This avoids confusion when you audit production incidents.
+
+## Scope tools per environment
+
+```ts theme={null}
+proxy.onListTools((tools, { user }) => {
+  if (user.environment !== "prod") {
+    return tools;
+  }
+
+  return tools.filter((tool) => !tool.name.includes("__debug"));
+});
+```
+
+Hide debug tools in production to reduce the available attack surface.
+
+## Protect secrets
+
+- Never pass secrets via user-controlled metadata.
+- Use `env` on `McpServer` to inject secrets from trusted sources.
+- Store secrets in your infra, not in code.
+
+Consider using a secrets manager (AWS Secrets Manager, GCP Secret Manager, Vault) and inject them at deploy time.
+
+## Audit and traceability
+
+- Tag all tool calls with `context.log.setTag("trace", ...)`.
+- Export logs to a secure log store.
+- Review denied calls to detect abuse.
+
+## Validate incoming identity
+
+If your proxy is called by multiple clients, validate auth at the edge before resolving `UserContext`.
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  if (!context.user.id) {
+    return context.res.deny("Missing identity.");
+  }
+  return next();
+});
+```
+
+## Harden network exposure
+
+- Run Panther behind a reverse proxy (NGINX, Envoy, or a cloud load balancer).
+- Terminate TLS at the edge and forward only HTTPS traffic.
+- Restrict inbound access using IP allow-lists or private networks.
+
+## Best practices
+
+- Keep policy rules short and visible.
+- Avoid logging raw payloads; prefer metadata only.
+- Rotate secrets and credentials regularly.
+- Use allow-lists in production rather than deny-lists.
+- Review denied calls regularly for abuse patterns.
+
+## Reference links
+
+- MCP SDK: https://github.com/modelcontextprotocol/sdk

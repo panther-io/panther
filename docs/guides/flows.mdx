@@ -1,0 +1,60 @@
+---
+title: "Flow diagrams"
+description: "Visualize Panther request routing and lifecycle."
+---
+
+Use these diagrams to understand how requests move through Panther. Each diagram maps to an operational moment: initialization, discovery, and tool calls. This is helpful when you want to explain the system to a new team member or debug a request path.
+
+If you are building a custom transport or middleware chain, keep this page open as a reference.
+
+## Initialization flow
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Proxy
+  participant Session
+
+  Client->>Proxy: POST /mcp (initialize)
+  Proxy->>Session: create Streamable HTTP session
+  Session-->>Client: session id
+```
+
+During initialization the proxy creates a session and attaches the MCP SDK server transport. This is the point where `name` and `version` are announced to the client.
+
+## Tool discovery flow
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Proxy
+  participant ServerA
+  participant ServerB
+
+  Client->>Proxy: listTools
+  Proxy->>ServerA: listTools
+  Proxy->>ServerB: listTools
+  Proxy-->>Client: merged tools (prefixed names)
+```
+
+Tool discovery is where `onListTools` filters run. Use this to hide internal tools or to expose only the subset allowed for the current user.
+
+## Tool call flow with middleware
+
+```mermaid
+flowchart LR
+  Client --> Proxy
+  Proxy --> Hooks
+  Hooks --> Middleware
+  Middleware --> Server
+  Server --> Middleware
+  Middleware --> Client
+```
+
+Hooks run first and can short-circuit a call. Middleware runs next and can enforce policy, inject guidance, and augment logs. The server is only invoked when middleware allows it.
+
+## Where to go next
+
+- For policy and access control, see [Middleware](/guides/middleware).
+- For targeted audits, see [Hooks](/guides/hooks).
+- For transport details, see [Transports](/core/transports).

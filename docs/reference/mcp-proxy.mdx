@@ -1,0 +1,67 @@
+---
+title: "McpProxy"
+description: "Reference for the core proxy class."
+---
+
+`McpProxy` exposes a single HTTP endpoint and orchestrates multiple MCP servers.
+
+## Constructor
+
+```ts theme={null}
+new McpProxy({
+  servers,
+  port,
+  path,
+  logger,
+  user,
+  name,
+  version,
+});
+```
+
+### Options
+
+- `servers`: array of `McpServer` instances.
+- `port`: default port for `start()`.
+- `path`: HTTP path for MCP requests (default `/mcp`).
+- `logger`: custom `Logger` instance.
+- `user`: static user context or resolver function.
+- `name` and `version`: MCP server identity.
+
+## Methods
+
+### `start(options?, onStarted?)`
+
+Starts the HTTP server. Accepts optional overrides:
+
+```ts theme={null}
+await proxy.start({ port: 4000, path: "/proxy" });
+```
+
+### `close()`
+
+Closes the HTTP server and all configured backends.
+
+### `listTools(params?, user?)`
+
+Aggregates tool lists across all servers and applies naming rules.
+
+### `callTool(params, user?)`
+
+Calls a proxied tool. Internally dispatches hooks and middleware, then forwards to the server.
+
+## Hooks
+
+```ts theme={null}
+proxy.on("call", { server: "filesystem" }, async (request, context) => {
+  context.log.info("filesystem tool", { tool: request.toolName });
+});
+```
+
+## Middleware
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  return next();
+});
+```
