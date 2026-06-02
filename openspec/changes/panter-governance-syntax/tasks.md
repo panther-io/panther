@@ -1,7 +1,7 @@
 ## 1. Core scaffolding
 
 - [x] 1.1 Add new core types/interfaces for Policy, ToolPermission, Registry, RateLimiter, IdentityStrategy, Isolation, and ErrorMapper
-- [ ] 1.2 Extend middleware context to expose policy evaluation results and identity metadata
+- [x] 1.2 Extend middleware context to expose policy evaluation results and identity metadata
 - [ ] 1.3 Export new types and classes from packages/core/src/index.ts
 
 ## 2. Policy engine

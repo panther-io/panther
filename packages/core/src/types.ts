@@ -22,6 +22,17 @@ export type UserContext = {
 };
 
 /**
+ * Identity metadata resolved at the proxy edge.
+ * @pk
+ */
+export type IdentityMetadata = {
+  strategy?: string;
+  authenticated?: boolean;
+  userId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+/**
  * Normalized tool call details for middleware.
  * @pk
  */
@@ -73,7 +84,10 @@ export type ListToolsHook = (
  */
 export type ListToolsContext = {
   user: UserContext;
+  identity?: IdentityMetadata;
   log: Logger;
+  policy?: Policy;
+  policyDecision?: PolicyDecision;
 };
 
 /**
@@ -177,6 +191,7 @@ export class ResponseController {
  */
 export type MiddlewareContext = {
   user: UserContext;
+  identity?: IdentityMetadata;
   log: Logger;
   res: ResponseController;
   policy?: Policy;
@@ -322,6 +337,8 @@ export type ErrorMapper = {
  */
 export type GovernanceContext = MiddlewareContext & {
   policy?: Policy;
+  policyDecision?: PolicyDecision;
+  identity?: IdentityMetadata;
   registry?: Registry;
   rateLimiter?: RateLimiter;
 };

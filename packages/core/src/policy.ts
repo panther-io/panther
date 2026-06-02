@@ -89,5 +89,5 @@ export function filterToolsByPolicy(
 
   // Filter to only permitted tools
   const permitted = new Set(permissions.map((p) => p.tool));
-  return tools.filter((tool) => permitted.has(tool));
+  return tools.filter((tool) => permitted.has(tool.name));
 }
