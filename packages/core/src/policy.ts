@@ -109,11 +109,11 @@ export class SimplePolicy implements Policy {
  * Filter tools by policy.
  * @pk
  */
-export function filterToolsByPolicy(
-  tools: Array<{ name: string }>,
+export function filterToolsByPolicy<TTool extends { name: string }>(
+  tools: TTool[],
   serverName: string,
   policy: Policy,
-): Array<{ name: string }> {
+): TTool[] {
   const permissions = policy.getPermissions(serverName);
   return tools.filter((tool) => isToolAllowedByPermissions(permissions, unproxyToolName(tool.name, serverName)));
 }

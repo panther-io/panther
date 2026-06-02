@@ -13,11 +13,13 @@ import {
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+import { filterToolsByPolicy } from "./policy.js";
 import {
   ResponseController,
   type ListToolsHook,
   type Middleware,
   type MiddlewareContext,
+  type Policy,
   type ProxyHookEvent,
   type ToolCallHook,
   type ToolCallHookFilter,
@@ -35,6 +37,7 @@ export type McpProxyOptions = {
   path?: string;
   logger?: Logger;
   user?: UserContext | ((request: IncomingMessage) => UserContext | Promise<UserContext>);
+  policy?: Policy;
   name?: string;
   version?: string;
 };
@@ -69,6 +72,7 @@ export class McpProxy {
   private readonly listToolsHooks: ListToolsHook[] = [];
   private readonly logger: Logger;
   private readonly userResolver?: McpProxyOptions["user"];
+  private readonly policy?: Policy;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
@@ -83,6 +87,7 @@ export class McpProxy {
     this.servers = options.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
+    this.policy = options.policy;
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -226,7 +231,8 @@ export class McpProxy {
     const results = await Promise.all(
       this.servers.map(async (server) => {
         const result = await server.listTools(params, user);
-        return result.tools.map((tool) => ({
+        const tools = this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
+        return tools.map((tool) => ({
           ...tool,
           name: toProxyToolName(server.name, tool.name),
           title: tool.title ?? `${server.displayName}: ${tool.name}`,
@@ -239,7 +245,7 @@ export class McpProxy {
     const log = this.logger.child({ userId: user.id, event: "listTools" });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, { user, log });
+      const result = await hook(tools, { user, log, policy: this.policy });
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
@@ -273,12 +279,23 @@ export class McpProxy {
       user,
       log,
       res: new ResponseController(),
+      policy: this.policy,
     };
+    if (this.policy) {
+      context.policyDecision = await this.policy.evaluate(request, user, context);
+    }
 
     try {
       const hookResult = await this.dispatchCallHooks(request, context);
       const result =
-        hookResult ?? (await this.dispatchMiddleware(0, request, context, () => this.forwardToolCall(params, user)));
+        hookResult ??
+        (await this.dispatchMiddleware(0, request, context, () => {
+          if (context.policyDecision && !context.policyDecision.allowed) {
+            return Promise.resolve(context.res.deny(context.policyDecision.reason ?? "Tool call denied by policy"));
+          }
+
+          return this.forwardToolCall(params, user);
+        }));
       return context.res.applyInjections(result);
     } catch (error) {
       const normalizedError = normalizeError(error);

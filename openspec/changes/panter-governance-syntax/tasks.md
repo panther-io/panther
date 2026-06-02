@@ -8,7 +8,7 @@
 
 - [x] 2.1 Implement Policy evaluation logic with allow/deny and metadata
 - [x] 2.2 Add ToolPermission filters for listTools and callTool decisions
-- [ ] 2.3 Integrate policy evaluation into McpProxy middleware flow and listTools pipeline
+- [x] 2.3 Integrate policy evaluation into McpProxy middleware flow and listTools pipeline
 
 ## 3. Registry and secrets
 
