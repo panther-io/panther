@@ -87,3 +87,8 @@ export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
  * @pk
  */
 export { SimplePolicy, filterToolsByPolicy, getToolPermission, isToolAllowedByPermissions } from "./policy.js";
+/**
+ * Registry implementations.
+ * @pk
+ */
+export { MemoryRegistry } from "./registry.js";
