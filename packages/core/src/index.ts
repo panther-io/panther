@@ -86,4 +86,4 @@ export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
  * Policy engine and evaluation.
  * @pk
  */
-export { SimplePolicy, filterToolsByPolicy } from "./policy.js";
+export { SimplePolicy, filterToolsByPolicy, getToolPermission, isToolAllowedByPermissions } from "./policy.js";

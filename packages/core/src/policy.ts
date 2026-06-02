@@ -115,17 +115,34 @@ export function filterToolsByPolicy(
   policy: Policy,
 ): Array<{ name: string }> {
   const permissions = policy.getPermissions(serverName);
-
-  // If wildcard, return all
-  if (permissions.some((p) => p.tool === "*")) {
-    return tools;
-  }
-
-  // Filter to only permitted tools
-  const permitted = new Set(permissions.filter((p) => p.effect !== "deny").map((p) => p.tool));
-  return tools.filter((tool) => permitted.has(tool.name));
+  return tools.filter((tool) => isToolAllowedByPermissions(permissions, unproxyToolName(tool.name, serverName)));
 }
 
 function findMatchingPermission(permissions: ToolPermission[], toolName: string): ToolPermission | undefined {
-  return permissions.find((permission) => permission.tool === toolName) ?? permissions.find((permission) => permission.tool === "*");
+  return getToolPermission(permissions, toolName);
+}
+
+/**
+ * Return the effective permission for a tool, preferring exact matches over wildcard permissions.
+ * @pk
+ */
+export function getToolPermission(permissions: ToolPermission[], toolName: string): ToolPermission | undefined {
+  return (
+    permissions.find((permission) => permission.tool === toolName) ??
+    permissions.find((permission) => permission.tool === "*")
+  );
+}
+
+/**
+ * Check whether a tool is allowed by a permission set.
+ * @pk
+ */
+export function isToolAllowedByPermissions(permissions: ToolPermission[], toolName: string): boolean {
+  const permission = getToolPermission(permissions, toolName);
+  return permission?.effect !== "deny" && Boolean(permission);
+}
+
+function unproxyToolName(toolName: string, serverName: string): string {
+  const prefix = `${serverName}__`;
+  return toolName.startsWith(prefix) ? toolName.slice(prefix.length) : toolName;
 }
