@@ -19,7 +19,7 @@
 ## 4. Rate limiting and quotas
 
 - [x] 4.1 Implement RateLimitStore interface and in-memory store
-- [ ] 4.2 Implement RateLimiter with sliding window and daily quota support
+- [x] 4.2 Implement RateLimiter with sliding window and daily quota support
 - [ ] 4.3 Add middleware helpers to enforce limits and return policy errors
 
 ## 5. Identity and auth

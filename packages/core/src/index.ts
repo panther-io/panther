@@ -97,4 +97,4 @@ export type { RedisRegistryClient, RedisRegistryOptions } from "./registry.js";
  * Rate limit store implementations.
  * @pk
  */
-export { MemoryRateLimitStore } from "./rateLimit.js";
+export { MemoryRateLimitStore, SlidingWindowRateLimiter } from "./rateLimit.js";
