@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
@@ -19,6 +19,8 @@ import {
   type ListToolsHook,
   type Middleware,
   type MiddlewareContext,
+  type IdentityMetadata,
+  type IdentityStrategy,
   type Policy,
   type ProxyHookEvent,
   type Registry,
@@ -38,10 +40,20 @@ export type McpProxyOptions = {
   path?: string;
   logger?: Logger;
   user?: UserContext | ((request: IncomingMessage) => UserContext | Promise<UserContext>);
+  identity?: IdentityStrategy | IdentityResolverOptions;
   policy?: Policy;
   registry?: Registry;
   name?: string;
   version?: string;
+};
+
+/**
+ * Identity resolver configuration for proxy-edge auth.
+ * @pk
+ */
+export type IdentityResolverOptions = {
+  strategy: IdentityStrategy;
+  required?: boolean;
 };
 
 /**
@@ -74,6 +86,7 @@ export class McpProxy {
   private readonly listToolsHooks: ListToolsHook[] = [];
   private readonly logger: Logger;
   private readonly userResolver?: McpProxyOptions["user"];
+  private readonly identityOptions?: IdentityResolverOptions;
   private readonly policy?: Policy;
   private readonly registry?: Registry;
   private readonly name: string;
@@ -90,6 +103,7 @@ export class McpProxy {
     this.servers = options.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
+    this.identityOptions = normalizeIdentityOptions(options.identity);
     this.policy = options.policy;
     this.registry = options.registry;
     this.name = options.name ?? "panther-core-proxy";
@@ -184,7 +198,7 @@ export class McpProxy {
       }
 
       try {
-        const user = await this.resolveUser(req);
+        const { user, identity } = await this.resolveUser(req);
         await this.handleMcpRequest(req, res, sessions, user);
       } catch (error) {
         this.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
@@ -525,12 +539,25 @@ export class McpProxy {
    * Resolve the user context from the incoming request.
    * @pk
    */
-  private async resolveUser(req: IncomingMessage): Promise<UserContext> {
-    if (typeof this.userResolver === "function") {
-      return this.userResolver(req);
+  private async resolveUser(req: IncomingMessage): Promise<{ user: UserContext; identity?: IdentityMetadata }> {
+    if (this.identityOptions) {
+      const resolved = await this.identityOptions.strategy.resolve({ headers: normalizeHeaders(req.headers), request: req });
+      return {
+        user: resolved ?? {},
+        identity: {
+          strategy: this.identityOptions.strategy.name,
+          authenticated: Boolean(resolved),
+          userId: resolved?.id,
+        },
+      };
     }
 
-    return this.userResolver ?? {};
+    if (typeof this.userResolver === "function") {
+      const user = await this.userResolver(req);
+      return { user };
+    }
+
+    return { user: this.userResolver ?? {} };
   }
 
   private async resolveRegistryUser(user: UserContext): Promise<UserContext> {
@@ -594,6 +621,29 @@ function safeErrorMessage(error: unknown): string {
  */
 function normalizeError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+function normalizeIdentityOptions(
+  identity: McpProxyOptions["identity"] | undefined,
+): IdentityResolverOptions | undefined {
+  if (!identity) {
+    return undefined;
+  }
+
+  return "strategy" in identity ? identity : { strategy: identity };
+}
+
+function normalizeHeaders(headers: IncomingHttpHeaders): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (Array.isArray(value)) {
+      normalized[key.toLowerCase()] = value.join(", ");
+    } else if (value !== undefined) {
+      normalized[key.toLowerCase()] = value;
+    }
+  }
+
+  return normalized;
 }
 
 /**
