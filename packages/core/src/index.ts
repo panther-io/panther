@@ -7,12 +7,12 @@
  * Logger utilities for core runtime logging.
  * @pk
  */
-export { Logger, ConsoleLoggerDriver } from "./logger.js";
+export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "./logger.js";
 /**
  * Logger type definitions.
  * @pk
  */
-export type { LogEntry, LoggerDriver, LoggerOptions, LogLevel } from "./logger.js";
+export type { LogEntry, LoggerDriver, LoggerOptions, LogLevel, RedisLoggerClient, RedisLoggerDriverOptions } from "./logger.js";
 /**
  * MCP proxy server.
  * @pk
