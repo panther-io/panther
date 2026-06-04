@@ -72,6 +72,8 @@ export type McpProxyStartOptions = {
 type SessionState = {
   transport: StreamableHTTPServerTransport;
   server: McpSdkServer;
+  user: UserContext;
+  identity?: IdentityMetadata;
 };
 
 /**
@@ -204,7 +206,7 @@ export class McpProxy {
           return;
         }
 
-        await this.handleMcpRequest(req, res, sessions, user);
+        await this.handleMcpRequest(req, res, sessions, user, identity);
       } catch (error) {
         this.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
         if (!res.headersSent) {
@@ -250,7 +252,11 @@ export class McpProxy {
    * List tools across all configured servers.
    * @pk
    */
-  async listTools(params?: ListToolsRequest["params"], user: UserContext = {}): Promise<ListToolsResult> {
+  async listTools(
+    params?: ListToolsRequest["params"],
+    user: UserContext = {},
+    identity?: IdentityMetadata,
+  ): Promise<ListToolsResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const results = await Promise.all(
       this.servers.map(async (server) => {
@@ -269,7 +275,7 @@ export class McpProxy {
     const log = this.logger.child({ userId: resolvedUser.id, event: "listTools" });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, { user: resolvedUser, log, policy: this.policy });
+      const result = await hook(tools, { user: resolvedUser, identity, log, policy: this.policy });
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
@@ -284,7 +290,11 @@ export class McpProxy {
    * Call a proxied tool with middleware dispatch.
    * @pk
    */
-  async callTool(params: CallToolRequest["params"], user: UserContext = {}): Promise<CallToolResult> {
+  async callTool(
+    params: CallToolRequest["params"],
+    user: UserContext = {},
+    identity?: IdentityMetadata,
+  ): Promise<CallToolResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const { serverName, toolName } = fromProxyToolName(params.name);
     const request: ToolCallRequest = {
@@ -302,6 +312,7 @@ export class McpProxy {
     });
     const context: MiddlewareContext = {
       user: resolvedUser,
+      identity,
       log,
       res: new ResponseController(),
       policy: this.policy,
@@ -343,6 +354,7 @@ export class McpProxy {
     res: ServerResponse,
     sessions: Map<string, SessionState>,
     user: UserContext,
+    identity: IdentityMetadata | undefined,
   ): Promise<void> {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -362,12 +374,12 @@ export class McpProxy {
       return;
     }
 
-    const sdkServer = this.createSdkServer(user);
+    const sdkServer = this.createSdkServer(user, identity);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
       onsessioninitialized: (newSessionId) => {
-        sessions.set(newSessionId, { transport, server: sdkServer });
+        sessions.set(newSessionId, { transport, server: sdkServer, user, identity });
         this.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
       },
     });
@@ -388,7 +400,7 @@ export class McpProxy {
    * Create the MCP SDK server and attach handlers.
    * @pk
    */
-  private createSdkServer(user: UserContext): McpSdkServer {
+  private createSdkServer(user: UserContext, identity?: IdentityMetadata): McpSdkServer {
     const server = new McpSdkServer(
       { name: this.name, version: this.version },
       {
@@ -400,8 +412,8 @@ export class McpProxy {
       },
     );
 
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user));
+    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity));
+    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity));
 
     return server;
   }

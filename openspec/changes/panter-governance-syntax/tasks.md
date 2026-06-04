@@ -26,7 +26,7 @@
 
 - [x] 5.1 Add identity resolver configuration on McpProxy (strategy-based)
 - [x] 5.2 Implement header/token strategies with unauthorized error handling
-- [ ] 5.3 Ensure UserContext is populated consistently across hooks and middleware
+- [x] 5.3 Ensure UserContext is populated consistently across hooks and middleware
 
 ## 6. Transports and isolation runtime
 
