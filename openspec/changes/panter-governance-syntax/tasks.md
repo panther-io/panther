@@ -44,4 +44,4 @@
 
 - [x] 8.1 Implement standardized error mapping and middleware error injection API
 - [x] 8.2 Update docs/guides to reflect new governance syntax
-- [ ] 8.3 Add tests for policy, rate limiting, identity, and error mapping
+- [x] 8.3 Add tests for policy, rate limiting, identity, and error mapping
