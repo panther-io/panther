@@ -1,4 +1,4 @@
-import type { RateLimiter, RateLimitStore } from "./types.js";
+import type { Middleware, RateLimiter, RateLimitStore, ToolCallRequest, UserContext } from "./types.js";
 
 type Bucket = {
   count: number;
@@ -136,4 +136,47 @@ export class SlidingWindowRateLimiter implements RateLimiter {
     tomorrow.setUTCHours(24, 0, 0, 0);
     return Math.max(1, tomorrow.getTime() - now.getTime());
   }
+}
+
+/**
+ * Build a stable rate-limit key for a user/server/tool tuple.
+ * @pk
+ */
+export function rateLimitKey(request: ToolCallRequest, user: UserContext): string {
+  return `${user.id ?? "anonymous"}:${request.serverName}:${request.toolName}`;
+}
+
+/**
+ * Middleware helper that enforces a rate limiter before forwarding tool calls.
+ * @pk
+ */
+export function rateLimitMiddleware(options: {
+  limiter?: RateLimiter;
+  key?: (request: ToolCallRequest, user: UserContext) => string;
+  message?: string;
+} = {}): Middleware {
+  return async (request, context, next) => {
+    const limiter = options.limiter ?? context.rateLimiter ?? context.policyDecision?.metadata?.limiter;
+    if (!isRateLimiter(limiter)) {
+      return next();
+    }
+
+    const key = options.key?.(request, context.user) ?? rateLimitKey(request, context.user);
+    if (!(await limiter.checkLimit(key))) {
+      return context.res.deny(options.message ?? "Rate limit exceeded");
+    }
+
+    await limiter.recordCall(key);
+    return next();
+  };
+}
+
+function isRateLimiter(value: unknown): value is RateLimiter {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "checkLimit" in value &&
+    "recordCall" in value &&
+    "getRemainingCalls" in value
+  );
 }

@@ -99,6 +99,7 @@ export class SimplePolicy implements Policy {
         toolName: request.toolName,
         userId: user.id,
         permission: permission?.metadata,
+        limiter: permission?.limiter,
         effect: permission?.effect ?? (allowed ? "allow" : "deny"),
       },
     };
