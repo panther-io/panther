@@ -63,6 +63,31 @@ export type ToolCallHookFilter = {
 export type ProxyHookEvent = "call";
 
 /**
+ * Lifecycle event names emitted by the proxy.
+ * @pk
+ */
+export type LifecycleHookEvent = "sessionStart" | "sessionEnd" | "toolFailure";
+
+/**
+ * Lifecycle hook context.
+ * @pk
+ */
+export type LifecycleHookContext = {
+  user: UserContext;
+  identity?: IdentityMetadata;
+  sessionId?: string;
+  request?: ToolCallRequest;
+  error?: Error;
+  log: Logger;
+};
+
+/**
+ * Hook invoked for proxy lifecycle events.
+ * @pk
+ */
+export type LifecycleHook = (event: LifecycleHookEvent, context: LifecycleHookContext) => MaybePromise<void>;
+
+/**
  * Hook invoked for matched tool calls.
  * @pk
  */

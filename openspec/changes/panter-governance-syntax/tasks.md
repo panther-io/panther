@@ -38,7 +38,7 @@
 
 - [x] 7.1 Add Logger auto-log pipeline for request/response/timing with user context
 - [x] 7.2 Implement Redis logger driver and update docs
-- [ ] 7.3 Add lifecycle hooks for session start/end and tool failures
+- [x] 7.3 Add lifecycle hooks for session start/end and tool failures
 
 ## 8. Error mapping and docs
 

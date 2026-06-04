@@ -21,6 +21,8 @@ import {
   type MiddlewareContext,
   type IdentityMetadata,
   type IdentityStrategy,
+  type LifecycleHook,
+  type LifecycleHookEvent,
   type Policy,
   type ProxyHookEvent,
   type Registry,
@@ -97,6 +99,7 @@ export class McpProxy {
   private readonly serverByName = new Map<string, McpServer>();
   private readonly middleware: Middleware[] = [];
   private readonly callHooks: Array<{ filter: ToolCallHookFilter; handler: ToolCallHook }> = [];
+  private readonly lifecycleHooks: LifecycleHook[] = [];
   private readonly listToolsHooks: ListToolsHook[] = [];
   private readonly logger: Logger;
   private readonly userResolver?: McpProxyOptions["user"];
@@ -166,6 +169,21 @@ export class McpProxy {
     }
 
     this.callHooks.push({ filter, handler });
+    return this;
+  }
+
+  /**
+   * Register a lifecycle hook.
+   * @pk
+   */
+  onLifecycle(event: LifecycleHookEvent, handler: LifecycleHook): this {
+    this.lifecycleHooks.push((emittedEvent, context) => {
+      if (emittedEvent === event) {
+        return handler(emittedEvent, context);
+      }
+
+      return undefined;
+    });
     return this;
   }
 
@@ -355,6 +373,13 @@ export class McpProxy {
     } catch (error) {
       const normalizedError = normalizeError(error);
       this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
+      await this.emitLifecycle("toolFailure", {
+        user: resolvedUser,
+        identity,
+        request,
+        error: normalizedError,
+        log,
+      });
       await context.res.notifyError(normalizedError);
       const injectedResult = context.res.injectedErrorResult();
       if (injectedResult) {
@@ -400,6 +425,12 @@ export class McpProxy {
       onsessioninitialized: (newSessionId) => {
         sessions.set(newSessionId, { transport, server: sdkServer, user, identity });
         this.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
+        void this.emitLifecycle("sessionStart", {
+          user,
+          identity,
+          sessionId: newSessionId,
+          log: this.logger.child({ userId: user.id, sessionId: newSessionId }),
+        });
       },
     });
 
@@ -408,6 +439,12 @@ export class McpProxy {
       if (initializedSessionId) {
         sessions.delete(initializedSessionId);
       }
+      await this.emitLifecycle("sessionEnd", {
+        user,
+        identity,
+        sessionId: initializedSessionId,
+        log: this.logger.child({ userId: user.id, sessionId: initializedSessionId }),
+      });
       await sdkServer.close();
     };
 
@@ -647,6 +684,15 @@ export class McpProxy {
       log[this.autoLog.successLevel]("Tool call completed", metadata);
     } else {
       log[this.autoLog.failureLevel]("Tool call failed", metadata);
+    }
+  }
+
+  private async emitLifecycle(
+    event: LifecycleHookEvent,
+    context: Parameters<LifecycleHook>[1],
+  ): Promise<void> {
+    for (const hook of this.lifecycleHooks) {
+      await hook(event, context);
     }
   }
 }
