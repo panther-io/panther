@@ -83,6 +83,11 @@ export type {
  */
 export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
 /**
+ * Identity strategy helpers.
+ * @pk
+ */
+export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity.js";
+/**
  * Policy engine and evaluation.
  * @pk
  */

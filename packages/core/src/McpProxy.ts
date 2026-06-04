@@ -199,6 +199,11 @@ export class McpProxy {
 
       try {
         const { user, identity } = await this.resolveUser(req);
+        if (this.identityOptions?.required && !identity?.authenticated) {
+          sendJsonRpcError(res, 401, -32040, "Unauthorized");
+          return;
+        }
+
         await this.handleMcpRequest(req, res, sessions, user);
       } catch (error) {
         this.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
