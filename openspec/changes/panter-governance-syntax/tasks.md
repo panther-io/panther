@@ -43,5 +43,5 @@
 ## 8. Error mapping and docs
 
 - [x] 8.1 Implement standardized error mapping and middleware error injection API
-- [ ] 8.2 Update docs/guides to reflect new governance syntax
+- [x] 8.2 Update docs/guides to reflect new governance syntax
 - [ ] 8.3 Add tests for policy, rate limiting, identity, and error mapping
