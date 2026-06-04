@@ -9,6 +9,11 @@
  */
 export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "./logger.js";
 /**
+ * Standard error mapping.
+ * @pk
+ */
+export { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
+/**
  * Logger type definitions.
  * @pk
  */

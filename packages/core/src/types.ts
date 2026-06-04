@@ -123,6 +123,7 @@ export type ListToolsContext = {
  */
 export class ResponseController {
   private readonly agentMessages: string[] = [];
+  private structuredError: { code: number; message: string } | null = null;
   private readonly errorHandlers: Array<(error: Error) => MaybePromise<void>> = [];
 
   /**
@@ -133,6 +134,21 @@ export class ResponseController {
     return {
       content: [{ type: "text", text: message }],
       isError: true,
+    };
+  }
+
+  /**
+   * Return a structured MCP-style error without throwing.
+   * @pk
+   */
+  fail(code: number, message: string): CallToolResult {
+    this.structuredError = { code, message };
+    return {
+      content: [{ type: "text", text: message }],
+      isError: true,
+      _meta: {
+        error: { code, message },
+      },
     };
   }
 
@@ -177,14 +193,24 @@ export class ResponseController {
    * @internal
    */
   applyInjections(result: CallToolResult): CallToolResult {
+    const withError = this.structuredError
+      ? {
+          ...result,
+          _meta: {
+            ...result._meta,
+            error: this.structuredError,
+          },
+        }
+      : result;
+
     if (this.agentMessages.length === 0) {
-      return result;
+      return withError;
     }
 
     return {
-      ...result,
+      ...withError,
       content: [
-        ...result.content,
+        ...withError.content,
         ...this.agentMessages.map((text) => ({
           type: "text" as const,
           text,

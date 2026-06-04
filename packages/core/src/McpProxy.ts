@@ -10,12 +10,14 @@ import {
   type ListToolsRequest,
   type ListToolsResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
 import { filterToolsByPolicy } from "./policy.js";
 import {
   ResponseController,
+  type ErrorMapper,
   type ListToolsHook,
   type Middleware,
   type MiddlewareContext,
@@ -46,6 +48,7 @@ export type McpProxyOptions = {
   policy?: Policy;
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
+  errorMapper?: ErrorMapper;
   name?: string;
   version?: string;
 };
@@ -107,6 +110,7 @@ export class McpProxy {
   private readonly policy?: Policy;
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
+  private readonly errorMapper: ErrorMapper;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
@@ -125,6 +129,7 @@ export class McpProxy {
     this.policy = options.policy;
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
+    this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -234,7 +239,7 @@ export class McpProxy {
       try {
         const { user, identity } = await this.resolveUser(req);
         if (this.identityOptions?.required && !identity?.authenticated) {
-          sendJsonRpcError(res, 401, -32040, "Unauthorized");
+          sendJsonRpcError(res, 401, PantherErrorCode.Unauthorized, "Unauthorized");
           return;
         }
 
@@ -362,7 +367,12 @@ export class McpProxy {
         hookResult ??
         (await this.dispatchMiddleware(0, request, context, () => {
           if (context.policyDecision && !context.policyDecision.allowed) {
-            return Promise.resolve(context.res.deny(context.policyDecision.reason ?? "Tool call denied by policy"));
+            return Promise.resolve(
+              context.res.fail(
+                PantherErrorCode.PolicyDenied,
+                context.policyDecision.reason ?? "Tool call denied by policy",
+              ),
+            );
           }
 
           return this.forwardToolCall(params, resolvedUser);
@@ -372,6 +382,7 @@ export class McpProxy {
       return response;
     } catch (error) {
       const normalizedError = normalizeError(error);
+      const mappedError = this.errorMapper.mapError(normalizedError, { serverName, toolName });
       this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
       await this.emitLifecycle("toolFailure", {
         user: resolvedUser,
@@ -385,7 +396,7 @@ export class McpProxy {
       if (injectedResult) {
         return injectedResult;
       }
-      throw normalizedError;
+      return context.res.fail(mappedError.code, mappedError.message);
     }
   }
 
