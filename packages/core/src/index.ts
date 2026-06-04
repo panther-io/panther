@@ -98,6 +98,11 @@ export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
  */
 export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity.js";
 /**
+ * Isolation runtime implementations.
+ * @pk
+ */
+export { InProcessIsolation } from "./isolation.js";
+/**
  * Policy engine and evaluation.
  * @pk
  */

@@ -31,7 +31,7 @@
 ## 6. Transports and isolation runtime
 
 - [x] 6.1 Implement HttpTransport adapter and add tests
-- [ ] 6.2 Add Isolation interface and default in-process queue implementation
+- [x] 6.2 Add Isolation interface and default in-process queue implementation
 - [ ] 6.3 Integrate isolation runtime with McpServer execution path
 
 ## 7. Logging and observability
