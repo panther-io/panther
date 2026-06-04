@@ -44,6 +44,16 @@ export { StdioTransport } from "./transports/StdioTransport.js";
  */
 export type { StdioTransportOptions } from "./transports/StdioTransport.js";
 /**
+ * HTTP transport for MCP clients.
+ * @pk
+ */
+export { HttpTransport } from "./transports/HttpTransport.js";
+/**
+ * HTTP transport option types.
+ * @pk
+ */
+export type { HttpTransportOptions } from "./transports/HttpTransport.js";
+/**
  * Response controller for middleware.
  * @pk
  */
