@@ -22,7 +22,7 @@ export { McpProxy } from "./McpProxy.js";
  * MCP proxy options.
  * @pk
  */
-export type { IdentityResolverOptions, McpProxyOptions, McpProxyStartOptions } from "./McpProxy.js";
+export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxyStartOptions } from "./McpProxy.js";
 /**
  * MCP server wrapper.
  * @pk

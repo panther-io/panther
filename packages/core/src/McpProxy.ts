@@ -43,8 +43,20 @@ export type McpProxyOptions = {
   identity?: IdentityStrategy | IdentityResolverOptions;
   policy?: Policy;
   registry?: Registry;
+  autoLog?: boolean | AutoLogOptions;
   name?: string;
   version?: string;
+};
+
+/**
+ * Auto-log configuration for proxied tool calls.
+ * @pk
+ */
+export type AutoLogOptions = {
+  enabled?: boolean;
+  startLevel?: "debug" | "info";
+  successLevel?: "debug" | "info";
+  failureLevel?: "warn" | "error";
 };
 
 /**
@@ -91,6 +103,7 @@ export class McpProxy {
   private readonly identityOptions?: IdentityResolverOptions;
   private readonly policy?: Policy;
   private readonly registry?: Registry;
+  private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
@@ -108,6 +121,7 @@ export class McpProxy {
     this.identityOptions = normalizeIdentityOptions(options.identity);
     this.policy = options.policy;
     this.registry = options.registry;
+    this.autoLog = normalizeAutoLog(options.autoLog);
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -322,6 +336,8 @@ export class McpProxy {
       context.policyDecision = await this.policy.evaluate(request, resolvedUser, context);
     }
 
+    const startedAt = Date.now();
+    this.writeAutoLog("start", log, request, context, startedAt);
     try {
       const hookResult = await this.dispatchCallHooks(request, context);
       const result =
@@ -333,9 +349,12 @@ export class McpProxy {
 
           return this.forwardToolCall(params, resolvedUser);
         }));
-      return context.res.applyInjections(result);
+      const response = context.res.applyInjections(result);
+      this.writeAutoLog("success", log, request, context, startedAt, response);
+      return response;
     } catch (error) {
       const normalizedError = normalizeError(error);
+      this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
       await context.res.notifyError(normalizedError);
       const injectedResult = context.res.injectedErrorResult();
       if (injectedResult) {
@@ -596,6 +615,40 @@ export class McpProxy {
       ...(tokens ? { tokens } : {}),
     };
   }
+
+  private writeAutoLog(
+    event: "start" | "success" | "failure",
+    log: Logger,
+    request: ToolCallRequest,
+    context: MiddlewareContext,
+    startedAt: number,
+    result?: CallToolResult,
+    error?: Error,
+  ): void {
+    if (!this.autoLog) {
+      return;
+    }
+
+    const metadata = {
+      event: `tool.${event}`,
+      durationMs: event === "start" ? undefined : Date.now() - startedAt,
+      userId: context.user.id,
+      identity: context.identity,
+      policy: context.policyDecision?.metadata,
+      allowed: context.policyDecision?.allowed,
+      isError: result?.isError,
+      error: error?.message,
+      arguments: event === "start" ? request.arguments : undefined,
+    };
+
+    if (event === "start") {
+      log[this.autoLog.startLevel]("Tool call started", metadata);
+    } else if (event === "success") {
+      log[this.autoLog.successLevel]("Tool call completed", metadata);
+    } else {
+      log[this.autoLog.failureLevel]("Tool call failed", metadata);
+    }
+  }
 }
 
 /**
@@ -661,6 +714,24 @@ function normalizeHeaders(headers: IncomingHttpHeaders): Record<string, string> 
   }
 
   return normalized;
+}
+
+function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Required<AutoLogOptions> | null {
+  if (!autoLog) {
+    return null;
+  }
+
+  const options = autoLog === true ? {} : autoLog;
+  if (options.enabled === false) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    startLevel: options.startLevel ?? "debug",
+    successLevel: options.successLevel ?? "info",
+    failureLevel: options.failureLevel ?? "error",
+  };
 }
 
 /**
