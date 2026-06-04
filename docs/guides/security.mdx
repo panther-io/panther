@@ -63,6 +63,59 @@ proxy.use(async (request, context, next) => {
 });
 ```
 
+## Governance syntax
+
+For multi-tenant deployments, configure governance at the proxy edge and keep enforcement centralized.
+
+```ts theme={null}
+import {
+  McpProxy,
+  MemoryRegistry,
+  SimplePolicy,
+  SlidingWindowRateLimiter,
+  headerIdentityStrategy,
+  rateLimitMiddleware,
+} from "@panther/core";
+
+const registry = new MemoryRegistry({
+  users: {
+    "user-1": { id: "user-1", role: "admin" },
+  },
+  secrets: {
+    "user-1": { GITHUB_TOKEN: process.env.GITHUB_TOKEN ?? "" },
+  },
+});
+
+const policy = new SimplePolicy({
+  name: "production",
+  permissions: {
+    github: [
+      {
+        tool: "create_issue",
+        limiter: new SlidingWindowRateLimiter({
+          maxPerWindow: 20,
+          windowMs: 60_000,
+          maxDailyCalls: 500,
+        }),
+      },
+    ],
+  },
+});
+
+const proxy = new McpProxy({
+  servers: [github],
+  registry,
+  policy,
+  identity: {
+    strategy: headerIdentityStrategy({ userIdHeader: "x-user-id" }),
+    required: true,
+  },
+  autoLog: true,
+});
+
+proxy.use(rateLimitMiddleware());
+```
+
 ## Harden network exposure
 
 - Run Panther behind a reverse proxy (NGINX, Envoy, or a cloud load balancer).
