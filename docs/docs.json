@@ -1,0 +1,102 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "Panther",
+  "theme": "almond",
+  "colors": {
+    "primary": "#0C0C0C",
+    "light": "#FFFFFF",
+    "dark": "#0C0C0C"
+  },
+  "description": "The centralized MCP proxy for routing tools, enforcing policy, and shipping observability.",
+  "logo": {
+    "light": "/assets/logo-light.svg",
+    "dark": "/assets/logo-dark.svg",
+    "href": "/"
+  },
+  "favicon": "/assets/favicon.svg",
+  "appearance": {
+    "default": "dark"
+  },
+  "fonts": {
+    "family": "Google Sans"
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "background": {
+    "decoration": "gradient",
+    "color": {
+      "light": "#FFFFFF",
+      "dark": "#0C0C0C"
+    }
+  },
+  "styling": {
+    "codeblocks": {
+      "theme": {
+        "light": "github-light",
+        "dark": "github-dark"
+      }
+    }
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Home",
+        "pages": ["index"]
+      },
+      {
+        "group": "Get started",
+        "pages": [
+          "getting-started/onboarding",
+          "getting-started/installation",
+          "getting-started/quickstart",
+          "getting-started/setup",
+          "getting-started/tutorial"
+        ]
+      },
+      {
+        "group": "Core concepts",
+        "pages": [
+          "core/architecture",
+          "core/tool-naming",
+          "core/logger",
+          "core/transports",
+          "core/user-context"
+        ]
+      },
+      {
+        "group": "Guides",
+        "collapsed": true,
+        "pages": [
+          "guides/proxy-setup",
+          "guides/middleware",
+          "guides/hooks",
+          "guides/multi-server",
+          "guides/observability",
+          "guides/logger",
+          "guides/flows",
+          "guides/end-to-end",
+          "guides/error-handling",
+          "guides/security"
+        ]
+      },
+      {
+        "group": "Troubleshooting",
+        "pages": ["troubleshooting"]
+      },
+      {
+        "group": "Reference",
+        "collapsed": true,
+        "pages": [
+          "reference/mcp-proxy",
+          "reference/mcp-server",
+          "reference/stdio-transport",
+          "reference/logger",
+          "reference/types",
+          "reference-auto/index",
+          "reference-auto/status"
+        ]
+      }
+    ]
+  }
+}

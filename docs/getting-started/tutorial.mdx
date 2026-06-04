@@ -1,0 +1,99 @@
+---
+title: "Tutorial"
+description: "Build a multi-server proxy with middleware and hooks."
+---
+
+This tutorial walks through a complete Panther setup: two servers, a proxy, middleware, and a custom hook.
+
+## 1. Create two MCP servers
+
+```ts theme={null}
+import { McpServer, StdioTransport } from "@panther/core";
+
+const filesystem = new McpServer({
+  name: "filesystem",
+  displayName: "Filesystem",
+  transport: new StdioTransport({
+    command: "npx",
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+  }),
+});
+
+const diagnostics = new McpServer({
+  name: "diagnostics",
+  displayName: "Diagnostics",
+  transport: new StdioTransport({
+    command: "node",
+    args: ["./dist/diagnostics-server.js"],
+  }),
+  env: (user) => ({
+    USER_ID: user.id ?? "anonymous",
+  }),
+});
+```
+
+## 2. Start the proxy
+
+```ts theme={null}
+import { McpProxy } from "@panther/core";
+
+const proxy = new McpProxy({
+  servers: [filesystem, diagnostics],
+  port: 3000,
+  path: "/mcp",
+  name: "panther-proxy",
+  version: "0.1.0",
+});
+
+await proxy.start();
+```
+
+## 3. Add middleware
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.info("tool-call", {
+    server: request.serverName,
+    tool: request.toolName,
+  });
+
+  if (request.serverName === "filesystem" && request.toolName === "delete") {
+    return context.res.deny("Filesystem delete is disabled in this environment.");
+  }
+
+  return next();
+});
+```
+
+## 4. Add a hook
+
+```ts theme={null}
+proxy.on("call", { server: "diagnostics" }, async (request, context) => {
+  context.log.info("diagnostics-call", { tool: request.toolName });
+});
+```
+
+## 5. Call tools
+
+From your MCP client, call the proxy at `http://localhost:3000/mcp`.
+
+<Tip>
+  Hook filters support `server`, `tool`, and `proxyTool` to target specific tool calls.
+</Tip>
+
+## What you built
+
+- A single HTTP endpoint for multiple MCP servers.
+- A middleware layer that enforces policy.
+- Hook-based logging for diagnostics.
+
+Next, review the core concepts and reference pages to customize the proxy further.
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="layers" href="/core/architecture">
+    How Panther routes and manages sessions.
+  </Card>
+  <Card title="Middleware" icon="shield" href="/guides/middleware">
+    Patterns for policy enforcement.
+  </Card>
+</CardGroup>

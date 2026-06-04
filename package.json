@@ -1,0 +1,31 @@
+{
+  "name": "panther",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panther - Proxy MCP centralizzato",
+  "scripts": {
+    "dev:core": "pnpm --filter @panther/core dev",
+    "dev:cli": "pnpm --filter @panther/cli dev",
+    "docs:generate": "node scripts/generate-typedoc-mdx.cjs",
+    "build": "pnpm -r build",
+    "lint": "eslint packages/",
+    "lint:fix": "eslint packages/ --fix",
+    "typecheck": "tsc --build",
+    "clean": "pnpm -r clean"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.0.9",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "typedoc": "^0.28.19",
+    "typedoc-plugin-markdown": "^4.11.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.0"
+  }
+}

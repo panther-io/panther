@@ -1,0 +1,32 @@
+---
+title: "Tool naming"
+description: "How Panther prefixes tool names to avoid collisions."
+---
+
+Panther ensures tool names are globally unique by prefixing every tool with its server name.
+
+## Naming rule
+
+```
+<server>__<tool>
+```
+
+Example:
+
+```
+filesystem__read_file
+```
+
+## Why it matters
+
+- Multiple servers can expose the same tool name without conflicts.
+- Clients can reason about tool ownership instantly.
+- Logs remain consistent across environments.
+
+## Constraints
+
+Server names cannot be empty and cannot contain the `__` separator. Panther enforces this at startup to avoid ambiguous tool names.
+
+## Title formatting
+
+When tools are listed, Panther prepends the server display name to the tool title, making UI listings readable across multiple servers.

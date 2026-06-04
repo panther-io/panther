@@ -1,0 +1,97 @@
+---
+title: "Observability"
+description: "Structured logging and monitoring patterns."
+---
+
+Panther ships with a structured logger that you can swap or extend. Observability is not just logs: it is consistent metadata, trace correlation, and a clear strategy for where those signals live.
+
+Use this guide to build a logging baseline, then integrate it with your existing telemetry stack.
+
+## Use the default logger
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  logger: new Logger(),
+});
+```
+
+This uses the built-in console driver which prints JSON-style logs to stdout. It is ideal for local development and simple deployments.
+
+## Use a custom driver
+
+```ts theme={null}
+import { Logger } from "@panther/core";
+
+const logger = new Logger({
+  driver: {
+    write(entry) {
+      // forward to your logging pipeline
+      console.info(entry.message, entry.metadata);
+    },
+  },
+});
+```
+
+If you already use structured logging (Datadog, Honeycomb, OpenTelemetry, etc.), this is where you forward each event.
+
+## Add contextual metadata
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.setTag("trace", "panther-demo");
+  return next();
+});
+```
+
+Prefer stable tags such as `traceId`, `tenantId`, and `userId`. They make it trivial to group all tool calls for a single request across systems.
+
+## Recommended signals
+
+- Tool call counts per server.
+- Denied tool calls and reasons.
+- Latency per tool call.
+- Session start and close events.
+
+## Example: structured trace logging
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.setTag("tenant", context.user.tenantId ?? "unknown");
+  context.log.info("tool.call", {
+    tool: request.proxyToolName,
+    server: request.serverName,
+  });
+  return next();
+});
+```
+
+## Capture latency
+
+Latency is a first-order signal for tool health. Measure it around the `next()` call.
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  const started = Date.now();
+  const result = await next();
+  context.log.info("tool.latency", {
+    tool: request.proxyToolName,
+    ms: Date.now() - started,
+  });
+  return result;
+});
+```
+
+## Metrics aggregation
+
+If you prefer metrics over logs, wrap the logger driver to emit counters and histograms. You can also emit metrics from hooks for low overhead.
+
+## Tips
+
+- Log `deny` responses with the reason to simplify audits.
+- Measure tool latency with timestamps in middleware.
+- Keep logs free of secrets; use env injection for confidential data.
+
+## Reference links
+
+- MCP SDK: https://github.com/modelcontextprotocol/sdk

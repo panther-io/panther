@@ -1,0 +1,39 @@
+---
+title: "Installation"
+description: "Install Panther and prepare your local environment."
+---
+
+## Requirements
+
+- Node.js 20+ (LTS recommended)
+- pnpm or npm
+
+## Install @panther/core
+
+<CodeGroup>
+  ```bash pnpm theme={null}
+  pnpm add @panther/core
+  ```
+
+  ```bash npm theme={null}
+  npm i @panther/core
+  ```
+</CodeGroup>
+
+## Verify installation
+
+Create a quick file and import a Panther symbol:
+
+```ts theme={null}
+import { McpProxy } from "@panther/core";
+
+console.log(typeof McpProxy);
+```
+
+If your build succeeds, Panther is installed.
+
+## Next step
+
+<Card title="Quickstart" icon="rocket" href="/getting-started/quickstart" horizontal>
+  Build a working proxy in minutes.
+</Card>

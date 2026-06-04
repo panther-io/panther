@@ -1,0 +1,38 @@
+---
+title: "McpServer"
+description: "Reference for the server wrapper."
+---
+
+`McpServer` adapts an MCP transport and optionally injects per-user environment variables.
+
+## Constructor
+
+```ts theme={null}
+new McpServer({
+  name,
+  displayName,
+  transport,
+  env,
+});
+```
+
+### Options
+
+- `name`: server identifier. Must not include `__`.
+- `displayName`: human-readable label used in tool titles.
+- `transport`: a `PanterTransport` implementation.
+- `env`: static env map or resolver function by user.
+
+## Methods
+
+### `listTools(params?, user?)`
+
+Lists tools for the given user.
+
+### `callTool(params, user?)`
+
+Calls a tool for the given user.
+
+### `close()`
+
+Closes all transports, including user-specific ones.

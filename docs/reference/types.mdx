@@ -1,0 +1,56 @@
+---
+title: "Types"
+description: "Core types used across Panther."
+---
+
+Panther exposes a few core types to wire middleware, hooks, and transports.
+
+## UserContext
+
+```ts theme={null}
+type UserContext = {
+  id?: string;
+  [key: string]: unknown;
+};
+```
+
+## ToolCallRequest
+
+```ts theme={null}
+type ToolCallRequest = {
+  serverName: string;
+  toolName: string;
+  proxyToolName: string;
+  arguments: CallToolRequest["params"]["arguments"];
+  raw: CallToolRequest["params"];
+};
+```
+
+## Middleware
+
+```ts theme={null}
+type Middleware = (
+  request: ToolCallRequest,
+  context: MiddlewareContext,
+  next: () => Promise<CallToolResult>
+) => CallToolResult | void | Promise<CallToolResult | void>;
+```
+
+## ListToolsHook
+
+```ts theme={null}
+type ListToolsHook = (
+  tools: ListToolsResult["tools"],
+  context: { user: UserContext; log: Logger }
+) => ListToolsResult["tools"] | ListToolsResult | void | Promise<...>;
+```
+
+## PanterTransport
+
+```ts theme={null}
+type PanterTransport = {
+  listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
+  callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
+  close(): Promise<void>;
+};
+```

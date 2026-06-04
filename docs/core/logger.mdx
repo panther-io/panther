@@ -1,0 +1,37 @@
+---
+title: "Logger"
+description: "How Panther logging works at a conceptual level."
+---
+
+Panther includes a structured logger that is shared across the proxy, middleware, and hooks. It is designed for consistent, queryable logs rather than ad-hoc console output.
+
+The logger is available on the middleware context as `context.log`. You can attach tags, emit structured events, and forward logs to a custom driver.
+
+## What the logger does
+
+- Emits structured entries for operations like tool calls.
+- Allows you to add tags (for example `traceId` or `tenantId`).
+- Supports custom drivers so you can ship logs to your own pipeline.
+
+## Where it is used
+
+- `McpProxy` uses it to announce sessions and errors.
+- Middleware and hooks use it to add context and emit events.
+- `LoggerDriver` defines where entries go (console by default).
+
+## Quick example
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.setTag("trace", context.user.traceId ?? "no-trace");
+  context.log.info("tool.call", {
+    tool: request.proxyToolName,
+    server: request.serverName,
+  });
+  return next();
+});
+```
+
+## Learn the full API
+
+For the complete list of options and examples (every parameter, driver configuration, and best practices), see the detailed guide: [Logger guide](/guides/logger).

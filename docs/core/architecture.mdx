@@ -1,0 +1,43 @@
+---
+title: "Architecture"
+description: "How Panther routes, aggregates, and serves MCP traffic."
+---
+
+Panther is composed of three building blocks that keep the proxy predictable and easy to extend.
+
+## Request flow
+
+```mermaid
+flowchart LR
+  Client[MCP Client] --> Proxy[McpProxy]
+  Proxy --> Session[Streamable HTTP Session]
+  Session --> ServerA[McpServer]
+  Session --> ServerB[McpServer]
+```
+
+1. An MCP client connects to `McpProxy`.
+2. Panther initializes an MCP session over HTTP.
+3. The proxy lists tools from each `McpServer` and applies naming rules.
+4. Tool calls are dispatched through middleware and hooks before forwarding.
+
+## Components
+
+**McpProxy**
+- Owns HTTP lifecycle, sessions, and orchestration.
+- Normalizes tool names to prevent collisions.
+
+**McpServer**
+- Adapts an MCP transport to Panther.
+- Supports user-based environment injection.
+
+**PanterTransport**
+- Transport abstraction used by `McpServer`.
+- Current implementation: `StdioTransport` for local MCP processes.
+
+## Sessions
+
+Panther uses streamable HTTP sessions. Each session tracks its own MCP server instance and is closed when the client disconnects.
+
+## Error handling
+
+Errors from middleware or upstream servers are normalized and returned as JSON-RPC errors. Middleware can also inject structured tool errors via `ResponseController`.

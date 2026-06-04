@@ -1,0 +1,42 @@
+---
+title: "StdioTransport"
+description: "Reference for the stdio transport."
+---
+
+`StdioTransport` connects to a local MCP server using stdio.
+
+## Constructor
+
+```ts theme={null}
+new StdioTransport({
+  command,
+  args,
+  env,
+  stderr,
+  clientName,
+  clientVersion,
+});
+```
+
+## Options
+
+- `command`: executable to spawn.
+- `args`: argument list.
+- `env`: extra environment variables.
+- `stderr`: `inherit`, `pipe`, `overlapped`, or `ignore`.
+- `clientName`: MCP client name. Defaults to `panther-core`.
+- `clientVersion`: MCP client version. Defaults to `0.1.0`.
+
+## Methods
+
+### `listTools(params?)`
+
+Lists tools exposed by the MCP server.
+
+### `callTool(params)`
+
+Calls a tool on the MCP server.
+
+### `close()`
+
+Closes the underlying client connection.

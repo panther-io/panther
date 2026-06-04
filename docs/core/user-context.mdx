@@ -1,0 +1,79 @@
+---
+title: "User context"
+description: "Pass per-user metadata through Panther."
+---
+
+Panther threads a `UserContext` object through middleware, hooks, and transports.
+
+## What it contains
+
+`UserContext` is a free-form object with an optional `id` field. Use it to attach tenant IDs, roles, or trace IDs.
+
+```ts theme={null}
+type UserContext = {
+  id?: string;
+  [key: string]: unknown;
+};
+```
+
+## Where it flows
+
+- `McpProxy` resolves user context per request.
+- Middleware and hooks receive `context.user`.
+- `McpServer` can inject env variables based on the user.
+
+## How it works in practice
+
+The `UserContext` is resolved once at the edge of the proxy. From that moment on, it becomes the single source of truth for identity, tenancy, and request metadata. Panther never mutates the object; instead, middleware and hooks read from it to make decisions.
+
+That means:
+
+- All policy decisions should key off `context.user`.
+- All logs should attach user identifiers for observability.
+- Server-specific environment injection can use the same object without re-fetching user data.
+
+## Example: resolve user identity from headers
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  user: (req) => ({
+    id: req.headers["x-user-id"] as string | undefined,
+    role: req.headers["x-user-role"],
+  }),
+});
+```
+
+## Example: multi-tenant + tracing context
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [analytics, filesystem],
+  user: (req) => ({
+    id: req.headers["x-user-id"] as string | undefined,
+    tenantId: req.headers["x-tenant-id"],
+    traceId: req.headers["x-trace-id"],
+    plan: req.headers["x-plan"],
+  }),
+});
+```
+
+Then in middleware:
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.setTag("trace", context.user.traceId ?? "no-trace");
+  if (context.user.plan !== "enterprise" && request.proxyToolName === "analytics__export") {
+    return context.res.deny("Analytics export requires an enterprise plan.");
+  }
+  return next();
+});
+```
+
+## Best practices
+
+- **Keep it stable:** avoid including request bodies or large payloads in `UserContext`.
+- **Normalize keys:** always use the same key names across your system (`tenantId`, `role`, `traceId`).
+- **Avoid secrets:** never store tokens or API keys on the user object.
+- **Log safely:** include `id`, `tenantId`, and `traceId` in log tags, not raw PII.
+- **Use env injection:** pass secrets via `McpServer.env(user)` instead of `UserContext`.

@@ -1,0 +1,56 @@
+---
+title: "Troubleshooting"
+description: "Common issues and how to resolve them."
+---
+
+## Proxy does not start
+
+**Symptoms**
+- `EADDRINUSE` or `Address already in use`.
+
+**Fix**
+- Change the proxy port or stop the existing process.
+
+```ts theme={null}
+const proxy = new McpProxy({ servers, port: 4000 });
+```
+
+## Tools list is empty
+
+**Symptoms**
+- `listTools` returns an empty list.
+
+**Fix**
+- Check that the upstream MCP server exposes tools.
+- Verify the transport command and args.
+
+```ts theme={null}
+new StdioTransport({
+  command: "npx",
+  args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+});
+```
+
+## Tool call fails with unknown server
+
+**Symptoms**
+- Error: `Unknown MCP server "..."`.
+
+**Fix**
+- Ensure the tool name is prefixed correctly: `server__tool`.
+
+## Middleware runs twice
+
+**Symptoms**
+- Duplicate logs per tool call.
+
+**Fix**
+- Avoid calling `next()` more than once. Panther throws if it happens.
+
+## Unknown @pk warnings in auto docs
+
+**Symptoms**
+- TypeDoc warnings about `@pk` tags.
+
+**Fix**
+- These tags are safe to ignore or you can remove them from JSDoc comments.
