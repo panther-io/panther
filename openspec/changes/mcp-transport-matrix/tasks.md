@@ -20,7 +20,7 @@
 - [x] 3.3 Implement native MCP SSE upstream transport with event-stream lifecycle and request/response correlation
 - [x] 3.4 Ensure HTTP and SSE upstream transports support the shared auth resolver
 - [x] 3.5 Keep or rename the current simple REST-like `HttpTransport` with clear compatibility exports and documentation
-- [ ] 3.6 Add tests for HTTP listTools, HTTPS callTool, SSE listTools, SSE callTool, close cleanup, and simple HTTP adapter distinction
+- [x] 3.6 Add tests for HTTP listTools, HTTPS callTool, SSE listTools, SSE callTool, close cleanup, and simple HTTP adapter distinction
 
 ## 4. Proxy Exposure Transports
 
@@ -30,7 +30,7 @@
 - [x] 4.4 Implement SSE proxy exposure with session and stream cleanup
 - [x] 4.5 Ensure HTTP and SSE exposure resolve downstream identity at the proxy edge
 - [x] 4.6 Define and implement stdio exposure user context behavior for non-HTTP identity
-- [ ] 4.7 Add tests proving listTools and callTool use the same proxy pipeline across HTTP, stdio, and SSE exposure
+- [x] 4.7 Add tests proving listTools and callTool use the same proxy pipeline across HTTP, stdio, and SSE exposure
 
 ## 5. Stdio Upstream Behavior
 
