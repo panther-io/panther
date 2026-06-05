@@ -34,17 +34,17 @@
 
 ## 5. Stdio Upstream Behavior
 
-- [ ] 5.1 Add regression tests for stdio upstream per-user env transport reuse
-- [ ] 5.2 Add regression tests for stdio upstream isolation queueing by user identity
-- [ ] 5.3 Document stdio auth as env/secrets configuration rather than protocol-level headers or OAuth
+- [x] 5.1 Add regression tests for stdio upstream per-user env transport reuse
+- [x] 5.2 Add regression tests for stdio upstream isolation queueing by user identity
+- [x] 5.3 Document stdio auth as env/secrets configuration rather than protocol-level headers or OAuth
 
 ## 6. Documentation And Exports
 
-- [ ] 6.1 Export new transport classes, option types, and auth types from `packages/core/src/index.ts`
-- [ ] 6.2 Update transport docs with the supported upstream and downstream transport matrix
-- [ ] 6.3 Document HTTP-family auth examples for headers, bearer tokens, API keys, OAuth access tokens, and per-user resolvers
-- [ ] 6.4 Document backward compatibility and migration guidance for the existing simple HTTP adapter and `McpProxy.start()`
-- [ ] 6.5 Regenerate typed reference docs if required by the existing docs workflow
+- [x] 6.1 Export new transport classes, option types, and auth types from `packages/core/src/index.ts`
+- [x] 6.2 Update transport docs with the supported upstream and downstream transport matrix
+- [x] 6.3 Document HTTP-family auth examples for headers, bearer tokens, API keys, OAuth access tokens, and per-user resolvers
+- [x] 6.4 Document backward compatibility and migration guidance for the existing simple HTTP adapter and `McpProxy.start()`
+- [x] 6.5 Regenerate typed reference docs if required by the existing docs workflow
 
 ## 7. Verification
 

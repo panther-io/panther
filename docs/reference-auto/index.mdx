@@ -117,6 +117,140 @@ Defined in: packages/core/src/errors.ts:19
 
   </Accordion>
 
+  <Accordion title="Core exports: classes/Group">
+
+@panther/core / Group
+
+Defined in: packages/core/src/governance.ts:43
+
+First-class group declaration that owns users and policy.
+
+## Constructors
+
+### Constructor
+
+> **new Group**(`options`): `Group`
+
+Defined in: packages/core/src/governance.ts:50
+
+#### Parameters
+
+##### options
+
+###### id
+
+`string`
+
+###### metadata?
+
+`Record`\<`string`, `unknown`\>
+
+###### name?
+
+`string`
+
+###### policy
+
+`PolicyContract`
+
+###### users
+
+`User`[]
+
+#### Returns
+
+`Group`
+
+## Properties
+
+### id
+
+> `readonly` **id**: `string`
+
+Defined in: packages/core/src/governance.ts:44
+
+### metadata?
+
+> `readonly` `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/governance.ts:48
+
+### name?
+
+> `readonly` `optional` **name?**: `string`
+
+Defined in: packages/core/src/governance.ts:45
+
+### policy
+
+> `readonly` **policy**: `PolicyContract`
+
+Defined in: packages/core/src/governance.ts:47
+
+### users
+
+> `readonly` **users**: `User`[]
+
+Defined in: packages/core/src/governance.ts:46
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/HttpProxyExposureTransport">
+
+@panther/core / HttpProxyExposureTransport
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:45
+
+HTTP Streamable MCP downstream proxy exposure.
+
+## Implements
+
+- `ProxyExposureTransport`\<`HttpProxyExposureHandle`\>
+
+## Constructors
+
+### Constructor
+
+> **new HttpProxyExposureTransport**(`options?`): `HttpProxyExposureTransport`
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:53
+
+Create an HTTP proxy exposure transport.
+
+#### Parameters
+
+##### options?
+
+`HttpProxyExposureTransportOptions` = `{}`
+
+#### Returns
+
+`HttpProxyExposureTransport`
+
+## Methods
+
+### listen()
+
+> **listen**(`runtime`): `Promise`\<`HttpProxyExposureHandle`\>
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:61
+
+#### Parameters
+
+##### runtime
+
+`ProxyRuntime`
+
+#### Returns
+
+`Promise`\<`HttpProxyExposureHandle`\>
+
+#### Implementation of
+
+`ProxyExposureTransport.listen`
+
+  </Accordion>
+
   <Accordion title="Core exports: classes/HttpTransport">
 
 @panther/core / HttpTransport
@@ -569,7 +703,7 @@ Emit a warning log entry.
 
 @panther/core / McpProxy
 
-Defined in: packages/core/src/McpProxy.ts:100
+Defined in: packages/core/src/McpProxy.ts:115
 
 HTTP proxy for multiple MCP servers.
 
@@ -579,7 +713,7 @@ HTTP proxy for multiple MCP servers.
 
 > **new McpProxy**(`options`): `McpProxy`
 
-Defined in: packages/core/src/McpProxy.ts:124
+Defined in: packages/core/src/McpProxy.ts:143
 
 Create a new MCP proxy instance.
 
@@ -597,9 +731,9 @@ Create a new MCP proxy instance.
 
 ### callTool()
 
-> **callTool**(`params`, `user?`, `identity?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
+> **callTool**(`params`, `user?`, `identity?`, `subject?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:330
+Defined in: packages/core/src/McpProxy.ts:332
 
 Call a proxied tool with middleware dispatch.
 
@@ -651,6 +785,10 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 `IdentityMetadata`
 
+##### subject?
+
+`ResolvedSubject`
+
 #### Returns
 
 `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
@@ -659,7 +797,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpProxy.ts:270
+Defined in: packages/core/src/McpProxy.ts:277
 
 Close the HTTP server and all backends.
 
@@ -667,11 +805,97 @@ Close the HTTP server and all backends.
 
 `Promise`\<`void`\>
 
+### createSdkServer()
+
+> **createSdkServer**(`user?`, `identity?`, `subject?`): `Server`
+
+Defined in: packages/core/src/McpProxy.ts:427
+
+Create the MCP SDK server and attach handlers.
+
+#### Parameters
+
+##### user?
+
+`UserContext` = `{}`
+
+##### identity?
+
+`IdentityMetadata`
+
+##### subject?
+
+`ResolvedSubject`
+
+#### Returns
+
+`Server`
+
+### emitSessionEnd()
+
+> **emitSessionEnd**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/McpProxy.ts:474
+
+Emit a downstream session end lifecycle event.
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### emitSessionStart()
+
+> **emitSessionStart**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/McpProxy.ts:466
+
+Emit a downstream session start lifecycle event.
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### listen()
+
+> **listen**\<`THandle`\>(`transport`): `Promise`\<`THandle`\>
+
+Defined in: packages/core/src/McpProxy.ts:267
+
+Start the proxy with an explicit downstream exposure transport.
+
+#### Type Parameters
+
+##### THandle
+
+`THandle` *extends* `ProxyExposureHandle`
+
+#### Parameters
+
+##### transport
+
+`ProxyExposureTransport`\<`THandle`\>
+
+#### Returns
+
+`Promise`\<`THandle`\>
+
 ### listTools()
 
-> **listTools**(`params?`, `user?`, `identity?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
+> **listTools**(`params?`, `user?`, `identity?`, `subject?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:292
+Defined in: packages/core/src/McpProxy.ts:288
 
 List tools across all configured servers.
 
@@ -711,6 +935,10 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 `IdentityMetadata`
 
+##### subject?
+
+`ResolvedSubject`
+
 #### Returns
 
 `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
@@ -721,7 +949,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **on**(`event`, `handler`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:159
+Defined in: packages/core/src/McpProxy.ts:181
 
 Register an event hook.
 
@@ -743,7 +971,7 @@ Register an event hook.
 
 > **on**(`event`, `filter`, `handler`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:164
+Defined in: packages/core/src/McpProxy.ts:186
 
 Register a filtered event hook.
 
@@ -769,7 +997,7 @@ Register a filtered event hook.
 
 > **onLifecycle**(`event`, `handler`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:184
+Defined in: packages/core/src/McpProxy.ts:206
 
 Register a lifecycle hook.
 
@@ -791,7 +1019,7 @@ Register a lifecycle hook.
 
 > **onListTools**(`hook`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:199
+Defined in: packages/core/src/McpProxy.ts:221
 
 Register a hook that can transform listed tools.
 
@@ -805,13 +1033,43 @@ Register a hook that can transform listed tools.
 
 `this`
 
+### resolveHttpUser()
+
+> **resolveHttpUser**(`req`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/McpProxy.ts:449
+
+Resolve user context from an HTTP downstream request.
+
+#### Parameters
+
+##### req
+
+`IncomingMessage`
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+### resolveStdioUser()
+
+> **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/McpProxy.ts:457
+
+Resolve user context for non-HTTP stdio downstream exposure.
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
 ### start()
 
 #### Call Signature
 
 > **start**(`onStarted?`): `Promise`\<`Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\>\>
 
-Defined in: packages/core/src/McpProxy.ts:208
+Defined in: packages/core/src/McpProxy.ts:230
 
 Start the HTTP server.
 
@@ -829,7 +1087,7 @@ Start the HTTP server.
 
 > **start**(`options?`, `onStarted?`): `Promise`\<`Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\>\>
 
-Defined in: packages/core/src/McpProxy.ts:213
+Defined in: packages/core/src/McpProxy.ts:235
 
 Start the HTTP server with optional overrides.
 
@@ -851,7 +1109,7 @@ Start the HTTP server with optional overrides.
 
 > **use**(`middleware`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:150
+Defined in: packages/core/src/McpProxy.ts:172
 
 Register a middleware handler.
 
@@ -871,7 +1129,7 @@ Register a middleware handler.
 
 @panther/core / McpServer
 
-Defined in: packages/core/src/McpServer.ts:37
+Defined in: packages/core/src/McpServer.ts:41
 
 MCP server wrapper with optional per-user env injection.
 
@@ -881,7 +1139,7 @@ MCP server wrapper with optional per-user env injection.
 
 > **new McpServer**(`options`): `McpServer`
 
-Defined in: packages/core/src/McpServer.ts:51
+Defined in: packages/core/src/McpServer.ts:55
 
 Create a new MCP server wrapper.
 
@@ -901,13 +1159,13 @@ Create a new MCP server wrapper.
 
 > `readonly` **displayName**: `string`
 
-Defined in: packages/core/src/McpServer.ts:39
+Defined in: packages/core/src/McpServer.ts:43
 
 ### name
 
 > `readonly` **name**: `string`
 
-Defined in: packages/core/src/McpServer.ts:38
+Defined in: packages/core/src/McpServer.ts:42
 
 ## Methods
 
@@ -915,7 +1173,7 @@ Defined in: packages/core/src/McpServer.ts:38
 
 > **callTool**(`params`, `user?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/McpServer.ts:74
+Defined in: packages/core/src/McpServer.ts:78
 
 Call a tool for a given user.
 
@@ -971,7 +1229,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpServer.ts:90
+Defined in: packages/core/src/McpServer.ts:94
 
 Close all transports.
 
@@ -983,7 +1241,7 @@ Close all transports.
 
 > **listTools**(`params?`, `user?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
 
-Defined in: packages/core/src/McpServer.ts:66
+Defined in: packages/core/src/McpServer.ts:70
 
 List tools for a given user.
 
@@ -1287,6 +1545,726 @@ Store or replace a user record.
 
   </Accordion>
 
+  <Accordion title="Core exports: classes/MissingHttpTransportCredentialError">
+
+@panther/core / MissingHttpTransportCredentialError
+
+Defined in: packages/core/src/transportAuth.ts:44
+
+Error thrown before an upstream HTTP-family request when required credentials are missing.
+
+## Extends
+
+- `Error`
+
+## Constructors
+
+### Constructor
+
+> **new MissingHttpTransportCredentialError**(`message?`): `MissingHttpTransportCredentialError`
+
+Defined in: packages/core/src/transportAuth.ts:47
+
+#### Parameters
+
+##### message?
+
+`string` = `"Missing required upstream HTTP transport credentials"`
+
+#### Returns
+
+`MissingHttpTransportCredentialError`
+
+#### Overrides
+
+`Error.constructor`
+
+## Properties
+
+### cause?
+
+> `optional` **cause?**: `unknown`
+
+Defined in: node\_modules/.pnpm/typescript@6.0.3/node\_modules/typescript/lib/lib.es2022.error.d.ts:24
+
+#### Inherited from
+
+`Error.cause`
+
+### code
+
+> `readonly` **code**: `-32040` = `PantherErrorCode.Unauthorized`
+
+Defined in: packages/core/src/transportAuth.ts:45
+
+### message
+
+> **message**: `string`
+
+Defined in: node\_modules/.pnpm/typescript@6.0.3/node\_modules/typescript/lib/lib.es5.d.ts:1075
+
+#### Inherited from
+
+`Error.message`
+
+### name
+
+> **name**: `string`
+
+Defined in: node\_modules/.pnpm/typescript@6.0.3/node\_modules/typescript/lib/lib.es5.d.ts:1074
+
+#### Inherited from
+
+`Error.name`
+
+### stack?
+
+> `optional` **stack?**: `string`
+
+Defined in: node\_modules/.pnpm/typescript@6.0.3/node\_modules/typescript/lib/lib.es5.d.ts:1076
+
+#### Inherited from
+
+`Error.stack`
+
+### stackTraceLimit
+
+> `static` **stackTraceLimit**: `number`
+
+Defined in: node\_modules/.pnpm/@types+node@25.9.1/node\_modules/@types/node/globals.d.ts:67
+
+The `Error.stackTraceLimit` property specifies the number of stack frames
+collected by a stack trace (whether generated by `new Error().stack` or
+`Error.captureStackTrace(obj)`).
+
+The default value is `10` but may be set to any valid JavaScript number. Changes
+will affect any stack trace captured _after_ the value has been changed.
+
+If set to a non-number value, or set to a negative number, stack traces will
+not capture any frames.
+
+#### Inherited from
+
+`Error.stackTraceLimit`
+
+## Methods
+
+### captureStackTrace()
+
+> `static` **captureStackTrace**(`targetObject`, `constructorOpt?`): `void`
+
+Defined in: node\_modules/.pnpm/@types+node@25.9.1/node\_modules/@types/node/globals.d.ts:51
+
+Creates a `.stack` property on `targetObject`, which when accessed returns
+a string representing the location in the code at which
+`Error.captureStackTrace()` was called.
+
+```js
+const myObject = {};
+Error.captureStackTrace(myObject);
+myObject.stack;  // Similar to `new Error().stack`
+```
+
+The first line of the trace will be prefixed with
+`${myObject.name}: ${myObject.message}`.
+
+The optional `constructorOpt` argument accepts a function. If given, all frames
+above `constructorOpt`, including `constructorOpt`, will be omitted from the
+generated stack trace.
+
+The `constructorOpt` argument is useful for hiding implementation
+details of error generation from the user. For instance:
+
+```js
+function a() {
+  b();
+}
+
+function b() {
+  c();
+}
+
+function c() {
+  // Create an error without stack trace to avoid calculating the stack trace twice.
+  const { stackTraceLimit } = Error;
+  Error.stackTraceLimit = 0;
+  const error = new Error();
+  Error.stackTraceLimit = stackTraceLimit;
+
+  // Capture the stack trace above function b
+  Error.captureStackTrace(error, b); // Neither function c, nor b is included in the stack trace
+  throw error;
+}
+
+a();
+```
+
+#### Parameters
+
+##### targetObject
+
+`object`
+
+##### constructorOpt?
+
+`Function`
+
+#### Returns
+
+`void`
+
+#### Inherited from
+
+`Error.captureStackTrace`
+
+### prepareStackTrace()
+
+> `static` **prepareStackTrace**(`err`, `stackTraces`): `any`
+
+Defined in: node\_modules/.pnpm/@types+node@25.9.1/node\_modules/@types/node/globals.d.ts:55
+
+#### Parameters
+
+##### err
+
+`Error`
+
+##### stackTraces
+
+`CallSite`[]
+
+#### Returns
+
+`any`
+
+#### See
+
+https://v8.dev/docs/stack-trace-api#customizing-stack-traces
+
+#### Inherited from
+
+`Error.prepareStackTrace`
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/PantherAuth">
+
+@panther/core / PantherAuth
+
+Defined in: packages/core/src/auth.ts:71
+
+Unified local auth configuration.
+
+## Methods
+
+### getBinding()
+
+> **getBinding**(`serverName`): \{ `credential`: `string`; `type`: `"bearer"`; \} \| \{ `credential`: `string`; `header`: `string`; `type`: `"header"`; \} \| \{ `credential`: `string`; `env`: `string`; `type`: `"env"`; \} \| `undefined`
+
+Defined in: packages/core/src/auth.ts:154
+
+#### Parameters
+
+##### serverName
+
+`string`
+
+#### Returns
+
+\{ `credential`: `string`; `type`: `"bearer"`; \} \| \{ `credential`: `string`; `header`: `string`; `type`: `"header"`; \} \| \{ `credential`: `string`; `env`: `string`; `type`: `"env"`; \} \| `undefined`
+
+### identityStrategy()
+
+> **identityStrategy**(`options?`): `IdentityStrategy`
+
+Defined in: packages/core/src/auth.ts:150
+
+#### Parameters
+
+##### options?
+
+###### header?
+
+`string`
+
+###### name?
+
+`string`
+
+#### Returns
+
+`IdentityStrategy`
+
+### resolveApiKey()
+
+> **resolveApiKey**(`apiKey`): `string` \| `null`
+
+Defined in: packages/core/src/auth.ts:140
+
+#### Parameters
+
+##### apiKey
+
+`string`
+
+#### Returns
+
+`string` \| `null`
+
+### resolveCredential()
+
+> **resolveCredential**(`reference`, `subject`): `CredentialResolution` \| `null`
+
+Defined in: packages/core/src/auth.ts:158
+
+#### Parameters
+
+##### reference
+
+`string`
+
+##### subject
+
+`ResolvedSubject`
+
+#### Returns
+
+`CredentialResolution` \| `null`
+
+### decryptCredentials()
+
+> `static` **decryptCredentials**(`envelope`, `key`): `object`
+
+Defined in: packages/core/src/auth.ts:127
+
+Decrypt and validate a local credentials envelope.
+
+#### Parameters
+
+##### envelope
+
+`unknown`
+
+##### key
+
+`string` \| `Buffer`\<`ArrayBufferLike`\>
+
+#### Returns
+
+`object`
+
+##### defaults
+
+> **defaults**: `Record`\<`string`, `string`\>
+
+##### groups
+
+> **groups**: `Record`\<`string`, `Record`\<`string`, `string`\>\>
+
+##### users
+
+> **users**: `Record`\<`string`, \{ `apiKeys`: `string`[]; `credentials`: `Record`\<`string`, `string`\>; \}\>
+
+### encryptCredentials()
+
+> `static` **encryptCredentials**(`credentials`, `key`): `object`
+
+Defined in: packages/core/src/auth.ts:105
+
+Build an encrypted credentials envelope for local auth files.
+
+#### Parameters
+
+##### credentials
+
+###### defaults
+
+`Record`\<`string`, `string`\> = `...`
+
+###### groups
+
+`Record`\<`string`, `Record`\<`string`, `string`\>\> = `...`
+
+###### users
+
+`Record`\<`string`, \{ `apiKeys`: `string`[]; `credentials`: `Record`\<`string`, `string`\>; \}\> = `...`
+
+##### key
+
+`string` \| `Buffer`\<`ArrayBufferLike`\>
+
+#### Returns
+
+`object`
+
+##### algorithm
+
+> **algorithm**: `"aes-256-gcm"`
+
+##### ciphertext
+
+> **ciphertext**: `string`
+
+##### iv
+
+> **iv**: `string`
+
+##### salt
+
+> **salt**: `string`
+
+##### tag
+
+> **tag**: `string`
+
+##### version
+
+> **version**: `1`
+
+### hashApiKey()
+
+> `static` **hashApiKey**(`apiKey`): `string`
+
+Defined in: packages/core/src/auth.ts:136
+
+Return the supported API-key hash encoding for local credentials.
+
+#### Parameters
+
+##### apiKey
+
+`string`
+
+#### Returns
+
+`string`
+
+### local()
+
+> `static` **local**(`options`): `Promise`\<`PantherAuth`\>
+
+Defined in: packages/core/src/auth.ts:84
+
+Load local encrypted credentials and upstream auth bindings from a directory.
+
+#### Parameters
+
+##### options
+
+`LocalAuthOptions`
+
+#### Returns
+
+`Promise`\<`PantherAuth`\>
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/Policy">
+
+@panther/core / Policy
+
+Defined in: packages/core/src/governance.ts:76
+
+Fluent policy declaration.
+
+## Implements
+
+- `PolicyContract`
+
+## Constructors
+
+### Constructor
+
+> **new Policy**(`options`): `Policy`
+
+Defined in: packages/core/src/governance.ts:82
+
+#### Parameters
+
+##### options
+
+###### description?
+
+`string`
+
+###### metadata?
+
+\{\[`key`: `string`\]: `unknown`; `maxDailyCalls?`: `number`; `requiresApproval?`: `boolean`; \}
+
+###### metadata.maxDailyCalls?
+
+`number`
+
+###### metadata.requiresApproval?
+
+`boolean`
+
+###### name
+
+`string`
+
+#### Returns
+
+`Policy`
+
+## Properties
+
+### description?
+
+> `readonly` `optional` **description?**: `string`
+
+Defined in: packages/core/src/governance.ts:78
+
+#### Implementation of
+
+`PolicyContract`.`description`
+
+### metadata?
+
+> `readonly` `optional` **metadata?**: `object`
+
+Defined in: packages/core/src/governance.ts:79
+
+#### Index Signature
+
+\[`key`: `string`\]: `unknown`
+
+#### maxDailyCalls?
+
+> `optional` **maxDailyCalls?**: `number`
+
+#### requiresApproval?
+
+> `optional` **requiresApproval?**: `boolean`
+
+#### Implementation of
+
+`PolicyContract`.`metadata`
+
+### name
+
+> `readonly` **name**: `string`
+
+Defined in: packages/core/src/governance.ts:77
+
+#### Implementation of
+
+`PolicyContract`.`name`
+
+## Methods
+
+### allow()
+
+> **allow**(`serverName`, `toolName`, `options?`): `this`
+
+Defined in: packages/core/src/governance.ts:112
+
+Add an allow permission.
+
+#### Parameters
+
+##### serverName
+
+`string`
+
+##### toolName
+
+`string`
+
+##### options?
+
+`ToolPermissionOptions` = `{}`
+
+#### Returns
+
+`this`
+
+### deny()
+
+> **deny**(`serverName`, `toolName`, `options?`): `this`
+
+Defined in: packages/core/src/governance.ts:120
+
+Add a deny permission.
+
+#### Parameters
+
+##### serverName
+
+`string`
+
+##### toolName
+
+`string`
+
+##### options?
+
+`ToolPermissionOptions` = `{}`
+
+#### Returns
+
+`this`
+
+### evaluate()
+
+> **evaluate**(`request`, `user`, `context?`): `Promise`\<`PolicyDecision`\>
+
+Defined in: packages/core/src/governance.ts:131
+
+#### Parameters
+
+##### request
+
+`ToolCallRequest`
+
+##### user
+
+`UserContext`
+
+##### context?
+
+`MiddlewareContext`
+
+#### Returns
+
+`Promise`\<`PolicyDecision`\>
+
+#### Implementation of
+
+`PolicyContract`.`evaluate`
+
+### getPermissions()
+
+> **getPermissions**(`serverName`): `ToolPermission`[]
+
+Defined in: packages/core/src/governance.ts:124
+
+#### Parameters
+
+##### serverName
+
+`string`
+
+#### Returns
+
+`ToolPermission`[]
+
+#### Implementation of
+
+`PolicyContract`.`getPermissions`
+
+### server()
+
+> **server**(`serverName`): `PolicyServerBuilder`
+
+Defined in: packages/core/src/governance.ts:104
+
+Select a server for fluent permission declarations.
+
+#### Parameters
+
+##### serverName
+
+`string`
+
+#### Returns
+
+`PolicyServerBuilder`
+
+### allowAll()
+
+> `static` **allowAll**(`name?`): `Policy`
+
+Defined in: packages/core/src/governance.ts:96
+
+Create an allow-all policy.
+
+#### Parameters
+
+##### name?
+
+`string` = `"allow-all"`
+
+#### Returns
+
+`Policy`
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/PolicyServerBuilder">
+
+@panther/core / PolicyServerBuilder
+
+Defined in: packages/core/src/governance.ts:204
+
+Builder returned by `policy.server(name)`.
+
+## Constructors
+
+### Constructor
+
+> **new PolicyServerBuilder**(`policy`, `serverName`): `PolicyServerBuilder`
+
+Defined in: packages/core/src/governance.ts:205
+
+#### Parameters
+
+##### policy
+
+`Policy`
+
+##### serverName
+
+`string`
+
+#### Returns
+
+`PolicyServerBuilder`
+
+## Methods
+
+### allow()
+
+> **allow**(`toolName`, `options?`): `Policy`
+
+Defined in: packages/core/src/governance.ts:210
+
+#### Parameters
+
+##### toolName
+
+`string`
+
+##### options?
+
+`ToolPermissionOptions` = `{}`
+
+#### Returns
+
+`Policy`
+
+### deny()
+
+> **deny**(`toolName`, `options?`): `Policy`
+
+Defined in: packages/core/src/governance.ts:214
+
+#### Parameters
+
+##### toolName
+
+`string`
+
+##### options?
+
+`ToolPermissionOptions` = `{}`
+
+#### Returns
+
+`Policy`
+
+  </Accordion>
+
   <Accordion title="Core exports: classes/RedisLoggerDriver">
 
 @panther/core / RedisLoggerDriver
@@ -1509,7 +2487,7 @@ Store or replace a user record.
 
 @panther/core / ResponseController
 
-Defined in: packages/core/src/types.ts:124
+Defined in: packages/core/src/types.ts:192
 
 Helper for returning allow/deny responses from middleware.
 
@@ -1529,7 +2507,7 @@ Helper for returning allow/deny responses from middleware.
 
 > **continue**(): `undefined`
 
-Defined in: packages/core/src/types.ts:159
+Defined in: packages/core/src/types.ts:227
 
 Allow middleware to continue without overriding the response.
 
@@ -1541,7 +2519,7 @@ Allow middleware to continue without overriding the response.
 
 > **deny**(`message`): `object`
 
-Defined in: packages/core/src/types.ts:133
+Defined in: packages/core/src/types.ts:201
 
 Deny a tool call with a message.
 
@@ -1599,7 +2577,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **fail**(`code`, `message`): `object`
 
-Defined in: packages/core/src/types.ts:144
+Defined in: packages/core/src/types.ts:212
 
 Return a structured MCP-style error without throwing.
 
@@ -1661,7 +2639,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **injectToAgent**(`message`): `void`
 
-Defined in: packages/core/src/types.ts:167
+Defined in: packages/core/src/types.ts:235
 
 Add guidance for the calling agent to the eventual tool response.
 
@@ -1679,7 +2657,7 @@ Add guidance for the calling agent to the eventual tool response.
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: packages/core/src/types.ts:177
+Defined in: packages/core/src/types.ts:245
 
 Register a response event handler.
 
@@ -1709,7 +2687,7 @@ Default policy implementation with RBAC-style permissions.
 
 ## Implements
 
-- `Policy`
+- `PolicyContract`
 
 ## Constructors
 
@@ -1763,7 +2741,7 @@ Defined in: packages/core/src/policy.ts:16
 
 #### Implementation of
 
-`Policy`.`description`
+`PolicyContract`.`description`
 
 ### metadata?
 
@@ -1785,7 +2763,7 @@ Defined in: packages/core/src/policy.ts:18
 
 #### Implementation of
 
-`Policy`.`metadata`
+`PolicyContract`.`metadata`
 
 ### name
 
@@ -1795,7 +2773,7 @@ Defined in: packages/core/src/policy.ts:15
 
 #### Implementation of
 
-`Policy`.`name`
+`PolicyContract`.`name`
 
 ## Methods
 
@@ -1827,7 +2805,7 @@ Evaluate if a tool call is allowed.
 
 #### Implementation of
 
-`Policy`.`evaluate`
+`PolicyContract`.`evaluate`
 
 ### getPermissions()
 
@@ -1849,7 +2827,7 @@ Get permissions for a server.
 
 #### Implementation of
 
-`Policy`.`getPermissions`
+`PolicyContract`.`getPermissions`
 
   </Accordion>
 
@@ -1976,6 +2954,286 @@ Defined in: packages/core/src/rateLimit.ts:96
 #### Implementation of
 
 `RateLimiter`.`recordCall`
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/SseMcpTransport">
+
+@panther/core / SseMcpTransport
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:31
+
+Native MCP SSE upstream transport.
+
+## Implements
+
+- `PanterTransport`
+
+## Constructors
+
+### Constructor
+
+> **new SseMcpTransport**(`options`, `user?`): `SseMcpTransport`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:42
+
+Create a native MCP SSE transport.
+
+#### Parameters
+
+##### options
+
+`SseMcpTransportOptions`
+
+##### user?
+
+`UserContext` = `{}`
+
+#### Returns
+
+`SseMcpTransport`
+
+## Methods
+
+### callTool()
+
+> **callTool**(`params`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:69
+
+#### Parameters
+
+##### params
+
+###### _meta?
+
+\{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}
+
+###### _meta.io.modelcontextprotocol/related-task?
+
+\{ `taskId`: `string`; \}
+
+If specified, this request is related to the provided task.
+
+###### _meta.io.modelcontextprotocol/related-task.taskId
+
+`string`
+
+###### _meta.progressToken?
+
+`string` \| `number`
+
+If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications.
+
+###### arguments?
+
+\{\[`key`: `string`\]: `unknown`; \}
+
+###### name
+
+`string`
+
+###### task?
+
+\{ `ttl?`: `number`; \}
+
+###### task.ttl?
+
+`number`
+
+#### Returns
+
+`Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
+
+#### Implementation of
+
+`PanterTransport.callTool`
+
+### close()
+
+> **close**(): `Promise`\<`void`\>
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:73
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+`PanterTransport.close`
+
+### listTools()
+
+> **listTools**(`params?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:60
+
+#### Parameters
+
+##### params?
+
+###### _meta?
+
+\{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}
+
+###### _meta.io.modelcontextprotocol/related-task?
+
+\{ `taskId`: `string`; \}
+
+If specified, this request is related to the provided task.
+
+###### _meta.io.modelcontextprotocol/related-task.taskId
+
+`string`
+
+###### _meta.progressToken?
+
+`string` \| `number`
+
+If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications.
+
+###### cursor?
+
+`string`
+
+#### Returns
+
+`Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
+
+#### Implementation of
+
+`PanterTransport.listTools`
+
+### withUser()
+
+> **withUser**(`user`): `SseMcpTransport`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:56
+
+Return a copy bound to the current proxy user context.
+
+#### Parameters
+
+##### user
+
+`UserContext`
+
+#### Returns
+
+`SseMcpTransport`
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/SseProxyExposureTransport">
+
+@panther/core / SseProxyExposureTransport
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:45
+
+SSE MCP downstream proxy exposure.
+
+## Implements
+
+- `ProxyExposureTransport`\<`SseProxyExposureHandle`\>
+
+## Constructors
+
+### Constructor
+
+> **new SseProxyExposureTransport**(`options?`): `SseProxyExposureTransport`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:53
+
+Create an SSE proxy exposure transport.
+
+#### Parameters
+
+##### options?
+
+`SseProxyExposureTransportOptions` = `{}`
+
+#### Returns
+
+`SseProxyExposureTransport`
+
+## Methods
+
+### listen()
+
+> **listen**(`runtime`): `Promise`\<`SseProxyExposureHandle`\>
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:62
+
+#### Parameters
+
+##### runtime
+
+`ProxyRuntime`
+
+#### Returns
+
+`Promise`\<`SseProxyExposureHandle`\>
+
+#### Implementation of
+
+`ProxyExposureTransport.listen`
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/StdioProxyExposureTransport">
+
+@panther/core / StdioProxyExposureTransport
+
+Defined in: packages/core/src/transports/StdioProxyExposureTransport.ts:24
+
+Stdio MCP downstream proxy exposure.
+
+## Implements
+
+- `ProxyExposureTransport`
+
+## Constructors
+
+### Constructor
+
+> **new StdioProxyExposureTransport**(`options?`): `StdioProxyExposureTransport`
+
+Defined in: packages/core/src/transports/StdioProxyExposureTransport.ts:31
+
+Create a stdio proxy exposure transport.
+
+#### Parameters
+
+##### options?
+
+`StdioProxyExposureTransportOptions` = `{}`
+
+#### Returns
+
+`StdioProxyExposureTransport`
+
+## Methods
+
+### listen()
+
+> **listen**(`runtime`): `Promise`\<`ProxyExposureHandle`\>
+
+Defined in: packages/core/src/transports/StdioProxyExposureTransport.ts:35
+
+#### Parameters
+
+##### runtime
+
+`ProxyRuntime`
+
+#### Returns
+
+`Promise`\<`ProxyExposureHandle`\>
+
+#### Implementation of
+
+`ProxyExposureTransport.listen`
 
   </Accordion>
 
@@ -2149,6 +3407,346 @@ Return a copy with merged environment variables.
 
   </Accordion>
 
+  <Accordion title="Core exports: classes/StreamableHttpMcpTransport">
+
+@panther/core / StreamableHttpMcpTransport
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:31
+
+Native MCP Streamable HTTP upstream transport for http:// and https:// servers.
+
+## Implements
+
+- `PanterTransport`
+
+## Constructors
+
+### Constructor
+
+> **new StreamableHttpMcpTransport**(`options`, `user?`): `StreamableHttpMcpTransport`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:42
+
+Create a native MCP Streamable HTTP transport.
+
+#### Parameters
+
+##### options
+
+`StreamableHttpMcpTransportOptions`
+
+##### user?
+
+`UserContext` = `{}`
+
+#### Returns
+
+`StreamableHttpMcpTransport`
+
+## Methods
+
+### callTool()
+
+> **callTool**(`params`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:69
+
+#### Parameters
+
+##### params
+
+###### _meta?
+
+\{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}
+
+###### _meta.io.modelcontextprotocol/related-task?
+
+\{ `taskId`: `string`; \}
+
+If specified, this request is related to the provided task.
+
+###### _meta.io.modelcontextprotocol/related-task.taskId
+
+`string`
+
+###### _meta.progressToken?
+
+`string` \| `number`
+
+If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications.
+
+###### arguments?
+
+\{\[`key`: `string`\]: `unknown`; \}
+
+###### name
+
+`string`
+
+###### task?
+
+\{ `ttl?`: `number`; \}
+
+###### task.ttl?
+
+`number`
+
+#### Returns
+
+`Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
+
+#### Implementation of
+
+`PanterTransport.callTool`
+
+### close()
+
+> **close**(): `Promise`\<`void`\>
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:73
+
+#### Returns
+
+`Promise`\<`void`\>
+
+#### Implementation of
+
+`PanterTransport.close`
+
+### listTools()
+
+> **listTools**(`params?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:60
+
+#### Parameters
+
+##### params?
+
+###### _meta?
+
+\{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}
+
+###### _meta.io.modelcontextprotocol/related-task?
+
+\{ `taskId`: `string`; \}
+
+If specified, this request is related to the provided task.
+
+###### _meta.io.modelcontextprotocol/related-task.taskId
+
+`string`
+
+###### _meta.progressToken?
+
+`string` \| `number`
+
+If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications.
+
+###### cursor?
+
+`string`
+
+#### Returns
+
+`Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
+
+#### Implementation of
+
+`PanterTransport.listTools`
+
+### withUser()
+
+> **withUser**(`user`): `StreamableHttpMcpTransport`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:56
+
+Return a copy bound to the current proxy user context.
+
+#### Parameters
+
+##### user
+
+`UserContext`
+
+#### Returns
+
+`StreamableHttpMcpTransport`
+
+  </Accordion>
+
+  <Accordion title="Core exports: classes/User">
+
+@panther/core / User
+
+Defined in: packages/core/src/governance.ts:17
+
+First-class non-sensitive subject declaration.
+
+## Constructors
+
+### Constructor
+
+> **new User**(`id`, `metadata?`): `User`
+
+Defined in: packages/core/src/governance.ts:25
+
+#### Parameters
+
+##### id
+
+`string`
+
+##### metadata?
+
+`SubjectMetadata` = `{}`
+
+#### Returns
+
+`User`
+
+## Properties
+
+### displayName?
+
+> `readonly` `optional` **displayName?**: `string`
+
+Defined in: packages/core/src/governance.ts:19
+
+### email?
+
+> `readonly` `optional` **email?**: `string`
+
+Defined in: packages/core/src/governance.ts:20
+
+### id
+
+> `readonly` **id**: `string`
+
+Defined in: packages/core/src/governance.ts:18
+
+### metadata?
+
+> `readonly` `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/governance.ts:23
+
+### tenant?
+
+> `readonly` `optional` **tenant?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/governance.ts:22
+
+### tenantId?
+
+> `readonly` `optional` **tenantId?**: `string`
+
+Defined in: packages/core/src/governance.ts:21
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/allow">
+
+@panther/core / allow
+
+> **allow**(`toolName`, `options?`): `ToolPermission`
+
+Defined in: packages/core/src/governance.ts:258
+
+Helper to declare an allow permission.
+
+## Parameters
+
+### toolName
+
+`string`
+
+### options?
+
+`ToolPermissionOptions` = `{}`
+
+## Returns
+
+`ToolPermission`
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/allowAll">
+
+@panther/core / allowAll
+
+> **allowAll**(`name?`): `Policy`
+
+Defined in: packages/core/src/governance.ts:274
+
+Helper to declare an allow-all policy.
+
+## Parameters
+
+### name?
+
+`string`
+
+## Returns
+
+`Policy`
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/apiKeyIdentityStrategy">
+
+@panther/core / apiKeyIdentityStrategy
+
+> **apiKeyIdentityStrategy**(`options`): `IdentityStrategy`
+
+Defined in: packages/core/src/auth.ts:191
+
+API-key identity strategy backed by encrypted local auth storage.
+
+## Parameters
+
+### options
+
+#### auth
+
+`PantherAuth`
+
+#### header?
+
+`string`
+
+#### name?
+
+`string`
+
+## Returns
+
+`IdentityStrategy`
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/approval">
+
+@panther/core / approval
+
+> **approval**(`handler`): `Pick`\<`ToolPermissionOptions`, `"approval"`\>
+
+Defined in: packages/core/src/governance.ts:290
+
+Permission helper for approval callbacks.
+
+## Parameters
+
+### handler
+
+((`request`, `context`) => `MaybePromise`\<`boolean`\>) \| `undefined`
+
+## Returns
+
+`Pick`\<`ToolPermissionOptions`, `"approval"`\>
+
+  </Accordion>
+
   <Accordion title="Core exports: functions/bearerTokenIdentityStrategy">
 
 @panther/core / bearerTokenIdentityStrategy
@@ -2181,6 +3779,54 @@ Create a strategy that resolves identity from bearer tokens.
 
   </Accordion>
 
+  <Accordion title="Core exports: functions/buildSubjectIndex">
+
+@panther/core / buildSubjectIndex
+
+> **buildSubjectIndex**(`groups`): `SubjectIndex`
+
+Defined in: packages/core/src/governance.ts:307
+
+First-class governance declaration APIs.
+
+## Parameters
+
+### groups
+
+`Group`[]
+
+## Returns
+
+`SubjectIndex`
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/deny">
+
+@panther/core / deny
+
+> **deny**(`toolName`, `options?`): `ToolPermission`
+
+Defined in: packages/core/src/governance.ts:266
+
+Helper to declare a deny permission.
+
+## Parameters
+
+### toolName
+
+`string`
+
+### options?
+
+`ToolPermissionOptions` = `{}`
+
+## Returns
+
+`ToolPermission`
+
+  </Accordion>
+
   <Accordion title="Core exports: functions/filterToolsByPolicy">
 
 @panther/core / filterToolsByPolicy
@@ -2209,7 +3855,7 @@ Filter tools by policy.
 
 ### policy
 
-`Policy`
+`PolicyContract`
 
 ## Returns
 
@@ -2273,6 +3919,46 @@ Return the effective permission for a tool, preferring exact matches over wildca
 
   </Accordion>
 
+  <Accordion title="Core exports: functions/group">
+
+@panther/core / group
+
+> **group**(`options`): `Group`
+
+Defined in: packages/core/src/governance.ts:242
+
+Helper to declare a group.
+
+## Parameters
+
+### options
+
+#### id
+
+`string`
+
+#### metadata?
+
+`Record`\<`string`, `unknown`\>
+
+#### name?
+
+`string`
+
+#### policy
+
+`PolicyContract`
+
+#### users
+
+`User`[]
+
+## Returns
+
+`Group`
+
+  </Accordion>
+
   <Accordion title="Core exports: functions/headerIdentityStrategy">
 
 @panther/core / headerIdentityStrategy
@@ -2328,6 +4014,68 @@ Check whether a tool is allowed by a permission set.
 ## Returns
 
 `boolean`
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/limit">
+
+@panther/core / limit
+
+> **limit**(`limiter`): `Pick`\<`ToolPermissionOptions`, `"limiter"`\>
+
+Defined in: packages/core/src/governance.ts:282
+
+Permission helper for limiters.
+
+## Parameters
+
+### limiter
+
+`RateLimiter` \| `undefined`
+
+## Returns
+
+`Pick`\<`ToolPermissionOptions`, `"limiter"`\>
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/policy">
+
+@panther/core / policy
+
+> **policy**(`name`, `options?`): `Policy`
+
+Defined in: packages/core/src/governance.ts:250
+
+Helper to declare a policy.
+
+## Parameters
+
+### name
+
+`string`
+
+### options?
+
+#### description?
+
+`string`
+
+#### metadata?
+
+\{\[`key`: `string`\]: `unknown`; `maxDailyCalls?`: `number`; `requiresApproval?`: `boolean`; \}
+
+#### metadata.maxDailyCalls?
+
+`number`
+
+#### metadata.requiresApproval?
+
+`boolean`
+
+## Returns
+
+`Policy`
 
   </Accordion>
 
@@ -2389,6 +4137,54 @@ Middleware helper that enforces a rate limiter before forwarding tool calls.
 
   </Accordion>
 
+  <Accordion title="Core exports: functions/resolveHttpTransportHeaders">
+
+@panther/core / resolveHttpTransportHeaders
+
+> **resolveHttpTransportHeaders**(`options`, `user?`): `Promise`\<`Record`\<`string`, `string`\>\>
+
+Defined in: packages/core/src/transportAuth.ts:57
+
+Resolve outbound HTTP-family transport headers for a user context.
+
+## Parameters
+
+### options
+
+`HttpTransportAuthOptions` \| `undefined`
+
+### user?
+
+`UserContext` = `{}`
+
+## Returns
+
+`Promise`\<`Record`\<`string`, `string`\>\>
+
+  </Accordion>
+
+  <Accordion title="Core exports: functions/sensitive">
+
+@panther/core / sensitive
+
+> **sensitive**(`metadata?`): `Pick`\<`ToolPermissionOptions`, `"sensitive"`\>
+
+Defined in: packages/core/src/governance.ts:298
+
+Permission helper for sensitive-operation metadata.
+
+## Parameters
+
+### metadata?
+
+`Record`\<`string`, `unknown`\> = `{}`
+
+## Returns
+
+`Pick`\<`ToolPermissionOptions`, `"sensitive"`\>
+
+  </Accordion>
+
   <Accordion title="Core exports: functions/toProxyToolName">
 
 @panther/core / toProxyToolName
@@ -2415,11 +4211,37 @@ Combine server and tool names into a proxied tool name.
 
   </Accordion>
 
+  <Accordion title="Core exports: functions/user">
+
+@panther/core / user
+
+> **user**(`id`, `metadata?`): `User`
+
+Defined in: packages/core/src/governance.ts:234
+
+Helper to declare a user.
+
+## Parameters
+
+### id
+
+`string`
+
+### metadata?
+
+`SubjectMetadata` = `{}`
+
+## Returns
+
+`User`
+
+  </Accordion>
+
   <Accordion title="Core exports: interfaces/Isolation">
 
 @panther/core / Isolation
 
-Defined in: packages/core/src/types.ts:372
+Defined in: packages/core/src/types.ts:472
 
 Isolation runtime for per-user execution.
 
@@ -2429,7 +4251,7 @@ Isolation runtime for per-user execution.
 
 > **close**(): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:378
+Defined in: packages/core/src/types.ts:478
 
 #### Returns
 
@@ -2439,7 +4261,7 @@ Defined in: packages/core/src/types.ts:378
 
 > **queue**(`userId`, `fn`, `timeout?`): `MaybePromise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/types.ts:373
+Defined in: packages/core/src/types.ts:473
 
 #### Parameters
 
@@ -2461,11 +4283,11 @@ Defined in: packages/core/src/types.ts:373
 
   </Accordion>
 
-  <Accordion title="Core exports: interfaces/Policy">
+  <Accordion title="Core exports: interfaces/PolicyContract">
 
-@panther/core / Policy
+@panther/core / PolicyContract
 
-Defined in: packages/core/src/types.ts:308
+Defined in: packages/core/src/types.ts:408
 
 Policy for RBAC-style permission enforcement.
 
@@ -2475,13 +4297,13 @@ Policy for RBAC-style permission enforcement.
 
 > `optional` **description?**: `string`
 
-Defined in: packages/core/src/types.ts:310
+Defined in: packages/core/src/types.ts:410
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:317
+Defined in: packages/core/src/types.ts:417
 
 #### Index Signature
 
@@ -2499,7 +4321,7 @@ Defined in: packages/core/src/types.ts:317
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:309
+Defined in: packages/core/src/types.ts:409
 
 ## Methods
 
@@ -2507,7 +4329,7 @@ Defined in: packages/core/src/types.ts:309
 
 > **evaluate**(`request`, `user`, `context?`): `MaybePromise`\<`PolicyDecision`\>
 
-Defined in: packages/core/src/types.ts:312
+Defined in: packages/core/src/types.ts:412
 
 #### Parameters
 
@@ -2531,7 +4353,7 @@ Defined in: packages/core/src/types.ts:312
 
 > **getPermissions**(`serverName`): `ToolPermission`[]
 
-Defined in: packages/core/src/types.ts:311
+Defined in: packages/core/src/types.ts:411
 
 #### Parameters
 
@@ -2549,7 +4371,7 @@ Defined in: packages/core/src/types.ts:311
 
 @panther/core / RateLimiter
 
-Defined in: packages/core/src/types.ts:348
+Defined in: packages/core/src/types.ts:448
 
 Rate limiter with sliding window and quota support.
 
@@ -2559,7 +4381,7 @@ Rate limiter with sliding window and quota support.
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:352
+Defined in: packages/core/src/types.ts:452
 
 #### maxDailyCalls?
 
@@ -2579,7 +4401,7 @@ Defined in: packages/core/src/types.ts:352
 
 > **checkLimit**(`key`): `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:349
+Defined in: packages/core/src/types.ts:449
 
 #### Parameters
 
@@ -2595,7 +4417,7 @@ Defined in: packages/core/src/types.ts:349
 
 > **getRemainingCalls**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:351
+Defined in: packages/core/src/types.ts:451
 
 #### Parameters
 
@@ -2611,7 +4433,7 @@ Defined in: packages/core/src/types.ts:351
 
 > **recordCall**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:350
+Defined in: packages/core/src/types.ts:450
 
 #### Parameters
 
@@ -2629,7 +4451,7 @@ Defined in: packages/core/src/types.ts:350
 
 @panther/core / RateLimitStore
 
-Defined in: packages/core/src/types.ts:338
+Defined in: packages/core/src/types.ts:438
 
 Rate limit store for distributed tracking.
 
@@ -2639,7 +4461,7 @@ Rate limit store for distributed tracking.
 
 > **get**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:340
+Defined in: packages/core/src/types.ts:440
 
 #### Parameters
 
@@ -2655,7 +4477,7 @@ Defined in: packages/core/src/types.ts:340
 
 > **increment**(`key`, `window`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:339
+Defined in: packages/core/src/types.ts:439
 
 #### Parameters
 
@@ -2675,7 +4497,7 @@ Defined in: packages/core/src/types.ts:339
 
 > **reset**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:341
+Defined in: packages/core/src/types.ts:441
 
 #### Parameters
 
@@ -2693,7 +4515,7 @@ Defined in: packages/core/src/types.ts:341
 
 @panther/core / Registry
 
-Defined in: packages/core/src/types.ts:328
+Defined in: packages/core/src/types.ts:428
 
 Registry for resolving user data and secrets.
 
@@ -2703,7 +4525,7 @@ Registry for resolving user data and secrets.
 
 > **getSecrets**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:330
+Defined in: packages/core/src/types.ts:430
 
 #### Parameters
 
@@ -2719,7 +4541,7 @@ Defined in: packages/core/src/types.ts:330
 
 > **getTokens**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:331
+Defined in: packages/core/src/types.ts:431
 
 #### Parameters
 
@@ -2735,7 +4557,7 @@ Defined in: packages/core/src/types.ts:331
 
 > **getUser**(`userId`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:329
+Defined in: packages/core/src/types.ts:429
 
 #### Parameters
 
@@ -2755,7 +4577,7 @@ Defined in: packages/core/src/types.ts:329
 
 > **AutoLogOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:60
+Defined in: packages/core/src/McpProxy.ts:74
 
 Auto-log configuration for proxied tool calls.
 
@@ -2765,25 +4587,79 @@ Auto-log configuration for proxied tool calls.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: packages/core/src/McpProxy.ts:61
+Defined in: packages/core/src/McpProxy.ts:75
 
 ### failureLevel?
 
 > `optional` **failureLevel?**: `"warn"` \| `"error"`
 
-Defined in: packages/core/src/McpProxy.ts:64
+Defined in: packages/core/src/McpProxy.ts:78
 
 ### startLevel?
 
 > `optional` **startLevel?**: `"debug"` \| `"info"`
 
-Defined in: packages/core/src/McpProxy.ts:62
+Defined in: packages/core/src/McpProxy.ts:76
 
 ### successLevel?
 
 > `optional` **successLevel?**: `"debug"` \| `"info"`
 
-Defined in: packages/core/src/McpProxy.ts:63
+Defined in: packages/core/src/McpProxy.ts:77
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/CredentialResolution">
+
+@panther/core / CredentialResolution
+
+> **CredentialResolution** = `CredentialSourceMetadata` & `object`
+
+Defined in: packages/core/src/auth.ts:63
+
+## Type Declaration
+
+### value
+
+> **value**: `string`
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/CredentialSourceMetadata">
+
+@panther/core / CredentialSourceMetadata
+
+> **CredentialSourceMetadata** = `object`
+
+Defined in: packages/core/src/types.ts:52
+
+Credential source metadata safe to expose in middleware and logs.
+
+## Properties
+
+### groupId?
+
+> `optional` **groupId?**: `string`
+
+Defined in: packages/core/src/types.ts:56
+
+### reference
+
+> **reference**: `string`
+
+Defined in: packages/core/src/types.ts:53
+
+### source
+
+> **source**: `"user"` \| `"group"` \| `"default"`
+
+Defined in: packages/core/src/types.ts:54
+
+### userId?
+
+> `optional` **userId?**: `string`
+
+Defined in: packages/core/src/types.ts:55
 
   </Accordion>
 
@@ -2805,7 +4681,7 @@ Resolve environment variables per user.
 
 > **ErrorMapper** = `object`
 
-Defined in: packages/core/src/types.ts:385
+Defined in: packages/core/src/types.ts:485
 
 Error mapper for standardized MCP error responses.
 
@@ -2815,7 +4691,7 @@ Error mapper for standardized MCP error responses.
 
 > **mapError**(`error`, `context`): `object`
 
-Defined in: packages/core/src/types.ts:386
+Defined in: packages/core/src/types.ts:486
 
 #### Parameters
 
@@ -2853,7 +4729,7 @@ Defined in: packages/core/src/types.ts:386
 
 > **GovernanceContext** = `MiddlewareContext` & `object`
 
-Defined in: packages/core/src/types.ts:396
+Defined in: packages/core/src/types.ts:496
 
 Extended middleware context with governance.
 
@@ -2865,7 +4741,7 @@ Extended middleware context with governance.
 
 ### policy?
 
-> `optional` **policy?**: `Policy`
+> `optional` **policy?**: `PolicyContract`
 
 ### policyDecision?
 
@@ -2878,6 +4754,178 @@ Extended middleware context with governance.
 ### registry?
 
 > `optional` **registry?**: `Registry`
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/GroupMembership">
+
+@panther/core / GroupMembership
+
+> **GroupMembership** = `object`
+
+Defined in: packages/core/src/types.ts:42
+
+Configured group membership metadata for a resolved subject.
+
+## Properties
+
+### id
+
+> **id**: `string`
+
+Defined in: packages/core/src/types.ts:43
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:45
+
+### name?
+
+> `optional` **name?**: `string`
+
+Defined in: packages/core/src/types.ts:44
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/HttpProxyExposureHandle">
+
+@panther/core / HttpProxyExposureHandle
+
+> **HttpProxyExposureHandle** = `ProxyExposureHandle` & `object`
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:29
+
+Active HTTP proxy exposure handle.
+
+## Type Declaration
+
+### server
+
+> **server**: `HttpServer`
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/HttpProxyExposureTransportOptions">
+
+@panther/core / HttpProxyExposureTransportOptions
+
+> **HttpProxyExposureTransportOptions** = `object`
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:19
+
+Options for HTTP downstream proxy exposure.
+
+## Properties
+
+### onStarted?
+
+> `optional` **onStarted?**: () => `void`
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:22
+
+#### Returns
+
+`void`
+
+### path?
+
+> `optional` **path?**: `string`
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:21
+
+### port?
+
+> `optional` **port?**: `number`
+
+Defined in: packages/core/src/transports/HttpProxyExposureTransport.ts:20
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/HttpTransportApiKeyAuth">
+
+@panther/core / HttpTransportApiKeyAuth
+
+> **HttpTransportApiKeyAuth** = \{ `header`: `string`; `required?`: `boolean`; `value`: `string`; \} \| \{ `header`: `string`; `required?`: `boolean`; `resolve`: (`context`) => `MaybePromise`\<`string` \| `null` \| `undefined`\>; \}
+
+Defined in: packages/core/src/transportAuth.ts:16
+
+API key auth options for HTTP-family MCP transports.
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/HttpTransportAuthContext">
+
+@panther/core / HttpTransportAuthContext
+
+> **HttpTransportAuthContext** = `object`
+
+Defined in: packages/core/src/transportAuth.ts:8
+
+User-aware HTTP-family auth resolver context.
+
+## Properties
+
+### user
+
+> **user**: `UserContext`
+
+Defined in: packages/core/src/transportAuth.ts:9
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/HttpTransportAuthOptions">
+
+@panther/core / HttpTransportAuthOptions
+
+> **HttpTransportAuthOptions** = `object`
+
+Defined in: packages/core/src/transportAuth.ts:32
+
+Shared auth options for HTTP-family upstream MCP transports.
+
+## Properties
+
+### apiKey?
+
+> `optional` **apiKey?**: `HttpTransportApiKeyAuth`
+
+Defined in: packages/core/src/transportAuth.ts:35
+
+### bearerToken?
+
+> `optional` **bearerToken?**: `string` \| ((`context`) => `MaybePromise`\<`string` \| `null` \| `undefined`\>)
+
+Defined in: packages/core/src/transportAuth.ts:34
+
+### headers?
+
+> `optional` **headers?**: `Record`\<`string`, `string`\>
+
+Defined in: packages/core/src/transportAuth.ts:33
+
+### required?
+
+> `optional` **required?**: `boolean`
+
+Defined in: packages/core/src/transportAuth.ts:37
+
+### resolveHeaders?
+
+> `optional` **resolveHeaders?**: (`context`) => `MaybePromise`\<`Record`\<`string`, `string`\> \| `null` \| `undefined`\>
+
+Defined in: packages/core/src/transportAuth.ts:36
+
+#### Parameters
+
+##### context
+
+`HttpTransportAuthContext`
+
+#### Returns
+
+`MaybePromise`\<`Record`\<`string`, `string`\> \| `null` \| `undefined`\>
 
   </Accordion>
 
@@ -2925,7 +4973,7 @@ Defined in: packages/core/src/transports/HttpTransport.ts:15
 
 > **IdentityMetadata** = `object`
 
-Defined in: packages/core/src/types.ts:30
+Defined in: packages/core/src/types.ts:95
 
 Identity metadata resolved at the proxy edge.
 
@@ -2935,25 +4983,25 @@ Identity metadata resolved at the proxy edge.
 
 > `optional` **authenticated?**: `boolean`
 
-Defined in: packages/core/src/types.ts:32
+Defined in: packages/core/src/types.ts:97
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:34
+Defined in: packages/core/src/types.ts:99
 
 ### strategy?
 
 > `optional` **strategy?**: `string`
 
-Defined in: packages/core/src/types.ts:31
+Defined in: packages/core/src/types.ts:96
 
 ### userId?
 
 > `optional` **userId?**: `string`
 
-Defined in: packages/core/src/types.ts:33
+Defined in: packages/core/src/types.ts:98
 
   </Accordion>
 
@@ -2963,7 +5011,7 @@ Defined in: packages/core/src/types.ts:33
 
 > **IdentityResolverOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:71
+Defined in: packages/core/src/McpProxy.ts:85
 
 Identity resolver configuration for proxy-edge auth.
 
@@ -2973,13 +5021,13 @@ Identity resolver configuration for proxy-edge auth.
 
 > `optional` **required?**: `boolean`
 
-Defined in: packages/core/src/McpProxy.ts:73
+Defined in: packages/core/src/McpProxy.ts:87
 
 ### strategy
 
 > **strategy**: `IdentityStrategy`
 
-Defined in: packages/core/src/McpProxy.ts:72
+Defined in: packages/core/src/McpProxy.ts:86
 
   </Accordion>
 
@@ -2989,7 +5037,7 @@ Defined in: packages/core/src/McpProxy.ts:72
 
 > **IdentityStrategy** = `object`
 
-Defined in: packages/core/src/types.ts:363
+Defined in: packages/core/src/types.ts:463
 
 Identity resolution strategy.
 
@@ -2999,7 +5047,7 @@ Identity resolution strategy.
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:364
+Defined in: packages/core/src/types.ts:464
 
 ## Methods
 
@@ -3007,7 +5055,7 @@ Defined in: packages/core/src/types.ts:364
 
 > **resolve**(`request`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:365
+Defined in: packages/core/src/types.ts:465
 
 #### Parameters
 
@@ -3029,7 +5077,7 @@ Defined in: packages/core/src/types.ts:365
 
 > **LifecycleHook** = (`event`, `context`) => `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:88
+Defined in: packages/core/src/types.ts:154
 
 Hook invoked for proxy lifecycle events.
 
@@ -3055,7 +5103,7 @@ Hook invoked for proxy lifecycle events.
 
 > **LifecycleHookContext** = `object`
 
-Defined in: packages/core/src/types.ts:75
+Defined in: packages/core/src/types.ts:140
 
 Lifecycle hook context.
 
@@ -3065,37 +5113,43 @@ Lifecycle hook context.
 
 > `optional` **error?**: `Error`
 
-Defined in: packages/core/src/types.ts:80
+Defined in: packages/core/src/types.ts:146
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:77
+Defined in: packages/core/src/types.ts:143
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:81
+Defined in: packages/core/src/types.ts:147
 
 ### request?
 
 > `optional` **request?**: `ToolCallRequest`
 
-Defined in: packages/core/src/types.ts:79
+Defined in: packages/core/src/types.ts:145
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: packages/core/src/types.ts:78
+Defined in: packages/core/src/types.ts:144
+
+### subject?
+
+> `optional` **subject?**: `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:142
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:76
+Defined in: packages/core/src/types.ts:141
 
   </Accordion>
 
@@ -3105,7 +5159,7 @@ Defined in: packages/core/src/types.ts:76
 
 > **LifecycleHookEvent** = `"sessionStart"` \| `"sessionEnd"` \| `"toolFailure"`
 
-Defined in: packages/core/src/types.ts:69
+Defined in: packages/core/src/types.ts:134
 
 Lifecycle event names emitted by the proxy.
 
@@ -3117,41 +5171,53 @@ Lifecycle event names emitted by the proxy.
 
 > **ListToolsContext** = `object`
 
-Defined in: packages/core/src/types.ts:112
+Defined in: packages/core/src/types.ts:178
 
 Context passed to list tool hooks.
 
 ## Properties
 
+### credentialSources?
+
+> `optional` **credentialSources?**: `CredentialSourceMetadata`[]
+
+Defined in: packages/core/src/types.ts:185
+
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:114
+Defined in: packages/core/src/types.ts:181
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:115
+Defined in: packages/core/src/types.ts:182
 
 ### policy?
 
-> `optional` **policy?**: `Policy`
+> `optional` **policy?**: `PolicyContract`
 
-Defined in: packages/core/src/types.ts:116
+Defined in: packages/core/src/types.ts:183
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:117
+Defined in: packages/core/src/types.ts:184
+
+### subject?
+
+> `optional` **subject?**: `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:180
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:113
+Defined in: packages/core/src/types.ts:179
 
   </Accordion>
 
@@ -3161,7 +5227,7 @@ Defined in: packages/core/src/types.ts:113
 
 > **ListToolsHook** = (`tools`, `context`) => `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:103
+Defined in: packages/core/src/types.ts:169
 
 Hook invoked after upstream tool discovery and before returning tools to the client.
 
@@ -3178,6 +5244,52 @@ Hook invoked after upstream tool discovery and before returning tools to the cli
 ## Returns
 
 `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/LocalAuthOptions">
+
+@panther/core / LocalAuthOptions
+
+> **LocalAuthOptions** = `object`
+
+Defined in: packages/core/src/auth.ts:56
+
+## Properties
+
+### credentialsFile?
+
+> `optional` **credentialsFile?**: `string`
+
+Defined in: packages/core/src/auth.ts:59
+
+### dir
+
+> **dir**: `string`
+
+Defined in: packages/core/src/auth.ts:57
+
+### key
+
+> **key**: `string` \| `Buffer`
+
+Defined in: packages/core/src/auth.ts:58
+
+### upstreamAuthFile?
+
+> `optional` **upstreamAuthFile?**: `string`
+
+Defined in: packages/core/src/auth.ts:60
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/LocalCredentials">
+
+@panther/core / LocalCredentials
+
+> **LocalCredentials** = `z.infer`\<*typeof* `localCredentialsSchema`\>
+
+Defined in: packages/core/src/auth.ts:52
 
   </Accordion>
 
@@ -3339,83 +5451,95 @@ Maybe a promise for async compatibility.
 
 > **McpProxyOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:41
+Defined in: packages/core/src/McpProxy.ts:53
 
 Options for creating an MCP proxy server.
 
 ## Properties
 
+### auth?
+
+> `optional` **auth?**: `PantherAuth`
+
+Defined in: packages/core/src/McpProxy.ts:62
+
 ### autoLog?
 
 > `optional` **autoLog?**: `boolean` \| `AutoLogOptions`
 
-Defined in: packages/core/src/McpProxy.ts:50
+Defined in: packages/core/src/McpProxy.ts:64
 
 ### errorMapper?
 
 > `optional` **errorMapper?**: `ErrorMapper`
 
-Defined in: packages/core/src/McpProxy.ts:51
+Defined in: packages/core/src/McpProxy.ts:65
+
+### groups?
+
+> `optional` **groups?**: `Group`[]
+
+Defined in: packages/core/src/McpProxy.ts:61
 
 ### identity?
 
 > `optional` **identity?**: `IdentityStrategy` \| `IdentityResolverOptions`
 
-Defined in: packages/core/src/McpProxy.ts:47
+Defined in: packages/core/src/McpProxy.ts:59
 
 ### logger?
 
 > `optional` **logger?**: `Logger`
 
-Defined in: packages/core/src/McpProxy.ts:45
+Defined in: packages/core/src/McpProxy.ts:57
 
 ### name?
 
 > `optional` **name?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:52
+Defined in: packages/core/src/McpProxy.ts:66
 
 ### path?
 
 > `optional` **path?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:44
+Defined in: packages/core/src/McpProxy.ts:56
 
 ### policy?
 
-> `optional` **policy?**: `Policy`
+> `optional` **policy?**: `PolicyContract`
 
-Defined in: packages/core/src/McpProxy.ts:48
+Defined in: packages/core/src/McpProxy.ts:60
 
 ### port?
 
 > `optional` **port?**: `number`
 
-Defined in: packages/core/src/McpProxy.ts:43
+Defined in: packages/core/src/McpProxy.ts:55
 
 ### registry?
 
 > `optional` **registry?**: `Registry`
 
-Defined in: packages/core/src/McpProxy.ts:49
+Defined in: packages/core/src/McpProxy.ts:63
 
 ### servers
 
 > **servers**: `McpServer`[]
 
-Defined in: packages/core/src/McpProxy.ts:42
+Defined in: packages/core/src/McpProxy.ts:54
 
 ### user?
 
 > `optional` **user?**: `UserContext` \| ((`request`) => `UserContext` \| `Promise`\<`UserContext`\>)
 
-Defined in: packages/core/src/McpProxy.ts:46
+Defined in: packages/core/src/McpProxy.ts:58
 
 ### version?
 
 > `optional` **version?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:53
+Defined in: packages/core/src/McpProxy.ts:67
 
   </Accordion>
 
@@ -3425,7 +5549,7 @@ Defined in: packages/core/src/McpProxy.ts:53
 
 > **McpProxyStartOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:80
+Defined in: packages/core/src/McpProxy.ts:94
 
 Optional start overrides for the MCP proxy.
 
@@ -3435,13 +5559,13 @@ Optional start overrides for the MCP proxy.
 
 > `optional` **path?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:82
+Defined in: packages/core/src/McpProxy.ts:96
 
 ### port?
 
 > `optional` **port?**: `number`
 
-Defined in: packages/core/src/McpProxy.ts:81
+Defined in: packages/core/src/McpProxy.ts:95
 
   </Accordion>
 
@@ -3501,7 +5625,7 @@ Defined in: packages/core/src/McpServer.ts:23
 
 > **Middleware** = (`request`, `context`, `next`) => `MaybePromise`\<`CallToolResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:266
+Defined in: packages/core/src/types.ts:336
 
 Middleware function signature.
 
@@ -3531,59 +5655,71 @@ Middleware function signature.
 
 > **MiddlewareContext** = `object`
 
-Defined in: packages/core/src/types.ts:245
+Defined in: packages/core/src/types.ts:313
 
 Middleware execution context.
 
 ## Properties
 
+### credentialSources?
+
+> `optional` **credentialSources?**: `CredentialSourceMetadata`[]
+
+Defined in: packages/core/src/types.ts:323
+
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:247
+Defined in: packages/core/src/types.ts:316
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:248
+Defined in: packages/core/src/types.ts:317
 
 ### policy?
 
-> `optional` **policy?**: `Policy`
+> `optional` **policy?**: `PolicyContract`
 
-Defined in: packages/core/src/types.ts:250
+Defined in: packages/core/src/types.ts:319
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:251
+Defined in: packages/core/src/types.ts:320
 
 ### rateLimiter?
 
 > `optional` **rateLimiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:253
+Defined in: packages/core/src/types.ts:322
 
 ### registry?
 
 > `optional` **registry?**: `Registry`
 
-Defined in: packages/core/src/types.ts:252
+Defined in: packages/core/src/types.ts:321
 
 ### res
 
 > **res**: `ResponseController`
 
-Defined in: packages/core/src/types.ts:249
+Defined in: packages/core/src/types.ts:318
+
+### subject?
+
+> `optional` **subject?**: `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:315
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:246
+Defined in: packages/core/src/types.ts:314
 
   </Accordion>
 
@@ -3593,7 +5729,7 @@ Defined in: packages/core/src/types.ts:246
 
 > **Next** = () => `Promise`\<`CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:260
+Defined in: packages/core/src/types.ts:330
 
 Next middleware handler.
 
@@ -3609,7 +5745,7 @@ Next middleware handler.
 
 > **PanterTransport** = `object`
 
-Defined in: packages/core/src/types.ts:276
+Defined in: packages/core/src/types.ts:346
 
 Transport interface for MCP client interactions.
 
@@ -3619,7 +5755,7 @@ Transport interface for MCP client interactions.
 
 > **callTool**(`params`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `content`: `z.ZodDefault`\<`z.ZodArray`\<`z.ZodUnion`\<readonly \[`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `text`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `description`: `z.ZodOptional`\<...\>; `icons`: `z.ZodOptional`\<...\>; `mimeType`: `z.ZodOptional`\<...\>; `name`: `z.ZodString`; `size`: `z.ZodOptional`\<...\>; `title`: `z.ZodOptional`\<...\>; `type`: `z.ZodLiteral`\<...\>; `uri`: `z.ZodString`; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `resource`: `z.ZodUnion`\<...\>; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>\]\>\>\>; `isError?`: `z.ZodOptional`\<`z.ZodBoolean`\>; `structuredContent?`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:278
+Defined in: packages/core/src/types.ts:348
 
 #### Parameters
 
@@ -3649,7 +5785,7 @@ Defined in: packages/core/src/types.ts:278
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:279
+Defined in: packages/core/src/types.ts:349
 
 #### Returns
 
@@ -3659,7 +5795,7 @@ Defined in: packages/core/src/types.ts:279
 
 > **listTools**(`params?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `nextCursor?`: `z.ZodOptional`\<`z.ZodString`\>; `tools`: `z.ZodArray`\<`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; `annotations`: `z.ZodOptional`\<`z.ZodObject`\<\{ `destructiveHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `idempotentHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `openWorldHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `readOnlyHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; `description`: `z.ZodOptional`\<`z.ZodString`\>; `execution`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskSupport`: `z.ZodOptional`\<`z.ZodEnum`\<...\>\>; \}, `z.core.$strip`\>\>; `icons`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodObject`\<\{ `mimeType`: `z.ZodOptional`\<...\>; `sizes`: `z.ZodOptional`\<...\>; `src`: `z.ZodString`; `theme`: `z.ZodOptional`\<...\>; \}, `z.core.$strip`\>\>\>; `inputSchema`: `z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodCustom`\<..., ...\>\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodString`\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>; `name`: `z.ZodString`; `outputSchema`: `z.ZodOptional`\<`z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<..., ...\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<...\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:277
+Defined in: packages/core/src/types.ts:347
 
 #### Parameters
 
@@ -3685,7 +5821,7 @@ Defined in: packages/core/src/types.ts:277
 
 > **PolicyDecision** = `object`
 
-Defined in: packages/core/src/types.ts:298
+Defined in: packages/core/src/types.ts:398
 
 Policy evaluation result.
 
@@ -3695,19 +5831,141 @@ Policy evaluation result.
 
 > **allowed**: `boolean`
 
-Defined in: packages/core/src/types.ts:299
+Defined in: packages/core/src/types.ts:399
 
 ### metadata?
 
-> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+> `optional` **metadata?**: `PolicyMetadata` & `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:301
+Defined in: packages/core/src/types.ts:401
 
 ### reason?
 
 > `optional` **reason?**: `string`
 
-Defined in: packages/core/src/types.ts:300
+Defined in: packages/core/src/types.ts:400
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/PolicyMetadata">
+
+@panther/core / PolicyMetadata
+
+> **PolicyMetadata** = `object`
+
+Defined in: packages/core/src/types.ts:63
+
+Effective policy metadata safe to expose in middleware and logs.
+
+## Properties
+
+### denialReason?
+
+> `optional` **denialReason?**: `string`
+
+Defined in: packages/core/src/types.ts:74
+
+### matchedGroups?
+
+> `optional` **matchedGroups?**: `string`[]
+
+Defined in: packages/core/src/types.ts:65
+
+### matchedPermissions?
+
+> `optional` **matchedPermissions?**: `object`[]
+
+Defined in: packages/core/src/types.ts:66
+
+#### effect
+
+> **effect**: `"allow"` \| `"deny"`
+
+#### groupId?
+
+> `optional` **groupId?**: `string`
+
+#### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+#### policyName
+
+> **policyName**: `string`
+
+#### serverName
+
+> **serverName**: `string`
+
+#### toolName
+
+> **toolName**: `string`
+
+### policyName?
+
+> `optional` **policyName?**: `string`
+
+Defined in: packages/core/src/types.ts:64
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/ProxyExposureHandle">
+
+@panther/core / ProxyExposureHandle
+
+> **ProxyExposureHandle** = `object`
+
+Defined in: packages/core/src/types.ts:356
+
+Active downstream proxy exposure handle.
+
+## Methods
+
+### close()
+
+> **close**(): `Promise`\<`void`\>
+
+Defined in: packages/core/src/types.ts:357
+
+#### Returns
+
+`Promise`\<`void`\>
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/ProxyExposureTransport">
+
+@panther/core / ProxyExposureTransport
+
+> **ProxyExposureTransport**\<`THandle`\> = `object`
+
+Defined in: packages/core/src/types.ts:378
+
+Transport interface for exposing the Panther proxy to downstream MCP clients.
+
+## Type Parameters
+
+### THandle
+
+`THandle` *extends* `ProxyExposureHandle` = `ProxyExposureHandle`
+
+## Methods
+
+### listen()
+
+> **listen**(`runtime`): `Promise`\<`THandle`\>
+
+Defined in: packages/core/src/types.ts:379
+
+#### Parameters
+
+##### runtime
+
+`ProxyRuntime`
+
+#### Returns
+
+`Promise`\<`THandle`\>
 
   </Accordion>
 
@@ -3717,9 +5975,119 @@ Defined in: packages/core/src/types.ts:300
 
 > **ProxyHookEvent** = `"call"`
 
-Defined in: packages/core/src/types.ts:63
+Defined in: packages/core/src/types.ts:128
 
 Event names supported by the proxy hook system.
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/ProxyRuntime">
+
+@panther/core / ProxyRuntime
+
+> **ProxyRuntime** = `object`
+
+Defined in: packages/core/src/types.ts:364
+
+Runtime operations shared by downstream proxy exposure transports.
+
+## Properties
+
+### identityRequired
+
+> **identityRequired**: `boolean`
+
+Defined in: packages/core/src/types.ts:371
+
+### logger
+
+> **logger**: `Logger`
+
+Defined in: packages/core/src/types.ts:370
+
+## Methods
+
+### createSdkServer()
+
+> **createSdkServer**(`user?`, `identity?`, `subject?`): `unknown`
+
+Defined in: packages/core/src/types.ts:365
+
+#### Parameters
+
+##### user?
+
+`UserContext`
+
+##### identity?
+
+`IdentityMetadata`
+
+##### subject?
+
+`ResolvedSubject`
+
+#### Returns
+
+`unknown`
+
+### emitSessionEnd()
+
+> **emitSessionEnd**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/types.ts:369
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### emitSessionStart()
+
+> **emitSessionStart**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/types.ts:368
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### resolveHttpUser()
+
+> **resolveHttpUser**(`request`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/types.ts:366
+
+#### Parameters
+
+##### request
+
+`unknown`
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+### resolveStdioUser()
+
+> **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/types.ts:367
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
   </Accordion>
 
@@ -3859,6 +6227,210 @@ Defined in: packages/core/src/registry.ts:18
 
   </Accordion>
 
+  <Accordion title="Core exports: type-aliases/ResolvedSubject">
+
+@panther/core / ResolvedSubject
+
+> **ResolvedSubject** = `object`
+
+Defined in: packages/core/src/types.ts:81
+
+Authenticated subject resolved from user and group declarations.
+
+## Properties
+
+### displayName?
+
+> `optional` **displayName?**: `string`
+
+Defined in: packages/core/src/types.ts:83
+
+### email?
+
+> `optional` **email?**: `string`
+
+Defined in: packages/core/src/types.ts:84
+
+### groups
+
+> **groups**: `GroupMembership`[]
+
+Defined in: packages/core/src/types.ts:87
+
+### id
+
+> **id**: `string`
+
+Defined in: packages/core/src/types.ts:82
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:85
+
+### tenant?
+
+> `optional` **tenant?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:86
+
+## Methods
+
+### hasGroup()
+
+> **hasGroup**(`groupId`): `boolean`
+
+Defined in: packages/core/src/types.ts:88
+
+#### Parameters
+
+##### groupId
+
+`string`
+
+#### Returns
+
+`boolean`
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/SseMcpTransportOptions">
+
+@panther/core / SseMcpTransportOptions
+
+> **SseMcpTransportOptions** = `object`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:17
+
+Options for native MCP SSE upstream transport.
+
+## Properties
+
+### auth?
+
+> `optional` **auth?**: `HttpTransportAuthOptions`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:19
+
+### clientName?
+
+> `optional` **clientName?**: `string`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:23
+
+### clientVersion?
+
+> `optional` **clientVersion?**: `string`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:24
+
+### eventSourceInit?
+
+> `optional` **eventSourceInit?**: `SSEClientTransportOptions`\[`"eventSourceInit"`\]
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:20
+
+### fetch?
+
+> `optional` **fetch?**: `SSEClientTransportOptions`\[`"fetch"`\]
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:22
+
+### requestInit?
+
+> `optional` **requestInit?**: `RequestInit`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:21
+
+### url
+
+> **url**: `string` \| `URL`
+
+Defined in: packages/core/src/transports/SseMcpTransport.ts:18
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/SseProxyExposureHandle">
+
+@panther/core / SseProxyExposureHandle
+
+> **SseProxyExposureHandle** = `ProxyExposureHandle` & `object`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:29
+
+Active SSE proxy exposure handle.
+
+## Type Declaration
+
+### server
+
+> **server**: `HttpServer`
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/SseProxyExposureTransportOptions">
+
+@panther/core / SseProxyExposureTransportOptions
+
+> **SseProxyExposureTransportOptions** = `object`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:18
+
+Options for SSE downstream proxy exposure.
+
+## Properties
+
+### messagePath?
+
+> `optional` **messagePath?**: `string`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:21
+
+### onStarted?
+
+> `optional` **onStarted?**: () => `void`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:22
+
+#### Returns
+
+`void`
+
+### port?
+
+> `optional` **port?**: `number`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:19
+
+### ssePath?
+
+> `optional` **ssePath?**: `string`
+
+Defined in: packages/core/src/transports/SseProxyExposureTransport.ts:20
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/StdioProxyExposureTransportOptions">
+
+@panther/core / StdioProxyExposureTransportOptions
+
+> **StdioProxyExposureTransportOptions** = `object`
+
+Defined in: packages/core/src/transports/StdioProxyExposureTransport.ts:16
+
+Options for stdio downstream proxy exposure.
+
+## Properties
+
+### user?
+
+> `optional` **user?**: `UserContext` \| (() => `UserContext` \| `Promise`\<`UserContext`\>)
+
+Defined in: packages/core/src/transports/StdioProxyExposureTransport.ts:17
+
+  </Accordion>
+
   <Accordion title="Core exports: type-aliases/StdioTransportOptions">
 
 @panther/core / StdioTransportOptions
@@ -3909,13 +6481,157 @@ Defined in: packages/core/src/transports/StdioTransport.ts:20
 
   </Accordion>
 
+  <Accordion title="Core exports: type-aliases/StreamableHttpMcpTransportOptions">
+
+@panther/core / StreamableHttpMcpTransportOptions
+
+> **StreamableHttpMcpTransportOptions** = `object`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:17
+
+Options for native MCP Streamable HTTP upstream transport.
+
+## Properties
+
+### auth?
+
+> `optional` **auth?**: `HttpTransportAuthOptions`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:19
+
+### clientName?
+
+> `optional` **clientName?**: `string`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:23
+
+### clientVersion?
+
+> `optional` **clientVersion?**: `string`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:24
+
+### fetch?
+
+> `optional` **fetch?**: `StreamableHTTPClientTransportOptions`\[`"fetch"`\]
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:21
+
+### requestInit?
+
+> `optional` **requestInit?**: `RequestInit`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:20
+
+### sessionId?
+
+> `optional` **sessionId?**: `string`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:22
+
+### url
+
+> **url**: `string` \| `URL`
+
+Defined in: packages/core/src/transports/StreamableHttpMcpTransport.ts:18
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/SubjectIndex">
+
+@panther/core / SubjectIndex
+
+> **SubjectIndex** = `object`
+
+Defined in: packages/core/src/governance.ts:302
+
+## Methods
+
+### groupsFor()
+
+> **groupsFor**(`userId`): `Group`[]
+
+Defined in: packages/core/src/governance.ts:304
+
+#### Parameters
+
+##### userId
+
+`string`
+
+#### Returns
+
+`Group`[]
+
+### resolve()
+
+> **resolve**(`userId`): `ResolvedSubject` \| `null`
+
+Defined in: packages/core/src/governance.ts:303
+
+#### Parameters
+
+##### userId
+
+`string`
+
+#### Returns
+
+`ResolvedSubject` \| `null`
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/SubjectMetadata">
+
+@panther/core / SubjectMetadata
+
+> **SubjectMetadata** = `object`
+
+Defined in: packages/core/src/types.ts:30
+
+Non-sensitive subject metadata declared in application code.
+
+## Properties
+
+### displayName?
+
+> `optional` **displayName?**: `string`
+
+Defined in: packages/core/src/types.ts:31
+
+### email?
+
+> `optional` **email?**: `string`
+
+Defined in: packages/core/src/types.ts:32
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:35
+
+### tenant?
+
+> `optional` **tenant?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:34
+
+### tenantId?
+
+> `optional` **tenantId?**: `string`
+
+Defined in: packages/core/src/types.ts:33
+
+  </Accordion>
+
   <Accordion title="Core exports: type-aliases/ToolCallHook">
 
 @panther/core / ToolCallHook
 
 > **ToolCallHook** = (`request`, `context`) => `MaybePromise`\<`void` \| `CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:94
+Defined in: packages/core/src/types.ts:160
 
 Hook invoked for matched tool calls.
 
@@ -3941,7 +6657,7 @@ Hook invoked for matched tool calls.
 
 > **ToolCallHookFilter** = `object`
 
-Defined in: packages/core/src/types.ts:53
+Defined in: packages/core/src/types.ts:118
 
 Filter for proxy call hooks.
 
@@ -3951,19 +6667,19 @@ Filter for proxy call hooks.
 
 > `optional` **proxyTool?**: `string`
 
-Defined in: packages/core/src/types.ts:56
+Defined in: packages/core/src/types.ts:121
 
 ### server?
 
 > `optional` **server?**: `string`
 
-Defined in: packages/core/src/types.ts:54
+Defined in: packages/core/src/types.ts:119
 
 ### tool?
 
 > `optional` **tool?**: `string`
 
-Defined in: packages/core/src/types.ts:55
+Defined in: packages/core/src/types.ts:120
 
   </Accordion>
 
@@ -3973,7 +6689,7 @@ Defined in: packages/core/src/types.ts:55
 
 > **ToolCallRequest** = `object`
 
-Defined in: packages/core/src/types.ts:41
+Defined in: packages/core/src/types.ts:106
 
 Normalized tool call details for middleware.
 
@@ -3983,31 +6699,31 @@ Normalized tool call details for middleware.
 
 > **arguments**: `CallToolRequest`\[`"params"`\]\[`"arguments"`\]
 
-Defined in: packages/core/src/types.ts:45
+Defined in: packages/core/src/types.ts:110
 
 ### proxyToolName
 
 > **proxyToolName**: `string`
 
-Defined in: packages/core/src/types.ts:44
+Defined in: packages/core/src/types.ts:109
 
 ### raw
 
 > **raw**: `CallToolRequest`\[`"params"`\]
 
-Defined in: packages/core/src/types.ts:46
+Defined in: packages/core/src/types.ts:111
 
 ### serverName
 
 > **serverName**: `string`
 
-Defined in: packages/core/src/types.ts:42
+Defined in: packages/core/src/types.ts:107
 
 ### toolName
 
 > **toolName**: `string`
 
-Defined in: packages/core/src/types.ts:43
+Defined in: packages/core/src/types.ts:108
 
   </Accordion>
 
@@ -4017,7 +6733,7 @@ Defined in: packages/core/src/types.ts:43
 
 > **ToolPermission** = `object`
 
-Defined in: packages/core/src/types.ts:286
+Defined in: packages/core/src/types.ts:386
 
 Tool permission model for policy enforcement.
 
@@ -4027,7 +6743,7 @@ Tool permission model for policy enforcement.
 
 > `optional` **approval?**: (`request`, `context`) => `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:290
+Defined in: packages/core/src/types.ts:390
 
 #### Parameters
 
@@ -4047,25 +6763,83 @@ Defined in: packages/core/src/types.ts:290
 
 > `optional` **effect?**: `"allow"` \| `"deny"`
 
-Defined in: packages/core/src/types.ts:288
+Defined in: packages/core/src/types.ts:388
 
 ### limiter?
 
 > `optional` **limiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:289
+Defined in: packages/core/src/types.ts:389
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:291
+Defined in: packages/core/src/types.ts:391
 
 ### tool
 
 > **tool**: `string`
 
-Defined in: packages/core/src/types.ts:287
+Defined in: packages/core/src/types.ts:387
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/ToolPermissionOptions">
+
+@panther/core / ToolPermissionOptions
+
+> **ToolPermissionOptions** = `object`
+
+Defined in: packages/core/src/governance.ts:223
+
+Permission helper options.
+
+## Properties
+
+### approval?
+
+> `optional` **approval?**: `ToolPermission`\[`"approval"`\]
+
+Defined in: packages/core/src/governance.ts:225
+
+### limiter?
+
+> `optional` **limiter?**: `ToolPermission`\[`"limiter"`\]
+
+Defined in: packages/core/src/governance.ts:224
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/governance.ts:226
+
+### sensitive?
+
+> `optional` **sensitive?**: `boolean` \| `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/governance.ts:227
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/UpstreamAuthBinding">
+
+@panther/core / UpstreamAuthBinding
+
+> **UpstreamAuthBinding** = `z.infer`\<*typeof* `upstreamAuthBindingSchema`\>
+
+Defined in: packages/core/src/auth.ts:53
+
+  </Accordion>
+
+  <Accordion title="Core exports: type-aliases/UpstreamAuthBindings">
+
+@panther/core / UpstreamAuthBindings
+
+> **UpstreamAuthBindings** = `z.infer`\<*typeof* `upstreamAuthBindingsSchema`\>
+
+Defined in: packages/core/src/auth.ts:54
 
   </Accordion>
 
@@ -4143,7 +6917,7 @@ Standard Panther MCP-style error codes.
 
 @panther/core / McpProxy
 
-Defined in: packages/core/src/McpProxy.ts:100
+Defined in: packages/core/src/McpProxy.ts:115
 
 HTTP proxy for multiple MCP servers.
 
@@ -4153,7 +6927,7 @@ HTTP proxy for multiple MCP servers.
 
 > **new McpProxy**(`options`): `McpProxy`
 
-Defined in: packages/core/src/McpProxy.ts:124
+Defined in: packages/core/src/McpProxy.ts:143
 
 Create a new MCP proxy instance.
 
@@ -4171,9 +6945,9 @@ Create a new MCP proxy instance.
 
 ### callTool()
 
-> **callTool**(`params`, `user?`, `identity?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
+> **callTool**(`params`, `user?`, `identity?`, `subject?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:330
+Defined in: packages/core/src/McpProxy.ts:332
 
 Call a proxied tool with middleware dispatch.
 
@@ -4225,6 +6999,10 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 `IdentityMetadata`
 
+##### subject?
+
+`ResolvedSubject`
+
 #### Returns
 
 `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
@@ -4233,7 +7011,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpProxy.ts:270
+Defined in: packages/core/src/McpProxy.ts:277
 
 Close the HTTP server and all backends.
 
@@ -4241,11 +7019,97 @@ Close the HTTP server and all backends.
 
 `Promise`\<`void`\>
 
+### createSdkServer()
+
+> **createSdkServer**(`user?`, `identity?`, `subject?`): `Server`
+
+Defined in: packages/core/src/McpProxy.ts:427
+
+Create the MCP SDK server and attach handlers.
+
+#### Parameters
+
+##### user?
+
+`UserContext` = `{}`
+
+##### identity?
+
+`IdentityMetadata`
+
+##### subject?
+
+`ResolvedSubject`
+
+#### Returns
+
+`Server`
+
+### emitSessionEnd()
+
+> **emitSessionEnd**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/McpProxy.ts:474
+
+Emit a downstream session end lifecycle event.
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### emitSessionStart()
+
+> **emitSessionStart**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/McpProxy.ts:466
+
+Emit a downstream session start lifecycle event.
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### listen()
+
+> **listen**\<`THandle`\>(`transport`): `Promise`\<`THandle`\>
+
+Defined in: packages/core/src/McpProxy.ts:267
+
+Start the proxy with an explicit downstream exposure transport.
+
+#### Type Parameters
+
+##### THandle
+
+`THandle` *extends* `ProxyExposureHandle`
+
+#### Parameters
+
+##### transport
+
+`ProxyExposureTransport`\<`THandle`\>
+
+#### Returns
+
+`Promise`\<`THandle`\>
+
 ### listTools()
 
-> **listTools**(`params?`, `user?`, `identity?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
+> **listTools**(`params?`, `user?`, `identity?`, `subject?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:292
+Defined in: packages/core/src/McpProxy.ts:288
 
 List tools across all configured servers.
 
@@ -4285,6 +7149,10 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 `IdentityMetadata`
 
+##### subject?
+
+`ResolvedSubject`
+
 #### Returns
 
 `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
@@ -4295,7 +7163,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **on**(`event`, `handler`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:159
+Defined in: packages/core/src/McpProxy.ts:181
 
 Register an event hook.
 
@@ -4317,7 +7185,7 @@ Register an event hook.
 
 > **on**(`event`, `filter`, `handler`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:164
+Defined in: packages/core/src/McpProxy.ts:186
 
 Register a filtered event hook.
 
@@ -4343,7 +7211,7 @@ Register a filtered event hook.
 
 > **onLifecycle**(`event`, `handler`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:184
+Defined in: packages/core/src/McpProxy.ts:206
 
 Register a lifecycle hook.
 
@@ -4365,7 +7233,7 @@ Register a lifecycle hook.
 
 > **onListTools**(`hook`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:199
+Defined in: packages/core/src/McpProxy.ts:221
 
 Register a hook that can transform listed tools.
 
@@ -4379,13 +7247,43 @@ Register a hook that can transform listed tools.
 
 `this`
 
+### resolveHttpUser()
+
+> **resolveHttpUser**(`req`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/McpProxy.ts:449
+
+Resolve user context from an HTTP downstream request.
+
+#### Parameters
+
+##### req
+
+`IncomingMessage`
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+### resolveStdioUser()
+
+> **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/McpProxy.ts:457
+
+Resolve user context for non-HTTP stdio downstream exposure.
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
 ### start()
 
 #### Call Signature
 
 > **start**(`onStarted?`): `Promise`\<`Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\>\>
 
-Defined in: packages/core/src/McpProxy.ts:208
+Defined in: packages/core/src/McpProxy.ts:230
 
 Start the HTTP server.
 
@@ -4403,7 +7301,7 @@ Start the HTTP server.
 
 > **start**(`options?`, `onStarted?`): `Promise`\<`Server`\<*typeof* `IncomingMessage`, *typeof* `ServerResponse`\>\>
 
-Defined in: packages/core/src/McpProxy.ts:213
+Defined in: packages/core/src/McpProxy.ts:235
 
 Start the HTTP server with optional overrides.
 
@@ -4425,7 +7323,7 @@ Start the HTTP server with optional overrides.
 
 > **use**(`middleware`): `this`
 
-Defined in: packages/core/src/McpProxy.ts:150
+Defined in: packages/core/src/McpProxy.ts:172
 
 Register a middleware handler.
 
@@ -4447,7 +7345,7 @@ Register a middleware handler.
 
 > **AutoLogOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:60
+Defined in: packages/core/src/McpProxy.ts:74
 
 Auto-log configuration for proxied tool calls.
 
@@ -4457,25 +7355,25 @@ Auto-log configuration for proxied tool calls.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: packages/core/src/McpProxy.ts:61
+Defined in: packages/core/src/McpProxy.ts:75
 
 ### failureLevel?
 
 > `optional` **failureLevel?**: `"warn"` \| `"error"`
 
-Defined in: packages/core/src/McpProxy.ts:64
+Defined in: packages/core/src/McpProxy.ts:78
 
 ### startLevel?
 
 > `optional` **startLevel?**: `"debug"` \| `"info"`
 
-Defined in: packages/core/src/McpProxy.ts:62
+Defined in: packages/core/src/McpProxy.ts:76
 
 ### successLevel?
 
 > `optional` **successLevel?**: `"debug"` \| `"info"`
 
-Defined in: packages/core/src/McpProxy.ts:63
+Defined in: packages/core/src/McpProxy.ts:77
 
   </Accordion>
 
@@ -4485,7 +7383,7 @@ Defined in: packages/core/src/McpProxy.ts:63
 
 > **IdentityResolverOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:71
+Defined in: packages/core/src/McpProxy.ts:85
 
 Identity resolver configuration for proxy-edge auth.
 
@@ -4495,13 +7393,13 @@ Identity resolver configuration for proxy-edge auth.
 
 > `optional` **required?**: `boolean`
 
-Defined in: packages/core/src/McpProxy.ts:73
+Defined in: packages/core/src/McpProxy.ts:87
 
 ### strategy
 
 > **strategy**: `IdentityStrategy`
 
-Defined in: packages/core/src/McpProxy.ts:72
+Defined in: packages/core/src/McpProxy.ts:86
 
   </Accordion>
 
@@ -4511,83 +7409,95 @@ Defined in: packages/core/src/McpProxy.ts:72
 
 > **McpProxyOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:41
+Defined in: packages/core/src/McpProxy.ts:53
 
 Options for creating an MCP proxy server.
 
 ## Properties
 
+### auth?
+
+> `optional` **auth?**: `PantherAuth`
+
+Defined in: packages/core/src/McpProxy.ts:62
+
 ### autoLog?
 
 > `optional` **autoLog?**: `boolean` \| `AutoLogOptions`
 
-Defined in: packages/core/src/McpProxy.ts:50
+Defined in: packages/core/src/McpProxy.ts:64
 
 ### errorMapper?
 
 > `optional` **errorMapper?**: `ErrorMapper`
 
-Defined in: packages/core/src/McpProxy.ts:51
+Defined in: packages/core/src/McpProxy.ts:65
+
+### groups?
+
+> `optional` **groups?**: `Group`[]
+
+Defined in: packages/core/src/McpProxy.ts:61
 
 ### identity?
 
 > `optional` **identity?**: `IdentityStrategy` \| `IdentityResolverOptions`
 
-Defined in: packages/core/src/McpProxy.ts:47
+Defined in: packages/core/src/McpProxy.ts:59
 
 ### logger?
 
 > `optional` **logger?**: `Logger`
 
-Defined in: packages/core/src/McpProxy.ts:45
+Defined in: packages/core/src/McpProxy.ts:57
 
 ### name?
 
 > `optional` **name?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:52
+Defined in: packages/core/src/McpProxy.ts:66
 
 ### path?
 
 > `optional` **path?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:44
+Defined in: packages/core/src/McpProxy.ts:56
 
 ### policy?
 
 > `optional` **policy?**: `Policy`
 
-Defined in: packages/core/src/McpProxy.ts:48
+Defined in: packages/core/src/McpProxy.ts:60
 
 ### port?
 
 > `optional` **port?**: `number`
 
-Defined in: packages/core/src/McpProxy.ts:43
+Defined in: packages/core/src/McpProxy.ts:55
 
 ### registry?
 
 > `optional` **registry?**: `Registry`
 
-Defined in: packages/core/src/McpProxy.ts:49
+Defined in: packages/core/src/McpProxy.ts:63
 
 ### servers
 
 > **servers**: `McpServer`[]
 
-Defined in: packages/core/src/McpProxy.ts:42
+Defined in: packages/core/src/McpProxy.ts:54
 
 ### user?
 
 > `optional` **user?**: `UserContext` \| ((`request`) => `UserContext` \| `Promise`\<`UserContext`\>)
 
-Defined in: packages/core/src/McpProxy.ts:46
+Defined in: packages/core/src/McpProxy.ts:58
 
 ### version?
 
 > `optional` **version?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:53
+Defined in: packages/core/src/McpProxy.ts:67
 
   </Accordion>
 
@@ -4597,7 +7507,7 @@ Defined in: packages/core/src/McpProxy.ts:53
 
 > **McpProxyStartOptions** = `object`
 
-Defined in: packages/core/src/McpProxy.ts:80
+Defined in: packages/core/src/McpProxy.ts:94
 
 Optional start overrides for the MCP proxy.
 
@@ -4607,13 +7517,13 @@ Optional start overrides for the MCP proxy.
 
 > `optional` **path?**: `string`
 
-Defined in: packages/core/src/McpProxy.ts:82
+Defined in: packages/core/src/McpProxy.ts:96
 
 ### port?
 
 > `optional` **port?**: `number`
 
-Defined in: packages/core/src/McpProxy.ts:81
+Defined in: packages/core/src/McpProxy.ts:95
 
   </Accordion>
 </AccordionGroup>
@@ -4625,7 +7535,7 @@ Defined in: packages/core/src/McpProxy.ts:81
 
 @panther/core / McpServer
 
-Defined in: packages/core/src/McpServer.ts:37
+Defined in: packages/core/src/McpServer.ts:41
 
 MCP server wrapper with optional per-user env injection.
 
@@ -4635,7 +7545,7 @@ MCP server wrapper with optional per-user env injection.
 
 > **new McpServer**(`options`): `McpServer`
 
-Defined in: packages/core/src/McpServer.ts:51
+Defined in: packages/core/src/McpServer.ts:55
 
 Create a new MCP server wrapper.
 
@@ -4655,13 +7565,13 @@ Create a new MCP server wrapper.
 
 > `readonly` **displayName**: `string`
 
-Defined in: packages/core/src/McpServer.ts:39
+Defined in: packages/core/src/McpServer.ts:43
 
 ### name
 
 > `readonly` **name**: `string`
 
-Defined in: packages/core/src/McpServer.ts:38
+Defined in: packages/core/src/McpServer.ts:42
 
 ## Methods
 
@@ -4669,7 +7579,7 @@ Defined in: packages/core/src/McpServer.ts:38
 
 > **callTool**(`params`, `user?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/McpServer.ts:74
+Defined in: packages/core/src/McpServer.ts:78
 
 Call a tool for a given user.
 
@@ -4725,7 +7635,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpServer.ts:90
+Defined in: packages/core/src/McpServer.ts:94
 
 Close all transports.
 
@@ -4737,7 +7647,7 @@ Close all transports.
 
 > **listTools**(`params?`, `user?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `nextCursor?`: `string`; `tools`: `object`[]; \}\>
 
-Defined in: packages/core/src/McpServer.ts:66
+Defined in: packages/core/src/McpServer.ts:70
 
 List tools for a given user.
 
@@ -5579,7 +8489,7 @@ Defined in: logger.ts:84
 
 @panther/core / ResponseController
 
-Defined in: packages/core/src/types.ts:124
+Defined in: packages/core/src/types.ts:192
 
 Helper for returning allow/deny responses from middleware.
 
@@ -5599,7 +8509,7 @@ Helper for returning allow/deny responses from middleware.
 
 > **continue**(): `undefined`
 
-Defined in: packages/core/src/types.ts:159
+Defined in: packages/core/src/types.ts:227
 
 Allow middleware to continue without overriding the response.
 
@@ -5611,7 +8521,7 @@ Allow middleware to continue without overriding the response.
 
 > **deny**(`message`): `object`
 
-Defined in: packages/core/src/types.ts:133
+Defined in: packages/core/src/types.ts:201
 
 Deny a tool call with a message.
 
@@ -5669,7 +8579,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **fail**(`code`, `message`): `object`
 
-Defined in: packages/core/src/types.ts:144
+Defined in: packages/core/src/types.ts:212
 
 Return a structured MCP-style error without throwing.
 
@@ -5731,7 +8641,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **injectToAgent**(`message`): `void`
 
-Defined in: packages/core/src/types.ts:167
+Defined in: packages/core/src/types.ts:235
 
 Add guidance for the calling agent to the eventual tool response.
 
@@ -5749,7 +8659,7 @@ Add guidance for the calling agent to the eventual tool response.
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: packages/core/src/types.ts:177
+Defined in: packages/core/src/types.ts:245
 
 Register a response event handler.
 
@@ -5773,7 +8683,7 @@ Register a response event handler.
 
 @panther/core / Isolation
 
-Defined in: packages/core/src/types.ts:372
+Defined in: packages/core/src/types.ts:472
 
 Isolation runtime for per-user execution.
 
@@ -5783,7 +8693,7 @@ Isolation runtime for per-user execution.
 
 > **close**(): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:378
+Defined in: packages/core/src/types.ts:478
 
 #### Returns
 
@@ -5793,7 +8703,7 @@ Defined in: packages/core/src/types.ts:378
 
 > **queue**(`userId`, `fn`, `timeout?`): `MaybePromise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/types.ts:373
+Defined in: packages/core/src/types.ts:473
 
 #### Parameters
 
@@ -5819,7 +8729,7 @@ Defined in: packages/core/src/types.ts:373
 
 @panther/core / Policy
 
-Defined in: packages/core/src/types.ts:308
+Defined in: packages/core/src/types.ts:408
 
 Policy for RBAC-style permission enforcement.
 
@@ -5829,13 +8739,13 @@ Policy for RBAC-style permission enforcement.
 
 > `optional` **description?**: `string`
 
-Defined in: packages/core/src/types.ts:310
+Defined in: packages/core/src/types.ts:410
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:317
+Defined in: packages/core/src/types.ts:417
 
 #### Index Signature
 
@@ -5853,7 +8763,7 @@ Defined in: packages/core/src/types.ts:317
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:309
+Defined in: packages/core/src/types.ts:409
 
 ## Methods
 
@@ -5861,7 +8771,7 @@ Defined in: packages/core/src/types.ts:309
 
 > **evaluate**(`request`, `user`, `context?`): `MaybePromise`\<`PolicyDecision`\>
 
-Defined in: packages/core/src/types.ts:312
+Defined in: packages/core/src/types.ts:412
 
 #### Parameters
 
@@ -5885,7 +8795,7 @@ Defined in: packages/core/src/types.ts:312
 
 > **getPermissions**(`serverName`): `ToolPermission`[]
 
-Defined in: packages/core/src/types.ts:311
+Defined in: packages/core/src/types.ts:411
 
 #### Parameters
 
@@ -5903,7 +8813,7 @@ Defined in: packages/core/src/types.ts:311
 
 @panther/core / RateLimiter
 
-Defined in: packages/core/src/types.ts:348
+Defined in: packages/core/src/types.ts:448
 
 Rate limiter with sliding window and quota support.
 
@@ -5913,7 +8823,7 @@ Rate limiter with sliding window and quota support.
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:352
+Defined in: packages/core/src/types.ts:452
 
 #### maxDailyCalls?
 
@@ -5933,7 +8843,7 @@ Defined in: packages/core/src/types.ts:352
 
 > **checkLimit**(`key`): `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:349
+Defined in: packages/core/src/types.ts:449
 
 #### Parameters
 
@@ -5949,7 +8859,7 @@ Defined in: packages/core/src/types.ts:349
 
 > **getRemainingCalls**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:351
+Defined in: packages/core/src/types.ts:451
 
 #### Parameters
 
@@ -5965,7 +8875,7 @@ Defined in: packages/core/src/types.ts:351
 
 > **recordCall**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:350
+Defined in: packages/core/src/types.ts:450
 
 #### Parameters
 
@@ -5983,7 +8893,7 @@ Defined in: packages/core/src/types.ts:350
 
 @panther/core / RateLimitStore
 
-Defined in: packages/core/src/types.ts:338
+Defined in: packages/core/src/types.ts:438
 
 Rate limit store for distributed tracking.
 
@@ -5993,7 +8903,7 @@ Rate limit store for distributed tracking.
 
 > **get**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:340
+Defined in: packages/core/src/types.ts:440
 
 #### Parameters
 
@@ -6009,7 +8919,7 @@ Defined in: packages/core/src/types.ts:340
 
 > **increment**(`key`, `window`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:339
+Defined in: packages/core/src/types.ts:439
 
 #### Parameters
 
@@ -6029,7 +8939,7 @@ Defined in: packages/core/src/types.ts:339
 
 > **reset**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:341
+Defined in: packages/core/src/types.ts:441
 
 #### Parameters
 
@@ -6047,7 +8957,7 @@ Defined in: packages/core/src/types.ts:341
 
 @panther/core / Registry
 
-Defined in: packages/core/src/types.ts:328
+Defined in: packages/core/src/types.ts:428
 
 Registry for resolving user data and secrets.
 
@@ -6057,7 +8967,7 @@ Registry for resolving user data and secrets.
 
 > **getSecrets**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:330
+Defined in: packages/core/src/types.ts:430
 
 #### Parameters
 
@@ -6073,7 +8983,7 @@ Defined in: packages/core/src/types.ts:330
 
 > **getTokens**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:331
+Defined in: packages/core/src/types.ts:431
 
 #### Parameters
 
@@ -6089,7 +8999,7 @@ Defined in: packages/core/src/types.ts:331
 
 > **getUser**(`userId`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:329
+Defined in: packages/core/src/types.ts:429
 
 #### Parameters
 
@@ -6103,13 +9013,51 @@ Defined in: packages/core/src/types.ts:329
 
   </Accordion>
 
+  <Accordion title="Types: type-aliases/CredentialSourceMetadata">
+
+@panther/core / CredentialSourceMetadata
+
+> **CredentialSourceMetadata** = `object`
+
+Defined in: packages/core/src/types.ts:52
+
+Credential source metadata safe to expose in middleware and logs.
+
+## Properties
+
+### groupId?
+
+> `optional` **groupId?**: `string`
+
+Defined in: packages/core/src/types.ts:56
+
+### reference
+
+> **reference**: `string`
+
+Defined in: packages/core/src/types.ts:53
+
+### source
+
+> **source**: `"user"` \| `"group"` \| `"default"`
+
+Defined in: packages/core/src/types.ts:54
+
+### userId?
+
+> `optional` **userId?**: `string`
+
+Defined in: packages/core/src/types.ts:55
+
+  </Accordion>
+
   <Accordion title="Types: type-aliases/ErrorMapper">
 
 @panther/core / ErrorMapper
 
 > **ErrorMapper** = `object`
 
-Defined in: packages/core/src/types.ts:385
+Defined in: packages/core/src/types.ts:485
 
 Error mapper for standardized MCP error responses.
 
@@ -6119,7 +9067,7 @@ Error mapper for standardized MCP error responses.
 
 > **mapError**(`error`, `context`): `object`
 
-Defined in: packages/core/src/types.ts:386
+Defined in: packages/core/src/types.ts:486
 
 #### Parameters
 
@@ -6157,7 +9105,7 @@ Defined in: packages/core/src/types.ts:386
 
 > **GovernanceContext** = `MiddlewareContext` & `object`
 
-Defined in: packages/core/src/types.ts:396
+Defined in: packages/core/src/types.ts:496
 
 Extended middleware context with governance.
 
@@ -6185,13 +9133,45 @@ Extended middleware context with governance.
 
   </Accordion>
 
+  <Accordion title="Types: type-aliases/GroupMembership">
+
+@panther/core / GroupMembership
+
+> **GroupMembership** = `object`
+
+Defined in: packages/core/src/types.ts:42
+
+Configured group membership metadata for a resolved subject.
+
+## Properties
+
+### id
+
+> **id**: `string`
+
+Defined in: packages/core/src/types.ts:43
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:45
+
+### name?
+
+> `optional` **name?**: `string`
+
+Defined in: packages/core/src/types.ts:44
+
+  </Accordion>
+
   <Accordion title="Types: type-aliases/IdentityMetadata">
 
 @panther/core / IdentityMetadata
 
 > **IdentityMetadata** = `object`
 
-Defined in: packages/core/src/types.ts:30
+Defined in: packages/core/src/types.ts:95
 
 Identity metadata resolved at the proxy edge.
 
@@ -6201,25 +9181,25 @@ Identity metadata resolved at the proxy edge.
 
 > `optional` **authenticated?**: `boolean`
 
-Defined in: packages/core/src/types.ts:32
+Defined in: packages/core/src/types.ts:97
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:34
+Defined in: packages/core/src/types.ts:99
 
 ### strategy?
 
 > `optional` **strategy?**: `string`
 
-Defined in: packages/core/src/types.ts:31
+Defined in: packages/core/src/types.ts:96
 
 ### userId?
 
 > `optional` **userId?**: `string`
 
-Defined in: packages/core/src/types.ts:33
+Defined in: packages/core/src/types.ts:98
 
   </Accordion>
 
@@ -6229,7 +9209,7 @@ Defined in: packages/core/src/types.ts:33
 
 > **IdentityStrategy** = `object`
 
-Defined in: packages/core/src/types.ts:363
+Defined in: packages/core/src/types.ts:463
 
 Identity resolution strategy.
 
@@ -6239,7 +9219,7 @@ Identity resolution strategy.
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:364
+Defined in: packages/core/src/types.ts:464
 
 ## Methods
 
@@ -6247,7 +9227,7 @@ Defined in: packages/core/src/types.ts:364
 
 > **resolve**(`request`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:365
+Defined in: packages/core/src/types.ts:465
 
 #### Parameters
 
@@ -6269,7 +9249,7 @@ Defined in: packages/core/src/types.ts:365
 
 > **LifecycleHook** = (`event`, `context`) => `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:88
+Defined in: packages/core/src/types.ts:154
 
 Hook invoked for proxy lifecycle events.
 
@@ -6295,7 +9275,7 @@ Hook invoked for proxy lifecycle events.
 
 > **LifecycleHookContext** = `object`
 
-Defined in: packages/core/src/types.ts:75
+Defined in: packages/core/src/types.ts:140
 
 Lifecycle hook context.
 
@@ -6305,37 +9285,43 @@ Lifecycle hook context.
 
 > `optional` **error?**: `Error`
 
-Defined in: packages/core/src/types.ts:80
+Defined in: packages/core/src/types.ts:146
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:77
+Defined in: packages/core/src/types.ts:143
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:81
+Defined in: packages/core/src/types.ts:147
 
 ### request?
 
 > `optional` **request?**: `ToolCallRequest`
 
-Defined in: packages/core/src/types.ts:79
+Defined in: packages/core/src/types.ts:145
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: packages/core/src/types.ts:78
+Defined in: packages/core/src/types.ts:144
+
+### subject?
+
+> `optional` **subject?**: `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:142
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:76
+Defined in: packages/core/src/types.ts:141
 
   </Accordion>
 
@@ -6345,7 +9331,7 @@ Defined in: packages/core/src/types.ts:76
 
 > **LifecycleHookEvent** = `"sessionStart"` \| `"sessionEnd"` \| `"toolFailure"`
 
-Defined in: packages/core/src/types.ts:69
+Defined in: packages/core/src/types.ts:134
 
 Lifecycle event names emitted by the proxy.
 
@@ -6357,41 +9343,53 @@ Lifecycle event names emitted by the proxy.
 
 > **ListToolsContext** = `object`
 
-Defined in: packages/core/src/types.ts:112
+Defined in: packages/core/src/types.ts:178
 
 Context passed to list tool hooks.
 
 ## Properties
 
+### credentialSources?
+
+> `optional` **credentialSources?**: `CredentialSourceMetadata`[]
+
+Defined in: packages/core/src/types.ts:185
+
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:114
+Defined in: packages/core/src/types.ts:181
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:115
+Defined in: packages/core/src/types.ts:182
 
 ### policy?
 
 > `optional` **policy?**: `Policy`
 
-Defined in: packages/core/src/types.ts:116
+Defined in: packages/core/src/types.ts:183
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:117
+Defined in: packages/core/src/types.ts:184
+
+### subject?
+
+> `optional` **subject?**: `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:180
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:113
+Defined in: packages/core/src/types.ts:179
 
   </Accordion>
 
@@ -6401,7 +9399,7 @@ Defined in: packages/core/src/types.ts:113
 
 > **ListToolsHook** = (`tools`, `context`) => `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:103
+Defined in: packages/core/src/types.ts:169
 
 Hook invoked after upstream tool discovery and before returning tools to the client.
 
@@ -6445,7 +9443,7 @@ Maybe a promise for async compatibility.
 
 > **Middleware** = (`request`, `context`, `next`) => `MaybePromise`\<`CallToolResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:266
+Defined in: packages/core/src/types.ts:336
 
 Middleware function signature.
 
@@ -6475,59 +9473,71 @@ Middleware function signature.
 
 > **MiddlewareContext** = `object`
 
-Defined in: packages/core/src/types.ts:245
+Defined in: packages/core/src/types.ts:313
 
 Middleware execution context.
 
 ## Properties
 
+### credentialSources?
+
+> `optional` **credentialSources?**: `CredentialSourceMetadata`[]
+
+Defined in: packages/core/src/types.ts:323
+
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:247
+Defined in: packages/core/src/types.ts:316
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:248
+Defined in: packages/core/src/types.ts:317
 
 ### policy?
 
 > `optional` **policy?**: `Policy`
 
-Defined in: packages/core/src/types.ts:250
+Defined in: packages/core/src/types.ts:319
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:251
+Defined in: packages/core/src/types.ts:320
 
 ### rateLimiter?
 
 > `optional` **rateLimiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:253
+Defined in: packages/core/src/types.ts:322
 
 ### registry?
 
 > `optional` **registry?**: `Registry`
 
-Defined in: packages/core/src/types.ts:252
+Defined in: packages/core/src/types.ts:321
 
 ### res
 
 > **res**: `ResponseController`
 
-Defined in: packages/core/src/types.ts:249
+Defined in: packages/core/src/types.ts:318
+
+### subject?
+
+> `optional` **subject?**: `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:315
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:246
+Defined in: packages/core/src/types.ts:314
 
   </Accordion>
 
@@ -6537,7 +9547,7 @@ Defined in: packages/core/src/types.ts:246
 
 > **Next** = () => `Promise`\<`CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:260
+Defined in: packages/core/src/types.ts:330
 
 Next middleware handler.
 
@@ -6553,7 +9563,7 @@ Next middleware handler.
 
 > **PanterTransport** = `object`
 
-Defined in: packages/core/src/types.ts:276
+Defined in: packages/core/src/types.ts:346
 
 Transport interface for MCP client interactions.
 
@@ -6563,7 +9573,7 @@ Transport interface for MCP client interactions.
 
 > **callTool**(`params`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `content`: `z.ZodDefault`\<`z.ZodArray`\<`z.ZodUnion`\<readonly \[`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `text`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `description`: `z.ZodOptional`\<...\>; `icons`: `z.ZodOptional`\<...\>; `mimeType`: `z.ZodOptional`\<...\>; `name`: `z.ZodString`; `size`: `z.ZodOptional`\<...\>; `title`: `z.ZodOptional`\<...\>; `type`: `z.ZodLiteral`\<...\>; `uri`: `z.ZodString`; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `resource`: `z.ZodUnion`\<...\>; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>\]\>\>\>; `isError?`: `z.ZodOptional`\<`z.ZodBoolean`\>; `structuredContent?`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:278
+Defined in: packages/core/src/types.ts:348
 
 #### Parameters
 
@@ -6593,7 +9603,7 @@ Defined in: packages/core/src/types.ts:278
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:279
+Defined in: packages/core/src/types.ts:349
 
 #### Returns
 
@@ -6603,7 +9613,7 @@ Defined in: packages/core/src/types.ts:279
 
 > **listTools**(`params?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `nextCursor?`: `z.ZodOptional`\<`z.ZodString`\>; `tools`: `z.ZodArray`\<`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; `annotations`: `z.ZodOptional`\<`z.ZodObject`\<\{ `destructiveHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `idempotentHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `openWorldHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `readOnlyHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; `description`: `z.ZodOptional`\<`z.ZodString`\>; `execution`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskSupport`: `z.ZodOptional`\<`z.ZodEnum`\<...\>\>; \}, `z.core.$strip`\>\>; `icons`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodObject`\<\{ `mimeType`: `z.ZodOptional`\<...\>; `sizes`: `z.ZodOptional`\<...\>; `src`: `z.ZodString`; `theme`: `z.ZodOptional`\<...\>; \}, `z.core.$strip`\>\>\>; `inputSchema`: `z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodCustom`\<..., ...\>\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodString`\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>; `name`: `z.ZodString`; `outputSchema`: `z.ZodOptional`\<`z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<..., ...\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<...\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:277
+Defined in: packages/core/src/types.ts:347
 
 #### Parameters
 
@@ -6629,7 +9639,7 @@ Defined in: packages/core/src/types.ts:277
 
 > **PolicyDecision** = `object`
 
-Defined in: packages/core/src/types.ts:298
+Defined in: packages/core/src/types.ts:398
 
 Policy evaluation result.
 
@@ -6639,19 +9649,141 @@ Policy evaluation result.
 
 > **allowed**: `boolean`
 
-Defined in: packages/core/src/types.ts:299
+Defined in: packages/core/src/types.ts:399
 
 ### metadata?
 
-> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+> `optional` **metadata?**: `PolicyMetadata` & `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:301
+Defined in: packages/core/src/types.ts:401
 
 ### reason?
 
 > `optional` **reason?**: `string`
 
-Defined in: packages/core/src/types.ts:300
+Defined in: packages/core/src/types.ts:400
+
+  </Accordion>
+
+  <Accordion title="Types: type-aliases/PolicyMetadata">
+
+@panther/core / PolicyMetadata
+
+> **PolicyMetadata** = `object`
+
+Defined in: packages/core/src/types.ts:63
+
+Effective policy metadata safe to expose in middleware and logs.
+
+## Properties
+
+### denialReason?
+
+> `optional` **denialReason?**: `string`
+
+Defined in: packages/core/src/types.ts:74
+
+### matchedGroups?
+
+> `optional` **matchedGroups?**: `string`[]
+
+Defined in: packages/core/src/types.ts:65
+
+### matchedPermissions?
+
+> `optional` **matchedPermissions?**: `object`[]
+
+Defined in: packages/core/src/types.ts:66
+
+#### effect
+
+> **effect**: `"allow"` \| `"deny"`
+
+#### groupId?
+
+> `optional` **groupId?**: `string`
+
+#### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+#### policyName
+
+> **policyName**: `string`
+
+#### serverName
+
+> **serverName**: `string`
+
+#### toolName
+
+> **toolName**: `string`
+
+### policyName?
+
+> `optional` **policyName?**: `string`
+
+Defined in: packages/core/src/types.ts:64
+
+  </Accordion>
+
+  <Accordion title="Types: type-aliases/ProxyExposureHandle">
+
+@panther/core / ProxyExposureHandle
+
+> **ProxyExposureHandle** = `object`
+
+Defined in: packages/core/src/types.ts:356
+
+Active downstream proxy exposure handle.
+
+## Methods
+
+### close()
+
+> **close**(): `Promise`\<`void`\>
+
+Defined in: packages/core/src/types.ts:357
+
+#### Returns
+
+`Promise`\<`void`\>
+
+  </Accordion>
+
+  <Accordion title="Types: type-aliases/ProxyExposureTransport">
+
+@panther/core / ProxyExposureTransport
+
+> **ProxyExposureTransport**\<`THandle`\> = `object`
+
+Defined in: packages/core/src/types.ts:378
+
+Transport interface for exposing the Panther proxy to downstream MCP clients.
+
+## Type Parameters
+
+### THandle
+
+`THandle` *extends* `ProxyExposureHandle` = `ProxyExposureHandle`
+
+## Methods
+
+### listen()
+
+> **listen**(`runtime`): `Promise`\<`THandle`\>
+
+Defined in: packages/core/src/types.ts:379
+
+#### Parameters
+
+##### runtime
+
+`ProxyRuntime`
+
+#### Returns
+
+`Promise`\<`THandle`\>
 
   </Accordion>
 
@@ -6661,9 +9793,231 @@ Defined in: packages/core/src/types.ts:300
 
 > **ProxyHookEvent** = `"call"`
 
-Defined in: packages/core/src/types.ts:63
+Defined in: packages/core/src/types.ts:128
 
 Event names supported by the proxy hook system.
+
+  </Accordion>
+
+  <Accordion title="Types: type-aliases/ProxyRuntime">
+
+@panther/core / ProxyRuntime
+
+> **ProxyRuntime** = `object`
+
+Defined in: packages/core/src/types.ts:364
+
+Runtime operations shared by downstream proxy exposure transports.
+
+## Properties
+
+### identityRequired
+
+> **identityRequired**: `boolean`
+
+Defined in: packages/core/src/types.ts:371
+
+### logger
+
+> **logger**: `Logger`
+
+Defined in: packages/core/src/types.ts:370
+
+## Methods
+
+### createSdkServer()
+
+> **createSdkServer**(`user?`, `identity?`, `subject?`): `unknown`
+
+Defined in: packages/core/src/types.ts:365
+
+#### Parameters
+
+##### user?
+
+`UserContext`
+
+##### identity?
+
+`IdentityMetadata`
+
+##### subject?
+
+`ResolvedSubject`
+
+#### Returns
+
+`unknown`
+
+### emitSessionEnd()
+
+> **emitSessionEnd**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/types.ts:369
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### emitSessionStart()
+
+> **emitSessionStart**(`context`): `Promise`\<`void`\>
+
+Defined in: packages/core/src/types.ts:368
+
+#### Parameters
+
+##### context
+
+`LifecycleHookContext`
+
+#### Returns
+
+`Promise`\<`void`\>
+
+### resolveHttpUser()
+
+> **resolveHttpUser**(`request`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/types.ts:366
+
+#### Parameters
+
+##### request
+
+`unknown`
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+### resolveStdioUser()
+
+> **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+Defined in: packages/core/src/types.ts:367
+
+#### Returns
+
+`Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
+
+  </Accordion>
+
+  <Accordion title="Types: type-aliases/ResolvedSubject">
+
+@panther/core / ResolvedSubject
+
+> **ResolvedSubject** = `object`
+
+Defined in: packages/core/src/types.ts:81
+
+Authenticated subject resolved from user and group declarations.
+
+## Properties
+
+### displayName?
+
+> `optional` **displayName?**: `string`
+
+Defined in: packages/core/src/types.ts:83
+
+### email?
+
+> `optional` **email?**: `string`
+
+Defined in: packages/core/src/types.ts:84
+
+### groups
+
+> **groups**: `GroupMembership`[]
+
+Defined in: packages/core/src/types.ts:87
+
+### id
+
+> **id**: `string`
+
+Defined in: packages/core/src/types.ts:82
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:85
+
+### tenant?
+
+> `optional` **tenant?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:86
+
+## Methods
+
+### hasGroup()
+
+> **hasGroup**(`groupId`): `boolean`
+
+Defined in: packages/core/src/types.ts:88
+
+#### Parameters
+
+##### groupId
+
+`string`
+
+#### Returns
+
+`boolean`
+
+  </Accordion>
+
+  <Accordion title="Types: type-aliases/SubjectMetadata">
+
+@panther/core / SubjectMetadata
+
+> **SubjectMetadata** = `object`
+
+Defined in: packages/core/src/types.ts:30
+
+Non-sensitive subject metadata declared in application code.
+
+## Properties
+
+### displayName?
+
+> `optional` **displayName?**: `string`
+
+Defined in: packages/core/src/types.ts:31
+
+### email?
+
+> `optional` **email?**: `string`
+
+Defined in: packages/core/src/types.ts:32
+
+### metadata?
+
+> `optional` **metadata?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:35
+
+### tenant?
+
+> `optional` **tenant?**: `Record`\<`string`, `unknown`\>
+
+Defined in: packages/core/src/types.ts:34
+
+### tenantId?
+
+> `optional` **tenantId?**: `string`
+
+Defined in: packages/core/src/types.ts:33
 
   </Accordion>
 
@@ -6673,7 +10027,7 @@ Event names supported by the proxy hook system.
 
 > **ToolCallHook** = (`request`, `context`) => `MaybePromise`\<`void` \| `CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:94
+Defined in: packages/core/src/types.ts:160
 
 Hook invoked for matched tool calls.
 
@@ -6699,7 +10053,7 @@ Hook invoked for matched tool calls.
 
 > **ToolCallHookFilter** = `object`
 
-Defined in: packages/core/src/types.ts:53
+Defined in: packages/core/src/types.ts:118
 
 Filter for proxy call hooks.
 
@@ -6709,19 +10063,19 @@ Filter for proxy call hooks.
 
 > `optional` **proxyTool?**: `string`
 
-Defined in: packages/core/src/types.ts:56
+Defined in: packages/core/src/types.ts:121
 
 ### server?
 
 > `optional` **server?**: `string`
 
-Defined in: packages/core/src/types.ts:54
+Defined in: packages/core/src/types.ts:119
 
 ### tool?
 
 > `optional` **tool?**: `string`
 
-Defined in: packages/core/src/types.ts:55
+Defined in: packages/core/src/types.ts:120
 
   </Accordion>
 
@@ -6731,7 +10085,7 @@ Defined in: packages/core/src/types.ts:55
 
 > **ToolCallRequest** = `object`
 
-Defined in: packages/core/src/types.ts:41
+Defined in: packages/core/src/types.ts:106
 
 Normalized tool call details for middleware.
 
@@ -6741,31 +10095,31 @@ Normalized tool call details for middleware.
 
 > **arguments**: `CallToolRequest`\[`"params"`\]\[`"arguments"`\]
 
-Defined in: packages/core/src/types.ts:45
+Defined in: packages/core/src/types.ts:110
 
 ### proxyToolName
 
 > **proxyToolName**: `string`
 
-Defined in: packages/core/src/types.ts:44
+Defined in: packages/core/src/types.ts:109
 
 ### raw
 
 > **raw**: `CallToolRequest`\[`"params"`\]
 
-Defined in: packages/core/src/types.ts:46
+Defined in: packages/core/src/types.ts:111
 
 ### serverName
 
 > **serverName**: `string`
 
-Defined in: packages/core/src/types.ts:42
+Defined in: packages/core/src/types.ts:107
 
 ### toolName
 
 > **toolName**: `string`
 
-Defined in: packages/core/src/types.ts:43
+Defined in: packages/core/src/types.ts:108
 
   </Accordion>
 
@@ -6775,7 +10129,7 @@ Defined in: packages/core/src/types.ts:43
 
 > **ToolPermission** = `object`
 
-Defined in: packages/core/src/types.ts:286
+Defined in: packages/core/src/types.ts:386
 
 Tool permission model for policy enforcement.
 
@@ -6785,7 +10139,7 @@ Tool permission model for policy enforcement.
 
 > `optional` **approval?**: (`request`, `context`) => `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:290
+Defined in: packages/core/src/types.ts:390
 
 #### Parameters
 
@@ -6805,25 +10159,25 @@ Defined in: packages/core/src/types.ts:290
 
 > `optional` **effect?**: `"allow"` \| `"deny"`
 
-Defined in: packages/core/src/types.ts:288
+Defined in: packages/core/src/types.ts:388
 
 ### limiter?
 
 > `optional` **limiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:289
+Defined in: packages/core/src/types.ts:389
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:291
+Defined in: packages/core/src/types.ts:391
 
 ### tool
 
 > **tool**: `string`
 
-Defined in: packages/core/src/types.ts:287
+Defined in: packages/core/src/types.ts:387
 
   </Accordion>
 
