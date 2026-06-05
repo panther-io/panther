@@ -95,12 +95,17 @@ export class McpServer {
   }
 
   private transportFor(user: UserContext): PanterTransport {
-    if (!this.env) {
+    const upstreamEnv = isStringRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : undefined;
+    if (!this.env && !upstreamEnv) {
       return this.transport;
     }
 
-    const resolvedEnv = typeof this.env === "function" ? this.env(user) : this.env;
-    const key = user.id ?? "default";
+    const configuredEnv = typeof this.env === "function" ? this.env(user) : this.env;
+    const resolvedEnv = {
+      ...(configuredEnv ?? {}),
+      ...(upstreamEnv ?? {}),
+    };
+    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}`;
     const existing = this.userTransports.get(key);
     if (existing) {
       return existing;
@@ -122,4 +127,8 @@ export class McpServer {
  */
 function isEnvAwareTransport(transport: PanterTransport): transport is EnvAwareTransport {
   return "withEnv" in transport && typeof transport.withEnv === "function";
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
