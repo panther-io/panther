@@ -69,7 +69,9 @@ export { ResponseController } from "./types.js";
  */
 export type {
   ErrorMapper,
+  CredentialSourceMetadata,
   GovernanceContext,
+  GroupMembership,
   IdentityMetadata,
   IdentityStrategy,
   Isolation,
@@ -83,12 +85,15 @@ export type {
   MiddlewareContext,
   Next,
   PanterTransport,
-  Policy,
+  Policy as PolicyContract,
   PolicyDecision,
+  PolicyMetadata,
   ProxyHookEvent,
   RateLimitStore,
   RateLimiter,
   Registry,
+  ResolvedSubject,
+  SubjectMetadata,
   ToolCallHook,
   ToolCallHookFilter,
   ToolCallRequest,
@@ -105,6 +110,33 @@ export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
  * @pk
  */
 export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity.js";
+/**
+ * First-class governance declaration APIs.
+ * @pk
+ */
+export {
+  Group,
+  Policy,
+  PolicyServerBuilder,
+  User,
+  allow,
+  allowAll,
+  approval,
+  buildSubjectIndex,
+  deny,
+  group,
+  limit,
+  policy,
+  sensitive,
+  user,
+} from "./governance.js";
+export type { SubjectIndex, ToolPermissionOptions } from "./governance.js";
+/**
+ * Local auth and API-key identity APIs.
+ * @pk
+ */
+export { PantherAuth, apiKeyIdentityStrategy } from "./auth.js";
+export type { CredentialResolution, LocalAuthOptions, LocalCredentials, UpstreamAuthBinding, UpstreamAuthBindings } from "./auth.js";
 /**
  * Isolation runtime implementations.
  * @pk

@@ -15,8 +15,17 @@ import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
 import { filterToolsByPolicy } from "./policy.js";
+import type { PantherAuth } from "./auth.js";
+import {
+  buildSubjectIndex,
+  evaluateGroupPolicies,
+  filterToolsByGroupPolicies,
+  type Group,
+  type SubjectIndex,
+} from "./governance.js";
 import {
   ResponseController,
+  type CredentialSourceMetadata,
   type ErrorMapper,
   type ListToolsHook,
   type Middleware,
@@ -32,6 +41,7 @@ import {
   type ToolCallHookFilter,
   type ToolCallRequest,
   type UserContext,
+  type ResolvedSubject,
 } from "./types.js";
 
 /**
@@ -46,6 +56,8 @@ export type McpProxyOptions = {
   user?: UserContext | ((request: IncomingMessage) => UserContext | Promise<UserContext>);
   identity?: IdentityStrategy | IdentityResolverOptions;
   policy?: Policy;
+  groups?: Group[];
+  auth?: PantherAuth;
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
   errorMapper?: ErrorMapper;
@@ -91,6 +103,7 @@ type SessionState = {
   server: McpSdkServer;
   user: UserContext;
   identity?: IdentityMetadata;
+  subject?: ResolvedSubject;
 };
 
 /**
@@ -108,6 +121,9 @@ export class McpProxy {
   private readonly userResolver?: McpProxyOptions["user"];
   private readonly identityOptions?: IdentityResolverOptions;
   private readonly policy?: Policy;
+  private readonly groups: Group[];
+  private readonly subjectIndex?: SubjectIndex;
+  private readonly auth?: PantherAuth;
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly errorMapper: ErrorMapper;
@@ -125,8 +141,11 @@ export class McpProxy {
     this.servers = options.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
-    this.identityOptions = normalizeIdentityOptions(options.identity);
+    this.auth = options.auth;
+    this.identityOptions = normalizeIdentityOptions(options.identity ?? options.auth?.identityStrategy(), Boolean(options.auth));
     this.policy = options.policy;
+    this.groups = options.groups ?? [];
+    this.subjectIndex = this.groups.length > 0 ? buildSubjectIndex(this.groups) : undefined;
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
@@ -237,13 +256,13 @@ export class McpProxy {
       }
 
       try {
-        const { user, identity } = await this.resolveUser(req);
+        const { user, identity, subject } = await this.resolveUser(req);
         if (this.identityOptions?.required && !identity?.authenticated) {
           sendJsonRpcError(res, 401, PantherErrorCode.Unauthorized, "Unauthorized");
           return;
         }
 
-        await this.handleMcpRequest(req, res, sessions, user, identity);
+        await this.handleMcpRequest(req, res, sessions, user, identity, subject);
       } catch (error) {
         this.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
         if (!res.headersSent) {
@@ -293,12 +312,18 @@ export class McpProxy {
     params?: ListToolsRequest["params"],
     user: UserContext = {},
     identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
   ): Promise<ListToolsResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const result = await server.listTools(params, resolvedUser);
-        const tools = this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const result = await server.listTools(params, userForServer);
+        const tools = this.groups.length > 0
+          ? filterToolsByGroupPolicies(result.tools, server.name, userGroups)
+          : this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
         return tools.map((tool) => ({
           ...tool,
           name: toProxyToolName(server.name, tool.name),
@@ -312,7 +337,7 @@ export class McpProxy {
     const log = this.logger.child({ userId: resolvedUser.id, event: "listTools" });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, { user: resolvedUser, identity, log, policy: this.policy });
+      const result = await hook(tools, { user: resolvedUser, subject: resolvedSubject, identity, log, policy: this.policy });
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
@@ -331,8 +356,10 @@ export class McpProxy {
     params: CallToolRequest["params"],
     user: UserContext = {},
     identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
   ): Promise<CallToolResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const { serverName, toolName } = fromProxyToolName(params.name);
     const request: ToolCallRequest = {
       serverName,
@@ -349,19 +376,30 @@ export class McpProxy {
     });
     const context: MiddlewareContext = {
       user: resolvedUser,
+      subject: resolvedSubject,
       identity,
       log,
       res: new ResponseController(),
       policy: this.policy,
       registry: this.registry,
     };
-    if (this.policy) {
+    const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
+    if (this.groups.length > 0) {
+      context.policyDecision = await evaluateGroupPolicies(userGroups, request, resolvedUser, context);
+    } else if (this.policy) {
       context.policyDecision = await this.policy.evaluate(request, resolvedUser, context);
     }
 
     const startedAt = Date.now();
     this.writeAutoLog("start", log, request, context, startedAt);
     try {
+      let upstreamUser = resolvedUser;
+      if (!context.policyDecision || context.policyDecision.allowed) {
+        const upstream = this.applyUpstreamAuth(serverName, resolvedUser, resolvedSubject);
+        upstreamUser = upstream.user;
+        context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
+      }
+
       const hookResult = await this.dispatchCallHooks(request, context);
       const result =
         hookResult ??
@@ -375,7 +413,7 @@ export class McpProxy {
             );
           }
 
-          return this.forwardToolCall(params, resolvedUser);
+          return this.forwardToolCall(params, upstreamUser);
         }));
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
@@ -386,6 +424,7 @@ export class McpProxy {
       this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
       await this.emitLifecycle("toolFailure", {
         user: resolvedUser,
+        subject: resolvedSubject,
         identity,
         request,
         error: normalizedError,
@@ -410,6 +449,7 @@ export class McpProxy {
     sessions: Map<string, SessionState>,
     user: UserContext,
     identity: IdentityMetadata | undefined,
+    subject: ResolvedSubject | undefined,
   ): Promise<void> {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
 
@@ -429,12 +469,12 @@ export class McpProxy {
       return;
     }
 
-    const sdkServer = this.createSdkServer(user, identity);
+    const sdkServer = this.createSdkServer(user, identity, subject);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       enableJsonResponse: true,
       onsessioninitialized: (newSessionId) => {
-        sessions.set(newSessionId, { transport, server: sdkServer, user, identity });
+        sessions.set(newSessionId, { transport, server: sdkServer, user, identity, subject });
         this.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
         void this.emitLifecycle("sessionStart", {
           user,
@@ -467,7 +507,7 @@ export class McpProxy {
    * Create the MCP SDK server and attach handlers.
    * @pk
    */
-  private createSdkServer(user: UserContext, identity?: IdentityMetadata): McpSdkServer {
+  private createSdkServer(user: UserContext, identity?: IdentityMetadata, subject?: ResolvedSubject): McpSdkServer {
     const server = new McpSdkServer(
       { name: this.name, version: this.version },
       {
@@ -479,8 +519,8 @@ export class McpProxy {
       },
     );
 
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity));
+    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
+    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity, subject));
 
     return server;
   }
@@ -623,11 +663,13 @@ export class McpProxy {
    * Resolve the user context from the incoming request.
    * @pk
    */
-  private async resolveUser(req: IncomingMessage): Promise<{ user: UserContext; identity?: IdentityMetadata }> {
+  private async resolveUser(req: IncomingMessage): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }> {
     if (this.identityOptions) {
       const resolved = await this.identityOptions.strategy.resolve({ headers: normalizeHeaders(req.headers), request: req });
+      const subject = this.resolveSubject(resolved ?? {});
       return {
         user: resolved ?? {},
+        subject,
         identity: {
           strategy: this.identityOptions.strategy.name,
           authenticated: Boolean(resolved),
@@ -638,10 +680,11 @@ export class McpProxy {
 
     if (typeof this.userResolver === "function") {
       const user = await this.userResolver(req);
-      return { user };
+      return { user, subject: this.resolveSubject(user) };
     }
 
-    return { user: this.userResolver ?? {} };
+    const user = this.userResolver ?? {};
+    return { user, subject: this.resolveSubject(user) };
   }
 
   private async resolveRegistryUser(user: UserContext): Promise<UserContext> {
@@ -661,6 +704,64 @@ export class McpProxy {
       id: user.id,
       ...(secrets ? { secrets } : {}),
       ...(tokens ? { tokens } : {}),
+    };
+  }
+
+  private resolveSubject(user: UserContext, subject?: ResolvedSubject): ResolvedSubject | undefined {
+    if (subject) {
+      return subject;
+    }
+
+    if (!this.subjectIndex) {
+      return undefined;
+    }
+
+    if (!user.id) {
+      return undefined;
+    }
+
+    const resolved = this.subjectIndex.resolve(user.id);
+    if (!resolved) {
+      throw new Error(`Authenticated user "${user.id}" is not declared in any configured group`);
+    }
+
+    return resolved;
+  }
+
+  private applyUpstreamAuth(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+  ): { user: UserContext; credentialSource?: CredentialSourceMetadata } {
+    const binding = this.auth?.getBinding(serverName);
+    if (!binding) {
+      return { user };
+    }
+
+    if (!subject) {
+      throw new Error(`Upstream auth for server "${serverName}" requires an authenticated subject`);
+    }
+
+    const credential = this.auth?.resolveCredential(binding.credential, subject);
+    if (!credential) {
+      throw new Error(`Missing upstream credential "${binding.credential}" for server "${serverName}"`);
+    }
+
+    const env = toUpstreamEnv(binding, credential.value);
+    return {
+      user: {
+        ...user,
+        __pantherUpstreamEnv: {
+          ...(isRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : {}),
+          ...env,
+        },
+      },
+      credentialSource: {
+        reference: credential.reference,
+        source: credential.source,
+        userId: credential.userId,
+        groupId: credential.groupId,
+      },
     };
   }
 
@@ -752,12 +853,29 @@ function normalizeError(error: unknown): Error {
 
 function normalizeIdentityOptions(
   identity: McpProxyOptions["identity"] | undefined,
+  required = false,
 ): IdentityResolverOptions | undefined {
   if (!identity) {
     return undefined;
   }
 
-  return "strategy" in identity ? identity : { strategy: identity };
+  return "strategy" in identity ? { required, ...identity } : { strategy: identity, required };
+}
+
+function toUpstreamEnv(binding: NonNullable<ReturnType<PantherAuth["getBinding"]>>, credential: string): Record<string, string> {
+  if (binding.type === "bearer") {
+    return { AUTHORIZATION: `Bearer ${credential}` };
+  }
+
+  if (binding.type === "header") {
+    return { [binding.header]: credential };
+  }
+
+  return { [binding.env]: credential };
+}
+
+function isRecord(value: unknown): value is Record<string, string> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeHeaders(headers: IncomingHttpHeaders): Record<string, string> {

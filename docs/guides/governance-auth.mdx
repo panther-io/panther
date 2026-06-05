@@ -1,0 +1,132 @@
+---
+title: "Governance auth"
+description: "Declare users, groups, policy, API-key identity, and local upstream credentials."
+---
+
+Use the governance auth DX when one proxy serves multiple callers and upstream servers need per-user or per-group credentials.
+
+## Recommended setup
+
+```ts theme={null}
+import {
+  Group,
+  McpProxy,
+  PantherAuth,
+  Policy,
+  User,
+  approval,
+  sensitive,
+} from "@panther/core";
+
+const auth = await PantherAuth.local({
+  dir: ".panther/auth",
+  key: process.env.PANTHER_AUTH_KEY ?? "",
+});
+
+const readOnly = new Policy({ name: "read-only" })
+  .server("github")
+  .allow("search_issues");
+
+const maintainers = new Policy({ name: "maintainers" })
+  .server("github")
+  .allow("*")
+  .server("github")
+  .deny("delete_repo", sensitive({ reason: "destructive" }));
+
+const proxy = new McpProxy({
+  auth,
+  groups: [
+    new Group({
+      id: "support",
+      users: [new User("alice", { email: "alice@example.com", tenantId: "acme" })],
+      policy: readOnly,
+    }),
+    new Group({
+      id: "maintainers",
+      users: [new User("bob", { email: "bob@example.com", tenantId: "acme" })],
+      policy: maintainers,
+    }),
+  ],
+  servers: [github],
+});
+
+proxy.use((request, context, next) => {
+  context.log.setTag("subject", context.subject?.id ?? "anonymous");
+  context.log.setTag("groups", context.subject?.groups.map((group) => group.id).join(",") ?? "");
+  return next();
+});
+```
+
+The same API is available through helpers such as `user(...)`, `group(...)`, `policy(...)`, `approval(...)`, and `sensitive(...)` when you prefer a function style.
+
+## Local auth files
+
+`PantherAuth.local({ dir, key })` reads two files from the configured directory:
+
+```txt theme={null}
+.panther/auth/
+  credentials.enc.json
+  upstream-auth.json
+```
+
+`credentials.enc.json` is encrypted and stores user API keys plus user, group, and default credential values. Keep it private and rotate the encryption key using your deployment secret process.
+
+`upstream-auth.json` is non-sensitive. It stores server bindings that reference credential names, so it can be reviewed without revealing raw credential values.
+
+```json theme={null}
+{
+  "servers": {
+    "github": { "type": "bearer", "credential": "github.token" },
+    "stripe": { "type": "header", "header": "x-api-key", "credential": "stripe.apiKey" },
+    "internal": { "type": "env", "env": "INTERNAL_TOKEN", "credential": "internal.token" }
+  }
+}
+```
+
+## API-key identity
+
+When `auth` is passed to `McpProxy`, Panther uses API-key identity by default and requires the configured header. The default header is `x-panther-api-key`.
+
+API keys resolve to declared user ids from encrypted local auth storage. Raw API keys are not exposed to middleware, hooks, logs, or policy callbacks.
+
+Trusted user id headers remain available through `headerIdentityStrategy`, but they should only be used behind a trusted internal gateway that already authenticated the caller. Do not expose a direct `x-user-id` identity mode to untrusted clients.
+
+## Credential precedence
+
+For an upstream binding such as `github -> bearer github.token`, Panther resolves the credential in this order:
+
+1. User credential for the authenticated subject.
+2. Group credential from the subject's matching groups.
+3. Default credential.
+
+If multiple groups provide the same credential reference, the default behavior follows configured group order. Set `credentialConflict` to `"error"` in `upstream-auth.json` to fail closed instead.
+
+Middleware receives credential source metadata such as `{ reference: "github.token", source: "group", groupId: "support" }`, never the decrypted credential value.
+
+## CLI helpers
+
+Initialize local auth files:
+
+```bash theme={null}
+panther auth init --dir .panther/auth --key "$PANTHER_AUTH_KEY"
+```
+
+Store a user API key:
+
+```bash theme={null}
+panther auth set-api-key --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
+```
+
+Store a credential:
+
+```bash theme={null}
+panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
+panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --group support --ref github.token --value "$SUPPORT_GITHUB_TOKEN"
+panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --ref github.token --value "$DEFAULT_GITHUB_TOKEN"
+```
+
+Inspect redacted local auth:
+
+```bash theme={null}
+panther auth inspect --dir .panther/auth --key "$PANTHER_AUTH_KEY"
+```

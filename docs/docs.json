@@ -77,6 +77,7 @@
           "guides/flows",
           "guides/end-to-end",
           "guides/error-handling",
+          "guides/governance-auth",
           "guides/security"
         ]
       },
