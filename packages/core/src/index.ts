@@ -59,6 +59,34 @@ export { HttpTransport } from "./transports/HttpTransport.js";
  */
 export type { HttpTransportOptions } from "./transports/HttpTransport.js";
 /**
+ * Native MCP Streamable HTTP transport for upstream MCP servers.
+ * @pk
+ */
+export { StreamableHttpMcpTransport } from "./transports/StreamableHttpMcpTransport.js";
+export type { StreamableHttpMcpTransportOptions } from "./transports/StreamableHttpMcpTransport.js";
+/**
+ * Native MCP SSE transport for upstream MCP servers.
+ * @pk
+ */
+export { SseMcpTransport } from "./transports/SseMcpTransport.js";
+export type { SseMcpTransportOptions } from "./transports/SseMcpTransport.js";
+/**
+ * Downstream proxy exposure transports.
+ * @pk
+ */
+export { HttpProxyExposureTransport } from "./transports/HttpProxyExposureTransport.js";
+export type { HttpProxyExposureHandle, HttpProxyExposureTransportOptions } from "./transports/HttpProxyExposureTransport.js";
+export { StdioProxyExposureTransport } from "./transports/StdioProxyExposureTransport.js";
+export type { StdioProxyExposureTransportOptions } from "./transports/StdioProxyExposureTransport.js";
+export { SseProxyExposureTransport } from "./transports/SseProxyExposureTransport.js";
+export type { SseProxyExposureHandle, SseProxyExposureTransportOptions } from "./transports/SseProxyExposureTransport.js";
+/**
+ * Shared HTTP-family transport auth helpers.
+ * @pk
+ */
+export { MissingHttpTransportCredentialError, resolveHttpTransportHeaders } from "./transportAuth.js";
+export type { HttpTransportApiKeyAuth, HttpTransportAuthContext, HttpTransportAuthOptions } from "./transportAuth.js";
+/**
  * Response controller for middleware.
  * @pk
  */
@@ -88,6 +116,9 @@ export type {
   Policy as PolicyContract,
   PolicyDecision,
   PolicyMetadata,
+  ProxyExposureHandle,
+  ProxyExposureTransport,
+  ProxyRuntime,
   ProxyHookEvent,
   RateLimitStore,
   RateLimiter,

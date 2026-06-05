@@ -1,35 +1,35 @@
 ## 1. API Shape And Compatibility
 
-- [ ] 1.1 Audit current MCP SDK transport exports and decide exact class names for native HTTP, SSE, and proxy exposure transports
-- [ ] 1.2 Define upstream HTTP-family auth option types for static headers, bearer tokens, API keys, and async user-aware resolvers
-- [ ] 1.3 Define a downstream proxy exposure transport interface separate from `PanterTransport`
-- [ ] 1.4 Refactor `McpProxy` internals so MCP SDK server creation and list/call handling can be reused outside the Node HTTP listener
-- [ ] 1.5 Preserve `McpProxy.start()` as the backward-compatible default HTTP exposure API
+- [x] 1.1 Audit current MCP SDK transport exports and decide exact class names for native HTTP, SSE, and proxy exposure transports
+- [x] 1.2 Define upstream HTTP-family auth option types for static headers, bearer tokens, API keys, and async user-aware resolvers
+- [x] 1.3 Define a downstream proxy exposure transport interface separate from `PanterTransport`
+- [x] 1.4 Refactor `McpProxy` internals so MCP SDK server creation and list/call handling can be reused outside the Node HTTP listener
+- [x] 1.5 Preserve `McpProxy.start()` as the backward-compatible default HTTP exposure API
 
 ## 2. Shared Transport Auth
 
-- [ ] 2.1 Implement a helper that resolves HTTP-family outbound headers from static headers and auth options
-- [ ] 2.2 Support user-aware auth resolution using resolved `UserContext`, including registry-provided secrets and tokens
-- [ ] 2.3 Normalize missing required upstream credentials into mapped MCP errors before upstream requests are sent
-- [ ] 2.4 Add unit tests for headers, bearer token, API key, resolver success, and resolver failure cases
+- [x] 2.1 Implement a helper that resolves HTTP-family outbound headers from static headers and auth options
+- [x] 2.2 Support user-aware auth resolution using resolved `UserContext`, including registry-provided secrets and tokens
+- [x] 2.3 Normalize missing required upstream credentials into mapped MCP errors before upstream requests are sent
+- [x] 2.4 Add unit tests for headers, bearer token, API key, resolver success, and resolver failure cases
 
 ## 3. Native Upstream Transports
 
-- [ ] 3.1 Implement native MCP Streamable HTTP upstream transport for `http://` and `https://` MCP server URLs
-- [ ] 3.2 Add lifecycle handling for HTTP upstream initialize/session reuse and close behavior
-- [ ] 3.3 Implement native MCP SSE upstream transport with event-stream lifecycle and request/response correlation
-- [ ] 3.4 Ensure HTTP and SSE upstream transports support the shared auth resolver
-- [ ] 3.5 Keep or rename the current simple REST-like `HttpTransport` with clear compatibility exports and documentation
+- [x] 3.1 Implement native MCP Streamable HTTP upstream transport for `http://` and `https://` MCP server URLs
+- [x] 3.2 Add lifecycle handling for HTTP upstream initialize/session reuse and close behavior
+- [x] 3.3 Implement native MCP SSE upstream transport with event-stream lifecycle and request/response correlation
+- [x] 3.4 Ensure HTTP and SSE upstream transports support the shared auth resolver
+- [x] 3.5 Keep or rename the current simple REST-like `HttpTransport` with clear compatibility exports and documentation
 - [ ] 3.6 Add tests for HTTP listTools, HTTPS callTool, SSE listTools, SSE callTool, close cleanup, and simple HTTP adapter distinction
 
 ## 4. Proxy Exposure Transports
 
-- [ ] 4.1 Extract current HTTP Streamable MCP exposure into an explicit HTTP proxy exposure transport
-- [ ] 4.2 Wire `McpProxy.start()` to the HTTP proxy exposure transport without changing existing defaults
-- [ ] 4.3 Implement stdio proxy exposure so Panther can run as a local MCP server process
-- [ ] 4.4 Implement SSE proxy exposure with session and stream cleanup
-- [ ] 4.5 Ensure HTTP and SSE exposure resolve downstream identity at the proxy edge
-- [ ] 4.6 Define and implement stdio exposure user context behavior for non-HTTP identity
+- [x] 4.1 Extract current HTTP Streamable MCP exposure into an explicit HTTP proxy exposure transport
+- [x] 4.2 Wire `McpProxy.start()` to the HTTP proxy exposure transport without changing existing defaults
+- [x] 4.3 Implement stdio proxy exposure so Panther can run as a local MCP server process
+- [x] 4.4 Implement SSE proxy exposure with session and stream cleanup
+- [x] 4.5 Ensure HTTP and SSE exposure resolve downstream identity at the proxy edge
+- [x] 4.6 Define and implement stdio exposure user context behavior for non-HTTP identity
 - [ ] 4.7 Add tests proving listTools and callTool use the same proxy pipeline across HTTP, stdio, and SSE exposure
 
 ## 5. Stdio Upstream Behavior
