@@ -1,4 +1,4 @@
-import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
+import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -94,18 +94,6 @@ export type IdentityResolverOptions = {
 export type McpProxyStartOptions = {
   port?: number;
   path?: string;
-};
-
-/**
- * Active MCP session state.
- * @pk
- */
-type SessionState = {
-  transport: unknown;
-  server: McpSdkServer;
-  user: UserContext;
-  identity?: IdentityMetadata;
-  subject?: ResolvedSubject;
 };
 
 /**
@@ -777,32 +765,6 @@ export class McpProxy {
  */
 function annotateDescription(serverName: string, description: string | undefined): string {
   return description ? `[${serverName}] ${description}` : `Proxied from ${serverName}`;
-}
-
-/**
- * Send a JSON-RPC error response.
- * @pk
- */
-function sendJsonRpcError(res: ServerResponse, httpStatus: number, code: number, message: string): void {
-  res.writeHead(httpStatus, { "content-type": "application/json" });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
-}
-
-/**
- * Send a plain text response.
- * @pk
- */
-function sendText(res: ServerResponse, status: number, body: string, headers: Record<string, string> = {}): void {
-  res.writeHead(status, { "content-type": "text/plain", ...headers });
-  res.end(body);
-}
-
-/**
- * Get a safe error message for logging.
- * @pk
- */
-function safeErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**

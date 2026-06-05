@@ -48,7 +48,7 @@
 
 ## 7. Verification
 
-- [ ] 7.1 Run `pnpm --filter @panther/core test`
-- [ ] 7.2 Run `pnpm --filter @panther/core build`
-- [ ] 7.3 Run repository lint/typecheck commands required by the project
-- [ ] 7.4 Verify `openspec status --change "mcp-transport-matrix"` reports the change as apply-ready
+- [x] 7.1 Run `pnpm --filter @panther/core test`
+- [x] 7.2 Run `pnpm --filter @panther/core build`
+- [x] 7.3 Run repository lint/typecheck commands required by the project
+- [x] 7.4 Verify `openspec status --change "mcp-transport-matrix"` reports the change as apply-ready
