@@ -124,6 +124,18 @@ proxy.tool("filesystem.delete", async (ctx, next) => {
 
 Consider layering policies: first deny destructive calls for non-admins, then enforce plan-based access, and finally enforce per-tenant limits.
 
+Use operation routes for proxied resources, prompts, and completion:
+
+```ts theme={null}
+proxy.server("filesystem").operation("resource:read", async (ctx, next) => {
+  if (ctx.resource?.uri?.includes("/private/")) {
+    return ctx.fail(-32030, "Private resources are not available.");
+  }
+
+  return next();
+});
+```
+
 ## Add graceful shutdowns
 
 When the proxy shuts down, it should close all active transport connections. This avoids orphaned server processes and incomplete tool calls.
