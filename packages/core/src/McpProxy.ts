@@ -31,13 +31,22 @@ import {
   type MiddlewareContext,
   type IdentityMetadata,
   type IdentityStrategy,
+  type LegacyMiddleware,
   type LifecycleHook,
   type LifecycleHookEvent,
   type Policy,
+  type ProxyContext,
+  type ProxyEventFilter,
+  type ProxyEventHandler,
+  type ProxyEventName,
   type ProxyHookEvent,
   type ProxyExposureHandle,
   type ProxyExposureTransport,
+  type ProxyMiddleware,
   type ProxyRuntime,
+  type ProxyServerHandle,
+  type ProxyToolHandler,
+  type ProxyToolPattern,
   type Registry,
   type ToolCallHook,
   type ToolCallHookFilter,
@@ -96,6 +105,26 @@ export type McpProxyStartOptions = {
   path?: string;
 };
 
+type RouteEntry = {
+  kind: "middleware" | "tool";
+  scopeServer?: string;
+  pattern?: CompiledToolPattern;
+  handler: Middleware | ProxyToolHandler;
+};
+
+type EventEntry = {
+  eventName: ProxyEventName;
+  filter: ProxyEventFilter;
+  handler: ProxyEventHandler;
+};
+
+type CompiledToolPattern = {
+  original: string;
+  server?: RegExp;
+  tool: RegExp;
+  scopedServer?: string;
+};
+
 /**
  * HTTP proxy for multiple MCP servers.
  * @pk
@@ -104,7 +133,9 @@ export class McpProxy {
   private readonly servers: McpServer[];
   private readonly serverByName = new Map<string, McpServer>();
   private readonly middleware: Middleware[] = [];
+  private readonly routes: RouteEntry[] = [];
   private readonly callHooks: Array<{ filter: ToolCallHookFilter; handler: ToolCallHook }> = [];
+  private readonly eventHandlers: EventEntry[] = [];
   private readonly lifecycleHooks: LifecycleHook[] = [];
   private readonly listToolsHooks: ListToolsHook[] = [];
   private readonly logger: Logger;
@@ -159,7 +190,35 @@ export class McpProxy {
    */
   use(middleware: Middleware): this {
     this.middleware.push(middleware);
+    this.routes.push({ kind: "middleware", handler: middleware });
     return this;
+  }
+
+  /**
+   * Register a global tool route with a public server.tool pattern.
+   * @pk
+   */
+  tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): this {
+    this.routes.push({ kind: "tool", pattern: compileToolPattern(pattern), handler });
+    return this;
+  }
+
+  /**
+   * Register or retrieve a scoped server handle.
+   * @pk
+   */
+  server(name: string, server?: McpServer): ProxyServerHandle {
+    if (server) {
+      if (server.name !== name) {
+        throw new Error(`Server handle "${name}" cannot register MCP server "${server.name}"`);
+      }
+      if (!this.serverByName.has(name)) {
+        this.servers.push(server);
+        this.serverByName.set(name, server);
+      }
+    }
+
+    return new McpProxyServerHandle(this, name);
   }
 
   /**
@@ -172,9 +231,33 @@ export class McpProxy {
    * @pk
    */
   on(event: "call", filter: ToolCallHookFilter, handler: ToolCallHook): this;
-  on(event: ProxyHookEvent, filterOrHandler: ToolCallHookFilter | ToolCallHook, maybeHandler?: ToolCallHook): this {
+  /**
+   * Register a unified proxy event handler.
+   * @pk
+   */
+  on(event: ProxyEventName, handler: ProxyEventHandler): this;
+  /**
+   * Register a filtered unified proxy event handler.
+   * @pk
+   */
+  on(event: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): this;
+  on(
+    event: ProxyHookEvent | ProxyEventName,
+    filterOrHandler: ToolCallHookFilter | ToolCallHook | ProxyEventFilter | ProxyEventHandler,
+    maybeHandler?: ToolCallHook | ProxyEventHandler,
+  ): this {
     if (event !== "call") {
-      throw new Error(`Unsupported proxy hook event "${event}"`);
+      const filter = typeof filterOrHandler === "function" ? {} : filterOrHandler;
+      const handler = typeof filterOrHandler === "function" ? filterOrHandler : maybeHandler;
+      if (!handler) {
+        throw new Error(`Missing handler for proxy event "${event}"`);
+      }
+      this.eventHandlers.push({
+        eventName: event,
+        filter,
+        handler: handler as ProxyEventHandler,
+      });
+      return this;
     }
 
     const filter = typeof filterOrHandler === "function" ? {} : filterOrHandler;
@@ -183,7 +266,7 @@ export class McpProxy {
       throw new Error(`Missing handler for proxy hook event "${event}"`);
     }
 
-    this.callHooks.push({ filter, handler });
+    this.callHooks.push({ filter, handler: handler as ToolCallHook });
     return this;
   }
 
@@ -299,15 +382,43 @@ export class McpProxy {
     );
 
     let tools: ListToolsResult["tools"] = results.flat();
-    const log = this.logger.child({ userId: resolvedUser.id, event: "listTools" });
+    const log = this.createContextualLogger({
+      operation: "tools:list",
+      user: resolvedUser,
+      subject: resolvedSubject,
+      identity,
+    });
+    const context = this.createProxyContext({
+      operation: "tools:list",
+      user: resolvedUser,
+      subject: resolvedSubject,
+      identity,
+      log,
+      raw: params,
+      policy: this.policy,
+    });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, { user: resolvedUser, subject: resolvedSubject, identity, log, policy: this.policy });
+      const result = await hook(tools, {
+        user: resolvedUser,
+        subject: resolvedSubject,
+        identity,
+        log,
+        policy: this.policy,
+        credentialSources: context.credentials.sources,
+      });
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
         tools = result.tools;
       }
+    }
+
+    const eventResult = await this.emitProxyEvent("tools:list:after", { ctx: context, tools });
+    if (Array.isArray(eventResult)) {
+      tools = eventResult;
+    } else if (eventResult?.tools) {
+      tools = eventResult.tools;
     }
 
     return { tools };
@@ -333,27 +444,40 @@ export class McpProxy {
       arguments: params.arguments,
       raw: params,
     };
-    const log = this.logger.child({
-      userId: resolvedUser.id,
+    const log = this.createContextualLogger({
+      operation: "tool:call",
+      user: resolvedUser,
+      subject: resolvedSubject,
+      identity,
       serverName,
       toolName,
       proxyToolName: params.name,
     });
-    const context: MiddlewareContext = {
+    const context = this.createProxyContext({
+      operation: "tool:call",
       user: resolvedUser,
       subject: resolvedSubject,
       identity,
       log,
-      res: new ResponseController(),
+      request,
+      raw: params,
       policy: this.policy,
-      registry: this.registry,
-    };
+    });
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     if (this.groups.length > 0) {
       context.policyDecision = await evaluateGroupPolicies(userGroups, request, resolvedUser, context);
     } else if (this.policy) {
       context.policyDecision = await this.policy.evaluate(request, resolvedUser, context);
     }
+    context.policy = {
+      allowed: context.policyDecision?.allowed,
+      reason: context.policyDecision?.reason,
+      matchedGroups: context.policyDecision?.metadata?.matchedGroups ?? userGroups.map((group) => group.id),
+      matchedPermissions: context.policyDecision?.metadata?.matchedPermissions ?? [],
+      metadata: context.policyDecision?.metadata,
+      policy: this.policy,
+      decision: context.policyDecision,
+    };
 
     const startedAt = Date.now();
     this.writeAutoLog("start", log, request, context, startedAt);
@@ -363,12 +487,16 @@ export class McpProxy {
         const upstream = this.applyUpstreamAuth(serverName, resolvedUser, resolvedSubject);
         upstreamUser = upstream.user;
         context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
+        context.credentials.sources = context.credentialSources ?? [];
       }
 
+      if (!context.policyDecision || context.policyDecision.allowed) {
+        await this.emitProxyEvent("tool:start", { ctx: context, durationMs: 0 });
+      }
       const hookResult = await this.dispatchCallHooks(request, context);
       const result =
         hookResult ??
-        (await this.dispatchMiddleware(0, request, context, () => {
+        (await this.dispatchRoutes(0, request, context, () => {
           if (context.policyDecision && !context.policyDecision.allowed) {
             return Promise.resolve(
               context.res.fail(
@@ -382,6 +510,8 @@ export class McpProxy {
         }));
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
+      await this.emitProxyEvent("tool:success", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
+      await this.emitProxyEvent("tool:after", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
       return response;
     } catch (error) {
       const normalizedError = normalizeError(error);
@@ -395,12 +525,16 @@ export class McpProxy {
         error: normalizedError,
         log,
       });
+      await this.emitProxyEvent("tool:error", { ctx: context, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
       await context.res.notifyError(normalizedError);
       const injectedResult = context.res.injectedErrorResult();
       if (injectedResult) {
+        await this.emitProxyEvent("tool:after", { ctx: context, result: injectedResult, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
         return injectedResult;
       }
-      return context.res.fail(mappedError.code, mappedError.message);
+      const failed = context.res.fail(mappedError.code, mappedError.message);
+      await this.emitProxyEvent("tool:after", { ctx: context, result: failed, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
+      return failed;
     }
   }
 
@@ -453,6 +587,23 @@ export class McpProxy {
    */
   async emitSessionStart(context: Parameters<LifecycleHook>[1]): Promise<void> {
     await this.emitLifecycle("sessionStart", context);
+    const proxyContext = this.createProxyContext({
+      operation: "session:start",
+      user: context.user,
+      subject: context.subject,
+      identity: context.identity,
+      log: this.createContextualLogger({
+        operation: "session:start",
+        user: context.user,
+        subject: context.subject,
+        identity: context.identity,
+        sessionId: context.sessionId,
+      }),
+      request: context.request,
+      transport: { sessionId: context.sessionId },
+      policy: this.policy,
+    });
+    await this.emitProxyEvent("session:start", { ctx: proxyContext });
   }
 
   /**
@@ -461,6 +612,42 @@ export class McpProxy {
    */
   async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
     await this.emitLifecycle("sessionEnd", context);
+    const proxyContext = this.createProxyContext({
+      operation: "session:end",
+      user: context.user,
+      subject: context.subject,
+      identity: context.identity,
+      log: this.createContextualLogger({
+        operation: "session:end",
+        user: context.user,
+        subject: context.subject,
+        identity: context.identity,
+        sessionId: context.sessionId,
+      }),
+      request: context.request,
+      transport: { sessionId: context.sessionId },
+      policy: this.policy,
+    });
+    await this.emitProxyEvent("session:end", { ctx: proxyContext });
+  }
+
+  registerServerMiddleware(serverName: string, handler: Middleware): void {
+    this.routes.push({ kind: "middleware", scopeServer: serverName, handler });
+  }
+
+  registerServerTool(serverName: string, pattern: ProxyToolPattern, handler: ProxyToolHandler): void {
+    this.routes.push({ kind: "tool", scopeServer: serverName, pattern: compileToolPattern(pattern, serverName), handler });
+  }
+
+  registerServerEvent(serverName: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): void {
+    this.eventHandlers.push({
+      eventName,
+      filter: {
+        ...filter,
+        server: serverName,
+      },
+      handler,
+    });
   }
 
   private createRuntime(): ProxyRuntime {
@@ -473,6 +660,99 @@ export class McpProxy {
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
     };
+  }
+
+  private createContextualLogger(options: {
+    operation: ProxyContext["operation"];
+    user: UserContext;
+    subject?: ResolvedSubject;
+    identity?: IdentityMetadata;
+    serverName?: string;
+    toolName?: string;
+    proxyToolName?: string;
+    sessionId?: string;
+  }): Logger {
+    return this.logger.child({
+      operation: options.operation,
+      userId: options.user.id,
+      subjectId: options.subject?.id ?? options.user.id,
+      serverName: options.serverName,
+      toolName: options.toolName,
+      proxyToolName: options.proxyToolName,
+      transportType: "unknown",
+      sessionId: options.sessionId,
+      identityStrategy: options.identity?.strategy,
+      authenticated: options.identity?.authenticated,
+    });
+  }
+
+  private createProxyContext(options: {
+    operation: ProxyContext["operation"];
+    user: UserContext;
+    subject?: ResolvedSubject;
+    identity?: IdentityMetadata;
+    log: Logger;
+    request?: ToolCallRequest;
+    raw?: CallToolRequest["params"] | ListToolsRequest["params"];
+    transport?: ProxyContext["transport"];
+    policy?: Policy;
+  }): ProxyContext {
+    const response = new ResponseController();
+    const state: Record<string, unknown> = {};
+    const policyDecision = undefined as ProxyContext["policyDecision"];
+    const legacyContext: MiddlewareContext = {
+      user: options.user,
+      subject: options.subject,
+      identity: options.identity,
+      log: options.log,
+      res: response,
+      policy: options.policy,
+      registry: this.registry,
+      policyDecision,
+    };
+    const context = legacyContext as ProxyContext;
+    context.operation = options.operation;
+    context.transport = options.transport ?? {
+      type: "unknown",
+      sessionId: stringMetadata(options.identity?.metadata, "sessionId"),
+      requestId: stringMetadata(options.identity?.metadata, "requestId"),
+    };
+    context.auth = {
+      strategy: options.identity?.strategy,
+      authenticated: options.identity?.authenticated ?? Boolean(options.user.id),
+      userId: options.identity?.userId ?? options.user.id,
+      metadata: options.identity?.metadata,
+    };
+    if (options.operation !== "tool:call") {
+      context.policy = {
+        matchedGroups: [],
+        matchedPermissions: [],
+        policy: options.policy,
+      };
+    }
+    context.credentials = { sources: [] };
+    context.response = response;
+    context.res = response;
+    context.state = state;
+    context.raw = options.raw;
+    if (options.request) {
+      const server = this.serverByName.get(options.request.serverName);
+      context.server = {
+        name: options.request.serverName,
+        displayName: server?.displayName,
+      };
+      context.tool = {
+        name: options.request.toolName,
+        proxyName: options.request.proxyToolName,
+      };
+      context.args = options.request.arguments;
+    }
+    context.deny = response.deny.bind(response);
+    context.fail = response.fail.bind(response);
+    context.continue = response.continue.bind(response);
+    context.inject = response.injectToAgent.bind(response);
+    context.error = response.fail.bind(response);
+    return context;
   }
 
   /**
@@ -492,7 +772,7 @@ export class McpProxy {
 
     let nextCalled = false;
     let nextResult: CallToolResult | undefined;
-    const result = await middleware(request, context, async () => {
+    const result = await (middleware as LegacyMiddleware)(request, context, async () => {
       if (nextCalled) {
         throw new Error("Middleware next() called multiple times");
       }
@@ -511,6 +791,55 @@ export class McpProxy {
     }
 
     return this.dispatchMiddleware(index + 1, request, context, terminal);
+  }
+
+  private async dispatchRoutes(
+    index: number,
+    request: ToolCallRequest,
+    context: ProxyContext,
+    terminal: () => Promise<CallToolResult>,
+  ): Promise<CallToolResult> {
+    const route = this.routes.slice(index).find((entry) => this.matchesRoute(entry, request, context));
+    if (!route) {
+      return terminal();
+    }
+    const routeIndex = this.routes.indexOf(route);
+
+    let nextCalled = false;
+    let nextResult: CallToolResult | undefined;
+    const next = async () => {
+      if (nextCalled) {
+        throw new Error("Middleware next() called multiple times");
+      }
+
+      nextCalled = true;
+      nextResult = await this.dispatchRoutes(routeIndex + 1, request, context, terminal);
+      return nextResult;
+    };
+
+    const result = await dispatchRouteHandler(route.handler, request, context, next);
+
+    if (result) {
+      return result;
+    }
+
+    if (nextCalled && nextResult) {
+      return nextResult;
+    }
+
+    return this.dispatchRoutes(routeIndex + 1, request, context, terminal);
+  }
+
+  private matchesRoute(entry: RouteEntry, request: ToolCallRequest, context: ProxyContext): boolean {
+    if (entry.scopeServer && entry.scopeServer !== request.serverName) {
+      return false;
+    }
+
+    if (entry.kind === "tool") {
+      return context.operation === "tool:call" && entry.pattern !== undefined && matchesToolPattern(entry.pattern, request);
+    }
+
+    return true;
   }
 
   /**
@@ -757,6 +1086,65 @@ export class McpProxy {
       await hook(event, context);
     }
   }
+
+  private async emitProxyEvent(
+    eventName: ProxyEventName,
+    payload: Parameters<ProxyEventHandler>[0],
+  ): Promise<ListToolsResult["tools"] | ListToolsResult | void> {
+    let transformedTools: ListToolsResult["tools"] | ListToolsResult | undefined = undefined;
+    for (const entry of this.eventHandlers) {
+      if (entry.eventName !== eventName || !matchesEventFilter(entry.filter, payload.ctx)) {
+        continue;
+      }
+
+      const result = await entry.handler({
+        ...payload,
+        tools: transformedTools
+          ? Array.isArray(transformedTools)
+            ? transformedTools
+            : transformedTools.tools
+          : payload.tools,
+      });
+      if (eventName === "tools:list:after" && (Array.isArray(result) || result?.tools)) {
+        transformedTools = result;
+      }
+    }
+
+    return transformedTools;
+  }
+}
+
+class McpProxyServerHandle implements ProxyServerHandle {
+  constructor(
+    private readonly proxy: McpProxy,
+    readonly name: string,
+  ) {}
+
+  use(handler: Middleware): ProxyServerHandle {
+    this.proxy.registerServerMiddleware(this.name, handler);
+    return this;
+  }
+
+  tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): ProxyServerHandle {
+    this.proxy.registerServerTool(this.name, pattern, handler);
+    return this;
+  }
+
+  on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyServerHandle;
+  on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyServerHandle;
+  on(
+    eventName: ProxyEventName,
+    filterOrHandler: ProxyEventFilter | ProxyEventHandler,
+    maybeHandler?: ProxyEventHandler,
+  ): ProxyServerHandle {
+    const filter = typeof filterOrHandler === "function" ? {} : filterOrHandler;
+    const handler = typeof filterOrHandler === "function" ? filterOrHandler : maybeHandler;
+    if (!handler) {
+      throw new Error(`Missing handler for proxy event "${eventName}"`);
+    }
+    this.proxy.registerServerEvent(this.name, eventName, filter, handler);
+    return this;
+  }
 }
 
 /**
@@ -800,6 +1188,11 @@ function toUpstreamEnv(binding: NonNullable<ReturnType<PantherAuth["getBinding"]
 
 function isRecord(value: unknown): value is Record<string, string> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringMetadata(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
+  const value = metadata?.[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function normalizeHeaders(headers: IncomingHttpHeaders): Record<string, string> {
@@ -851,4 +1244,116 @@ function matchesCallHook(filter: ToolCallHookFilter, request: ToolCallRequest): 
   }
 
   return true;
+}
+
+function matchesEventFilter(filter: ProxyEventFilter, context: ProxyContext): boolean {
+  if (filter.server && filter.server !== context.server?.name) {
+    return false;
+  }
+
+  if (filter.tool && filter.tool !== context.tool?.name) {
+    return false;
+  }
+
+  if (filter.proxyTool && filter.proxyTool !== context.tool?.proxyName) {
+    return false;
+  }
+
+  return true;
+}
+
+function isLegacyMiddleware(handler: Middleware | ProxyToolHandler): handler is LegacyMiddleware {
+  return handler.length >= 3;
+}
+
+async function dispatchRouteHandler(
+  handler: Middleware | ProxyToolHandler,
+  request: ToolCallRequest,
+  context: ProxyContext,
+  next: () => Promise<CallToolResult>,
+): Promise<CallToolResult | void> {
+  if (isLegacyMiddleware(handler)) {
+    return (handler as LegacyMiddleware)(request, context, next);
+  }
+
+  try {
+    return await (handler as ProxyMiddleware)(context, next);
+  } catch (error) {
+    if (handler.length === 2 && isLikelyLegacyTwoArgMiddlewareError(error)) {
+      return (handler as unknown as LegacyMiddleware)(request, context, next);
+    }
+
+    throw error;
+  }
+}
+
+function isLikelyLegacyTwoArgMiddlewareError(error: unknown): boolean {
+  if (!(error instanceof TypeError)) {
+    return false;
+  }
+
+  return /reading '(res|deny|fail|continue|inject|error|user|subject|identity|log|policy|policyDecision|credentialSources)'/.test(error.message);
+}
+
+function compileToolPattern(pattern: ProxyToolPattern, scopedServer?: string): CompiledToolPattern {
+  if (!pattern.trim()) {
+    throw new Error("Tool pattern cannot be empty");
+  }
+  if (pattern.includes("__")) {
+    throw new Error(`Tool pattern "${pattern}" must use public dot notation, not internal "__" names`);
+  }
+
+  const parts = pattern.split(".");
+  if (scopedServer) {
+    if (parts.length > 2) {
+      throw new Error(`Invalid server-scoped tool pattern "${pattern}"`);
+    }
+    if (parts.length === 2 && parts[0] !== scopedServer && parts[0] !== "*") {
+      throw new Error(`Server-scoped tool pattern "${pattern}" cannot target server "${parts[0]}" from handle "${scopedServer}"`);
+    }
+    const tool = parts.length === 2 ? parts[1] : parts[0];
+    validatePatternSegment(tool, "tool", pattern);
+    return {
+      original: pattern,
+      scopedServer,
+      tool: wildcardRegex(tool),
+    };
+  }
+
+  if (parts.length !== 2) {
+    throw new Error(`Tool pattern "${pattern}" must use "server.tool" dot notation`);
+  }
+
+  const [server, tool] = parts;
+  validatePatternSegment(server, "server", pattern);
+  validatePatternSegment(tool, "tool", pattern);
+  return {
+    original: pattern,
+    server: wildcardRegex(server),
+    tool: wildcardRegex(tool),
+  };
+}
+
+function validatePatternSegment(segment: string | undefined, label: string, pattern: string): asserts segment is string {
+  if (!segment) {
+    throw new Error(`Invalid ${label} segment in tool pattern "${pattern}"`);
+  }
+}
+
+function matchesToolPattern(pattern: CompiledToolPattern, request: ToolCallRequest): boolean {
+  if (pattern.scopedServer && pattern.scopedServer !== request.serverName) {
+    return false;
+  }
+  if (pattern.server && !pattern.server.test(request.serverName)) {
+    return false;
+  }
+  return pattern.tool.test(request.toolName);
+}
+
+function wildcardRegex(pattern: string): RegExp {
+  const escaped = pattern
+    .split("*")
+    .map((part) => part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"))
+    .join(".*");
+  return new RegExp(`^${escaped}$`);
 }

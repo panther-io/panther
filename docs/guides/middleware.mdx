@@ -3,7 +3,7 @@ title: "Middleware"
 description: "Enforce policy and transform tool calls."
 ---
 
-Middleware runs for every tool call. Use it for access control, logging, request shaping, and consistent policy enforcement. Think of it as your centralized gatekeeper.
+Middleware runs for every tool call. Use it for access control, logging, request shaping, and consistent policy enforcement. New middleware receives one unified `ctx` object plus `next`.
 
 If you need finer-grained hooks (only on specific tools), see [Hooks](/guides/hooks).
 
@@ -16,16 +16,13 @@ Use middleware when you need a decision or transformation to apply to *every* re
 - Logging, metrics, and tracing tags.
 - Guardrails for destructive or high-cost tools.
 
-If the logic is only for a single tool or server, prefer hooks to avoid slowing the full pipeline.
+If the logic is only for a single tool or server, prefer `proxy.tool(...)` or `proxy.server(name).tool(...)` routes to avoid slowing the full pipeline.
 
 ## Basic middleware
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  context.log.info("tool-call", {
-    server: request.serverName,
-    tool: request.toolName,
-  });
+proxy.use(async (ctx, next) => {
+  ctx.log.info("tool-call");
 
   return next();
 });
@@ -36,9 +33,21 @@ proxy.use(async (request, context, next) => {
 ## Deny a tool
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  if (request.proxyToolName === "filesystem__delete") {
-    return context.res.deny("delete is disabled for this environment");
+proxy.tool("filesystem.delete", async (ctx) => {
+  return ctx.deny("delete is disabled for this environment");
+});
+```
+
+Tool patterns use public `server.tool` names such as `github.create_issue`, `github.*`, and `*.search_*`.
+
+## Server-scoped middleware
+
+```ts theme={null}
+const github = proxy.server("github");
+
+github.use(async (ctx, next) => {
+  if (ctx.subject?.hasGroup("support") === false) {
+    return ctx.deny("GitHub tools require support group membership.");
   }
 
   return next();
@@ -50,8 +59,8 @@ proxy.use(async (request, context, next) => {
 ## Inject guidance
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  context.res.injectToAgent("Remember to avoid destructive actions.");
+proxy.use(async (ctx, next) => {
+  ctx.inject("Remember to avoid destructive actions.");
   return next();
 });
 ```
@@ -61,9 +70,9 @@ This is useful when you want the model to be aware of environment-specific const
 ## Enforce plan-based policies
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  if (context.user.plan !== "enterprise" && request.proxyToolName === "analytics__export") {
-    return context.res.deny("Export is available only on the enterprise plan.");
+proxy.use(async (ctx, next) => {
+  if (ctx.user.plan !== "enterprise" && ctx.tool?.proxyName === "analytics__export") {
+    return ctx.deny("Export is available only on the enterprise plan.");
   }
   return next();
 });
@@ -74,10 +83,10 @@ proxy.use(async (request, context, next) => {
 You can block requests early by checking parameters. This is useful when a server does not validate inputs on its own.
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  if (request.toolName === "search" && typeof request.args?.query === "string") {
-    if (request.args.query.length > 200) {
-      return context.res.deny("Query too long.");
+proxy.tool("*.search_*", async (ctx, next) => {
+  if (typeof ctx.args?.query === "string") {
+    if (ctx.args.query.length > 200) {
+      return ctx.deny("Query too long.");
     }
   }
   return next();
@@ -89,9 +98,9 @@ proxy.use(async (request, context, next) => {
 Middleware can also clean up incoming parameters before they reach a server.
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  if (request.toolName === "search" && typeof request.args?.query === "string") {
-    request.args.query = request.args.query.trim();
+proxy.tool("*.search_*", async (ctx, next) => {
+  if (typeof ctx.args?.query === "string") {
+    ctx.args.query = ctx.args.query.trim();
   }
   return next();
 });
@@ -102,8 +111,8 @@ proxy.use(async (request, context, next) => {
 If your MCP clients are LLMs, you can inject guidance without blocking requests. This is useful for reminders like “do not write outside /tmp”.
 
 ```ts theme={null}
-proxy.use(async (request, context, next) => {
-  context.res.injectToAgent("Use read-only tools unless explicitly asked to write.");
+proxy.use(async (ctx, next) => {
+  ctx.inject("Use read-only tools unless explicitly asked to write.");
   return next();
 });
 ```
@@ -115,19 +124,35 @@ Panther does not implement rate limiting directly, but you can implement a simpl
 ```ts theme={null}
 const calls: Record<string, number> = {};
 
-proxy.use(async (request, context, next) => {
-  const userId = context.user.id ?? "anonymous";
+proxy.use(async (ctx, next) => {
+  const userId = ctx.user.id ?? "anonymous";
   calls[userId] = (calls[userId] ?? 0) + 1;
   if (calls[userId] > 1000) {
-    return context.res.deny("Rate limit exceeded.");
+    return ctx.deny("Rate limit exceeded.");
   }
   return next();
 });
 ```
 
+## Migrating legacy middleware
+
+```ts theme={null}
+proxy.use(async (request, context, next) => {
+  context.log.info("legacy", { tool: request.proxyToolName });
+  return next();
+});
+
+proxy.use(async (ctx, next) => {
+  ctx.log.info("unified");
+  return next();
+});
+```
+
+`ctx.user` and `ctx.res` remain available as compatibility aliases. Prefer `ctx.subject`, `ctx.policy`, `ctx.credentials`, `ctx.response`, and the root helpers in new code.
+
 ## Debugging middleware
 
-If requests are not behaving as expected, log the `proxyToolName`, `serverName`, and `toolName` fields. This will quickly tell you whether a filter is matching the tool you expect.
+If requests are not behaving as expected, log `ctx.tool?.proxyName`, `ctx.server?.name`, and `ctx.tool?.name`. This will quickly tell you whether a route is matching the tool you expect.
 
 ## Ordering rules
 
