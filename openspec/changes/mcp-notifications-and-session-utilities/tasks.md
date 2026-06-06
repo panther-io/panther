@@ -40,11 +40,11 @@
 
 ## 6. MCP Logging
 
-- [ ] 6.1 Register downstream handler for `logging/setLevel`
-- [ ] 6.2 Store log level per downstream session
-- [ ] 6.3 Send `notifications/message` for Panther and upstream MCP logs at or above the session level
-- [ ] 6.4 Redact known credential and token fields before downstream log notification delivery
-- [ ] 6.5 Add tests for log level filtering and redaction
+- [x] 6.1 Register downstream handler for `logging/setLevel`
+- [x] 6.2 Store log level per downstream session
+- [x] 6.3 Send `notifications/message` for Panther and upstream MCP logs at or above the session level
+- [x] 6.4 Redact known credential and token fields before downstream log notification delivery
+- [x] 6.5 Add tests for log level filtering and redaction
 
 ## 7. Documentation And Verification
 

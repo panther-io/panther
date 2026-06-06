@@ -79,6 +79,10 @@ class SubscribableTransport extends MockTransport {
     await Promise.all([...this.notificationHandlers].map((handler) => handler({ type: "progress", progressToken, progress })));
   }
 
+  async emitLog(level: "debug" | "info" | "warning" | "error", data: unknown): Promise<void> {
+    await Promise.all([...this.notificationHandlers].map((handler) => handler({ type: "logging:message", level, data, logger: "upstream" })));
+  }
+
   async emitListChanged(type: "tools:list-changed" | "resources:list-changed" | "prompts:list-changed"): Promise<void> {
     await Promise.all([...this.notificationHandlers].map((handler) => handler({ type })));
   }
@@ -552,6 +556,49 @@ describe("proxy exposure pipeline", () => {
     });
     await upstream.emitProgress("progress-timeout", 1);
     expect(handle.sent.size).toBe(0);
+
+    await proxy.close();
+  });
+
+  it("filters and redacts MCP log notifications per downstream session", async () => {
+    const upstream = new SubscribableTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: upstream })],
+    });
+    const handle = await proxy.listen(new NotificationProbeExposure());
+    (proxy as unknown as { ensureSessionUtilityState(sessionId: string): { logLevel: string } })
+      .ensureSessionUtilityState("session-a").logLevel = "warning";
+    (proxy as unknown as { ensureSessionUtilityState(sessionId: string): { logLevel: string } })
+      .ensureSessionUtilityState("session-b").logLevel = "debug";
+
+    await proxy.emitLogMessage("info", { ok: true, token: "secret-token" }, "panther");
+    expect(handle.sent.get("session-a")).toBeUndefined();
+    expect(handle.sent.get("session-b")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/message",
+        params: {
+          level: "info",
+          logger: "panther",
+          data: { ok: true, token: "[REDACTED]" },
+        },
+      },
+    ]);
+
+    handle.sent.clear();
+    await upstream.emitLog("error", { nested: { apiKey: "key" } });
+    expect(handle.sent.get("session-a")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/message",
+        params: {
+          level: "error",
+          logger: "upstream",
+          data: { nested: { apiKey: "[REDACTED]" } },
+        },
+      },
+    ]);
+    expect(handle.sent.get("session-b")).toEqual(handle.sent.get("session-a"));
 
     await proxy.close();
   });

@@ -11,6 +11,7 @@ import {
   ListToolsRequestSchema,
   PingRequestSchema,
   ReadResourceRequestSchema,
+  SetLevelRequestSchema,
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
   type CallToolRequest,
@@ -796,6 +797,24 @@ export class McpProxy {
     return {};
   }
 
+  async emitLogMessage(level: SessionUtilityState["logLevel"], data: unknown, logger?: string): Promise<void> {
+    await Promise.all(
+      [...this.sessionUtilities].map(([sessionId, state]) => {
+        if (!isLogLevelEnabled(level, state.logLevel)) {
+          return undefined;
+        }
+        return this.sendSessionNotification(sessionId, {
+          method: "notifications/message",
+          params: {
+            level,
+            logger,
+            data: redactLogData(data),
+          },
+        });
+      }),
+    );
+  }
+
   /**
    * List resource templates across all configured servers.
    * @pk
@@ -1025,6 +1044,12 @@ export class McpProxy {
     server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
       this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId));
     server.setRequestHandler(PingRequestSchema, async () => ({}));
+    server.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
+      if (extra.sessionId) {
+        this.ensureSessionUtilityState(extra.sessionId).logLevel = request.params.level;
+      }
+      return {};
+    });
     server.setNotificationHandler(CancelledNotificationSchema, async (notification) => {
       if (notification.params.requestId !== undefined) {
         await this.cancelDownstreamRequest(undefined, notification.params.requestId, notification.params.reason, user);
@@ -1190,6 +1215,11 @@ export class McpProxy {
 
     if (notification.type === "prompts:list-changed") {
       await this.broadcastNotification({ method: "notifications/prompts/list_changed" });
+      return;
+    }
+
+    if (notification.type === "logging:message") {
+      await this.emitLogMessage(notification.level, notification.data, notification.logger ?? notification.serverName);
       return;
     }
 
@@ -2325,6 +2355,37 @@ function createSessionUtilityState(): SessionUtilityState {
 
 function resourceSubscriptionKey(serverName: string, uri: string): string {
   return `${serverName}\0${uri}`;
+}
+
+const mcpLogLevelWeight: Record<SessionUtilityState["logLevel"], number> = {
+  debug: 10,
+  info: 20,
+  notice: 25,
+  warning: 30,
+  error: 40,
+  critical: 50,
+  alert: 60,
+  emergency: 70,
+};
+
+function isLogLevelEnabled(level: SessionUtilityState["logLevel"], sessionLevel: SessionUtilityState["logLevel"]): boolean {
+  return mcpLogLevelWeight[level] >= mcpLogLevelWeight[sessionLevel];
+}
+
+function redactLogData(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactLogData(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [
+      key,
+      /(token|secret|password|authorization|api[-_]?key|credential)/i.test(key) ? "[REDACTED]" : redactLogData(nested),
+    ]),
+  );
 }
 
 function routeCompletion(params: CompleteRequest["params"]): {

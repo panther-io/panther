@@ -735,6 +735,7 @@ export type McpUpstreamNotification =
   | { type: "resources:list-changed"; serverName?: string }
   | { type: "prompts:list-changed"; serverName?: string }
   | { type: "resources:updated"; serverName?: string; uri: string }
+  | { type: "logging:message"; serverName?: string; level: SessionLogLevel; logger?: string; data?: unknown }
   | {
       type: "progress";
       serverName?: string;

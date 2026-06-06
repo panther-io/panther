@@ -23,6 +23,7 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import {
   ProgressNotificationSchema,
+  LoggingMessageNotificationSchema,
   PromptListChangedNotificationSchema,
   ResourceListChangedNotificationSchema,
   ResourceUpdatedNotificationSchema,
@@ -264,6 +265,14 @@ export class StreamableHttpMcpTransport implements PanterTransport {
         progress: notification.params.progress,
         total: notification.params.total,
         message: notification.params.message,
+      });
+    });
+    client.setNotificationHandler(LoggingMessageNotificationSchema, async (notification) => {
+      await this.emitNotification({
+        type: "logging:message",
+        level: notification.params.level,
+        logger: notification.params.logger,
+        data: notification.params.data,
       });
     });
   }
