@@ -208,6 +208,49 @@ describe("governance auth DX", () => {
     expect(policy("named").server("github").allow("read").name).toBe("named");
   });
 
+  it("keeps tool policy compatibility while accepting capability permissions", async () => {
+    const globalPolicy = policy("global")
+      .server("github")
+      .allow("read")
+      .server("github")
+      .denyCapability({ operation: "resource:read", target: "file://secret.md", targetKind: "resource" });
+    const groupPolicy = policy("group")
+      .server("github")
+      .allow("read")
+      .server("github")
+      .allowCapability({ operation: "prompt:get", target: "review", targetKind: "prompt" });
+
+    await expect(
+      globalPolicy.evaluate(
+        { serverName: "github", toolName: "read", proxyToolName: "github__read", arguments: {}, raw: { name: "github__read" } },
+        { id: "alice" },
+      ),
+    ).resolves.toMatchObject({ allowed: true });
+    await expect(
+      globalPolicy.evaluate(
+        { serverName: "github", operation: "resource:read", target: "file://secret.md", targetKind: "resource" },
+        { id: "alice" },
+      ),
+    ).resolves.toMatchObject({ allowed: false, reason: 'Operation "resource:read" denied by policy "global"' });
+    await expect(
+      groupPolicy.evaluate(
+        { serverName: "github", operation: "prompt:get", target: "review", targetKind: "prompt" },
+        { id: "alice" },
+      ),
+    ).resolves.toMatchObject({
+      allowed: true,
+      metadata: {
+        matchedPermissions: [
+          expect.objectContaining({
+            operation: "prompt:get",
+            target: "review",
+            targetKind: "prompt",
+          }),
+        ],
+      },
+    });
+  });
+
   it("exposes structured subject, auth, policy, and compatibility aliases", async () => {
     const alice = user("alice", {
       displayName: "Alice",

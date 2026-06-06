@@ -1,4 +1,6 @@
 import type {
+  CapabilityOperationRequest,
+  CapabilityPermission,
   MiddlewareContext,
   Policy as PolicyContract,
   PolicyDecision,
@@ -8,7 +10,7 @@ import type {
   ToolPermission,
   UserContext,
 } from "./types.js";
-import { getToolPermission } from "./policy.js";
+import { getCapabilityPermission, getToolPermission, toCapabilityPermissions, toCapabilityRequest } from "./policy.js";
 
 /**
  * First-class non-sensitive subject declaration.
@@ -78,6 +80,7 @@ export class Policy implements PolicyContract {
   readonly description?: string;
   readonly metadata?: PolicyContract["metadata"];
   private readonly permissionsByServer = new Map<string, ToolPermission[]>();
+  private readonly capabilityPermissionsByServer = new Map<string, CapabilityPermission[]>();
 
   constructor(options: { name: string; description?: string; metadata?: PolicyContract["metadata"] }) {
     if (!options.name.trim()) {
@@ -121,6 +124,22 @@ export class Policy implements PolicyContract {
     return this.addPermission(serverName, { ...toToolPermission(toolName, options), effect: "deny" });
   }
 
+  /**
+   * Add an allow permission for any governed MCP operation.
+   * @pk
+   */
+  allowCapability(serverName: string, permission: CapabilityPermissionOptions): this {
+    return this.addCapabilityPermission(serverName, toCapabilityPermission(serverName, permission, "allow"));
+  }
+
+  /**
+   * Add a deny permission for any governed MCP operation.
+   * @pk
+   */
+  denyCapability(serverName: string, permission: CapabilityPermissionOptions): this {
+    return this.addCapabilityPermission(serverName, toCapabilityPermission(serverName, permission, "deny"));
+  }
+
   getPermissions(serverName: string): ToolPermission[] {
     return [
       ...(this.permissionsByServer.get(serverName) ?? []),
@@ -128,32 +147,41 @@ export class Policy implements PolicyContract {
     ];
   }
 
+  getCapabilityPermissions(serverName: string): CapabilityPermission[] {
+    return [
+      ...toCapabilityPermissions(serverName, this.getPermissions(serverName)),
+      ...(this.capabilityPermissionsByServer.get(serverName) ?? []),
+      ...(serverName === "*" ? [] : this.capabilityPermissionsByServer.get("*") ?? []),
+    ];
+  }
+
   async evaluate(
-    request: ToolCallRequest,
+    request: ToolCallRequest | CapabilityOperationRequest,
     user: UserContext,
     context?: MiddlewareContext,
   ): Promise<PolicyDecision> {
-    const permission = getToolPermission(this.getPermissions(request.serverName), request.toolName);
+    const capabilityRequest = toCapabilityRequest(request);
+    const permission = getCapabilityPermission(this.getCapabilityPermissions(capabilityRequest.serverName), capabilityRequest);
     if (!permission) {
-      return this.decision(false, request, user, undefined, "not-permitted");
+      return this.decision(false, capabilityRequest, user, undefined, "not-permitted");
     }
 
     if (permission.effect === "deny") {
-      return this.decision(false, request, user, permission, `Tool "${request.toolName}" denied by policy "${this.name}"`);
+      return this.decision(false, capabilityRequest, user, permission, deniedReason(capabilityRequest, this.name));
     }
 
     if (permission.approval) {
       if (!context) {
-        return this.decision(false, request, user, permission, "Approval requires middleware context");
+        return this.decision(false, capabilityRequest, user, permission, "Approval requires middleware context");
       }
 
-      const approved = await permission.approval(request, context);
+      const approved = await permission.approval(capabilityRequest, context);
       if (!approved) {
-        return this.decision(false, request, user, permission, "Approval required but not granted");
+        return this.decision(false, capabilityRequest, user, permission, "Approval required but not granted");
       }
     }
 
-    return this.decision(true, request, user, permission);
+    return this.decision(true, capabilityRequest, user, permission);
   }
 
   private addPermission(serverName: string, permission: ToolPermission): this {
@@ -162,11 +190,17 @@ export class Policy implements PolicyContract {
     return this;
   }
 
+  private addCapabilityPermission(serverName: string, permission: CapabilityPermission): this {
+    const existing = this.capabilityPermissionsByServer.get(serverName) ?? [];
+    this.capabilityPermissionsByServer.set(serverName, [...existing, permission]);
+    return this;
+  }
+
   private decision(
     allowed: boolean,
-    request: ToolCallRequest,
+    request: CapabilityOperationRequest,
     user: UserContext,
-    permission?: ToolPermission,
+    permission?: CapabilityPermission,
     reason?: string,
   ): PolicyDecision {
     return {
@@ -179,7 +213,10 @@ export class Policy implements PolicyContract {
               {
                 policyName: this.name,
                 serverName: request.serverName,
-                toolName: request.toolName,
+                operation: request.operation,
+                target: request.target,
+                targetKind: request.targetKind,
+                toolName: request.targetKind === "tool" ? request.target : undefined,
                 effect: permission.effect ?? "allow",
                 metadata: permission.metadata,
               },
@@ -187,7 +224,10 @@ export class Policy implements PolicyContract {
           : [],
         denialReason: allowed ? undefined : reason,
         serverName: request.serverName,
-        toolName: request.toolName,
+        operation: request.operation,
+        target: request.target,
+        targetKind: request.targetKind,
+        toolName: request.targetKind === "tool" ? request.target : undefined,
         userId: user.id,
         permission: permission?.metadata,
         limiter: permission?.limiter,
@@ -214,6 +254,14 @@ export class PolicyServerBuilder {
   deny(toolName: string, options: ToolPermissionOptions = {}): Policy {
     return this.policy.deny(this.serverName, toolName, options);
   }
+
+  allowCapability(permission: CapabilityPermissionOptions): Policy {
+    return this.policy.allowCapability(this.serverName, permission);
+  }
+
+  denyCapability(permission: CapabilityPermissionOptions): Policy {
+    return this.policy.denyCapability(this.serverName, permission);
+  }
 }
 
 /**
@@ -223,6 +271,15 @@ export class PolicyServerBuilder {
 export type ToolPermissionOptions = {
   limiter?: ToolPermission["limiter"];
   approval?: ToolPermission["approval"];
+  metadata?: Record<string, unknown>;
+  sensitive?: boolean | Record<string, unknown>;
+};
+
+/**
+ * Operation-based permission helper options.
+ * @pk
+ */
+export type CapabilityPermissionOptions = Omit<CapabilityPermission, "effect"> & {
   metadata?: Record<string, unknown>;
   sensitive?: boolean | Record<string, unknown>;
 };
@@ -265,6 +322,22 @@ export function allow(toolName: string, options: ToolPermissionOptions = {}): To
  */
 export function deny(toolName: string, options: ToolPermissionOptions = {}): ToolPermission {
   return { ...toToolPermission(toolName, options), effect: "deny" };
+}
+
+/**
+ * Helper to declare an allow capability permission.
+ * @pk
+ */
+export function allowCapability(permission: CapabilityPermissionOptions): CapabilityPermission {
+  return toCapabilityPermission(permission.server ?? "*", permission, "allow");
+}
+
+/**
+ * Helper to declare a deny capability permission.
+ * @pk
+ */
+export function denyCapability(permission: CapabilityPermissionOptions): CapabilityPermission {
+  return toCapabilityPermission(permission.server ?? "*", permission, "deny");
 }
 
 /**
@@ -434,6 +507,38 @@ function toToolPermission(toolName: string, options: ToolPermissionOptions): Too
         : {}),
     },
   };
+}
+
+function toCapabilityPermission(
+  serverName: string,
+  options: CapabilityPermissionOptions,
+  effect: "allow" | "deny",
+): CapabilityPermission {
+  return {
+    server: serverName,
+    operation: options.operation,
+    target: options.target,
+    targetKind: options.targetKind,
+    limiter: options.limiter,
+    approval: options.approval,
+    effect,
+    metadata: {
+      ...options.metadata,
+      ...(options.sensitive
+        ? {
+            sensitive: options.sensitive === true ? true : options.sensitive,
+          }
+        : {}),
+    },
+  };
+}
+
+function deniedReason(request: CapabilityOperationRequest, policyName: string): string {
+  if (request.operation === "tool:call") {
+    return `Tool "${request.target ?? "*"}" denied by policy "${policyName}"`;
+  }
+
+  return `Operation "${request.operation}" denied by policy "${policyName}"`;
 }
 
 function sameUser(left: User, right: User): boolean {

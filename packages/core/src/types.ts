@@ -106,7 +106,10 @@ export type PolicyMetadata = {
     policyName: string;
     groupId?: string;
     serverName: string;
-    toolName: string;
+    operation: McpOperationName;
+    target?: string;
+    targetKind?: CapabilityTargetKind;
+    toolName?: string;
     effect: "allow" | "deny";
     metadata?: Record<string, unknown>;
   }>;
@@ -235,6 +238,20 @@ export type ListToolsContext = {
  * @pk
  */
 export type ProxyOperation = "tool:call" | "tools:list" | "session:start" | "session:end";
+
+/**
+ * Governed MCP operation names used by capability permissions.
+ * @pk
+ */
+export type McpOperationName =
+  | "tools:list"
+  | "tool:call"
+  | "resources:list"
+  | "resource:read"
+  | "resource-templates:list"
+  | "prompts:list"
+  | "prompt:get"
+  | "completion:complete";
 
 /**
  * Safe downstream transport metadata attached to a proxy operation.
@@ -617,6 +634,39 @@ export type ToolPermission = {
 };
 
 /**
+ * Capability target selector kind for policy permissions.
+ * @pk
+ */
+export type CapabilityTargetKind = "tool" | "resource" | "resourceTemplate" | "prompt" | "completion";
+
+/**
+ * Operation-based permission model for governed MCP capabilities.
+ * @pk
+ */
+export type CapabilityPermission = {
+  server?: string;
+  operation: McpOperationName | "*";
+  target?: string;
+  targetKind?: CapabilityTargetKind;
+  effect?: "allow" | "deny";
+  limiter?: RateLimiter;
+  approval?: (request: CapabilityOperationRequest, context: MiddlewareContext) => MaybePromise<boolean>;
+  metadata?: Record<string, unknown>;
+};
+
+/**
+ * Normalized request used for operation-based policy evaluation.
+ * @pk
+ */
+export type CapabilityOperationRequest = {
+  serverName: string;
+  operation: McpOperationName;
+  target?: string;
+  targetKind?: CapabilityTargetKind;
+  raw?: unknown;
+};
+
+/**
  * Policy evaluation result.
  * @pk
  */
@@ -634,8 +684,9 @@ export interface Policy {
   name: string;
   description?: string;
   getPermissions(serverName: string): ToolPermission[];
+  getCapabilityPermissions?(serverName: string): CapabilityPermission[];
   evaluate(
-    request: ToolCallRequest,
+    request: ToolCallRequest | CapabilityOperationRequest,
     user: UserContext,
     context?: MiddlewareContext,
   ): MaybePromise<PolicyDecision>;
