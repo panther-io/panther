@@ -34,10 +34,10 @@
 
 ## 5. Downstream MCP Server Exposure
 
-- [ ] 5.1 Register downstream SDK request handlers for resources, resource templates, prompts, and completion
-- [ ] 5.2 Compute downstream `resources`, `prompts`, and `completions` capabilities from configured upstream support
-- [ ] 5.3 Keep `tools` capability and existing tool handlers unchanged
-- [ ] 5.4 Add integration tests using an MCP client against Panther for list/read/get/complete flows
+- [x] 5.1 Register downstream SDK request handlers for resources, resource templates, prompts, and completion
+- [x] 5.2 Compute downstream `resources`, `prompts`, and `completions` capabilities from configured upstream support
+- [x] 5.3 Keep `tools` capability and existing tool handlers unchanged
+- [x] 5.4 Add integration tests using an MCP client against Panther for list/read/get/complete flows
 
 ## 6. Documentation And Verification
 

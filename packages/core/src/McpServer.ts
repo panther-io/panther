@@ -181,6 +181,30 @@ export class McpServer {
   }
 
   /**
+   * Whether the configured transport exposes resource operations.
+   * @pk
+   */
+  supportsResources(): boolean {
+    return Boolean(this.transport.listResources || this.transport.readResource || this.transport.listResourceTemplates);
+  }
+
+  /**
+   * Whether the configured transport exposes prompt operations.
+   * @pk
+   */
+  supportsPrompts(): boolean {
+    return Boolean(this.transport.listPrompts || this.transport.getPrompt);
+  }
+
+  /**
+   * Whether the configured transport exposes completion operations.
+   * @pk
+   */
+  supportsCompletions(): boolean {
+    return Boolean(this.transport.complete);
+  }
+
+  /**
    * Close all transports.
    * @pk
    */

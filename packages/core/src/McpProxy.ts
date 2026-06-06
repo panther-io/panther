@@ -2,7 +2,13 @@ import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServ
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
+  CompleteRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
+  ReadResourceRequestSchema,
   type CallToolRequest,
   type CallToolResult,
   type CompleteRequest,
@@ -709,19 +715,36 @@ export class McpProxy {
    * @pk
    */
   createSdkServer(user: UserContext = {}, identity?: IdentityMetadata, subject?: ResolvedSubject): McpSdkServer {
+    const capabilities = this.createServerCapabilities();
     const server = new McpSdkServer(
       { name: this.name, version: this.version },
       {
-        capabilities: {
-          tools: {},
-          logging: {},
-        },
-        instructions: "Panther MCP proxy. Tool names are prefixed as <server>__<tool>.",
+        capabilities,
+        instructions:
+          "Panther MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use panther:// proxy URIs.",
       },
     );
 
     server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
     server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity, subject));
+    if (capabilities.resources) {
+      server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
+        this.listResources(request.params, user, identity, subject));
+      server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
+        this.readResource(request.params, user, identity, subject));
+      server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) =>
+        this.listResourceTemplates(request.params, user, identity, subject));
+    }
+    if (capabilities.prompts) {
+      server.setRequestHandler(ListPromptsRequestSchema, async (request) =>
+        this.listPrompts(request.params, user, identity, subject));
+      server.setRequestHandler(GetPromptRequestSchema, async (request) =>
+        this.getPrompt(request.params, user, identity, subject));
+    }
+    if (capabilities.completions) {
+      server.setRequestHandler(CompleteRequestSchema, async (request) =>
+        this.complete(request.params, user, identity, subject));
+    }
 
     return server;
   }
@@ -821,6 +844,22 @@ export class McpProxy {
       emitSessionEnd: (context) => this.emitSessionEnd(context),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
+    };
+  }
+
+  private createServerCapabilities(): {
+    tools: object;
+    logging: object;
+    resources?: object;
+    prompts?: object;
+    completions?: object;
+  } {
+    return {
+      tools: {},
+      logging: {},
+      ...(this.servers.some((server) => server.supportsResources()) ? { resources: {} } : {}),
+      ...(this.servers.some((server) => server.supportsPrompts()) ? { prompts: {} } : {}),
+      ...(this.servers.some((server) => server.supportsCompletions()) ? { completions: {} } : {}),
     };
   }
 
