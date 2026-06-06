@@ -2,9 +2,9 @@
 
 - [x] 1.1 Add optional resource, prompt, resource-template, and completion methods to `PanterTransport`
 - [x] 1.2 Add SDK request/result type imports and public type aliases for new MCP server feature operations
-- [ ] 1.3 Implement prompt name mapping helpers that round-trip `<server>__<prompt>` to server and upstream prompt name
-- [ ] 1.4 Implement proxied resource URI and resource template URI mapping helpers with round-trip validation
-- [ ] 1.5 Add unit tests for prompt and resource mapping collisions, invalid names, and malformed proxy URIs
+- [x] 1.3 Implement prompt name mapping helpers that round-trip `<server>__<prompt>` to server and upstream prompt name
+- [x] 1.4 Implement proxied resource URI and resource template URI mapping helpers with round-trip validation
+- [x] 1.5 Add unit tests for prompt and resource mapping collisions, invalid names, and malformed proxy URIs
 
 ## 2. Upstream Transport Support
 

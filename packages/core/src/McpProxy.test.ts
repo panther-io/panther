@@ -7,7 +7,16 @@ import type {
 import { Logger } from "./logger.js";
 import { McpProxy } from "./McpProxy.js";
 import { McpServer } from "./McpServer.js";
-import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+import {
+  fromProxyPromptName,
+  fromProxyResourceTemplateUri,
+  fromProxyResourceUri,
+  fromProxyToolName,
+  toProxyPromptName,
+  toProxyResourceTemplateUri,
+  toProxyResourceUri,
+  toProxyToolName,
+} from "./nameMapping.js";
 import type { LogEntry, LoggerDriver } from "./logger.js";
 import type { PanterTransport } from "./types.js";
 
@@ -55,6 +64,67 @@ describe("proxied tool names", () => {
   it("rejects invalid server names and proxy tool names", () => {
     expect(() => toProxyToolName("bad__server", "tool")).toThrow(/cannot include/);
     expect(() => fromProxyToolName("missing-separator")).toThrow(/Invalid proxied tool name/);
+  });
+});
+
+describe("proxied prompt names", () => {
+  it("round-trips server and prompt names", () => {
+    const proxyName = toProxyPromptName("docs", "summarize_page");
+
+    expect(proxyName).toBe("docs__summarize_page");
+    expect(fromProxyPromptName(proxyName)).toEqual({
+      serverName: "docs",
+      promptName: "summarize_page",
+    });
+  });
+
+  it("keeps prompt names with separators unambiguous", () => {
+    const proxyName = toProxyPromptName("docs", "team__summary");
+
+    expect(fromProxyPromptName(proxyName)).toEqual({
+      serverName: "docs",
+      promptName: "team__summary",
+    });
+  });
+
+  it("rejects invalid prompt mappings", () => {
+    expect(() => toProxyPromptName("bad__server", "prompt")).toThrow(/cannot include/);
+    expect(() => toProxyPromptName("docs", "")).toThrow(/prompt name cannot be empty/);
+    expect(() => fromProxyPromptName("missing-separator")).toThrow(/Invalid proxied prompt name/);
+    expect(() => fromProxyPromptName("docs__")).toThrow(/Invalid proxied prompt name/);
+  });
+});
+
+describe("proxied resource URIs", () => {
+  it("round-trips resource URIs", () => {
+    const proxyUri = toProxyResourceUri("files", "file:///tmp/readme.md?rev=1");
+
+    expect(proxyUri).toBe("panther://resources/files/file%3A%2F%2F%2Ftmp%2Freadme.md%3Frev%3D1");
+    expect(fromProxyResourceUri(proxyUri)).toEqual({
+      serverName: "files",
+      uri: "file:///tmp/readme.md?rev=1",
+    });
+  });
+
+  it("round-trips resource template URIs", () => {
+    const proxyTemplate = toProxyResourceTemplateUri("repo", "repo://{owner}/{name}/issues/{id}");
+
+    expect(proxyTemplate).toBe("panther://resource-templates/repo/repo%3A%2F%2F%7Bowner%7D%2F%7Bname%7D%2Fissues%2F%7Bid%7D");
+    expect(fromProxyResourceTemplateUri(proxyTemplate)).toEqual({
+      serverName: "repo",
+      uriTemplate: "repo://{owner}/{name}/issues/{id}",
+    });
+  });
+
+  it("rejects invalid resource mappings", () => {
+    expect(() => toProxyResourceUri("bad__server", "file:///tmp/readme.md")).toThrow(/cannot include/);
+    expect(() => toProxyResourceUri("files", "")).toThrow(/resource URI cannot be empty/);
+    expect(() => fromProxyResourceUri("file:///tmp/readme.md")).toThrow(/Invalid proxied resource URI/);
+    expect(() => fromProxyResourceUri("panther://resources/files")).toThrow(/Invalid proxied resource URI/);
+    expect(() => fromProxyResourceUri("panther://resources/files/file/raw")).toThrow(/raw path separators/);
+    expect(() => fromProxyResourceTemplateUri("panther://resources/files/file%3A%2F%2Fa")).toThrow(
+      /Invalid proxied resource template URI/,
+    );
   });
 });
 
