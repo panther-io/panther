@@ -205,3 +205,17 @@ export type { RedisRegistryClient, RedisRegistryOptions } from "./registry.js";
  * @pk
  */
 export { MemoryRateLimitStore, SlidingWindowRateLimiter, rateLimitKey, rateLimitMiddleware } from "./rateLimit.js";
+/**
+ * High-level proxy DX helpers.
+ * @pk
+ */
+export { http, isMcpTransportDescriptor, mcp, panther, rateLimit, sse, stdio, zodInput } from "./dx.js";
+export type {
+  FixedWindowRateLimitOptions,
+  HttpMcpOptions,
+  LegacyHttpMcpOptions,
+  McpTransportDescriptor,
+  PantherOptions,
+  SseMcpOptions,
+  StdioMcpOptions,
+} from "./dx.js";

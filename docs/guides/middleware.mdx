@@ -114,6 +114,18 @@ proxy.tool("*.search_*", async (ctx, next) => {
 });
 ```
 
+For Zod schemas, use `zodInput(...)` as a route middleware:
+
+```ts theme={null}
+import { zodInput } from "@panther/core";
+import { z } from "zod";
+
+proxy.server("github").tool("create_issue", zodInput(z.object({
+  title: z.string().min(3).max(120),
+  body: z.string().max(10_000).optional(),
+})));
+```
+
 ## Normalize inputs
 
 Middleware can also clean up incoming parameters before they reach a server.
@@ -153,6 +165,28 @@ proxy.use(async (ctx, next) => {
   }
   return next();
 });
+```
+
+For a fixed window limit, use the high-level helper:
+
+```ts theme={null}
+import { rateLimit } from "@panther/core";
+
+proxy.tool("*.search_*", rateLimit.fixedWindow({
+  limit: 100,
+  windowMs: 60_000,
+  key: (ctx) => `${ctx.subject?.id ?? "anonymous"}:${ctx.server?.name}:${ctx.tool?.name}`,
+}));
+```
+
+Manual approval can be registered as route middleware. Without an `approve` callback it denies with the configured reason, which is useful as a local placeholder until you wire a real approval workflow.
+
+```ts theme={null}
+import { approval } from "@panther/core";
+
+proxy.server("github").tool("delete_repo", approval.manual({
+  reason: "Destructive operation requires explicit approval.",
+}));
 ```
 
 ## Migrating legacy middleware

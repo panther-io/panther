@@ -10,7 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
-import { McpServer } from "./McpServer.js";
+import { McpServer, type EnvResolver } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
 import { filterToolsByPolicy, getToolPermission } from "./policy.js";
 import type { PantherAuth } from "./auth.js";
@@ -34,7 +34,9 @@ import {
   type LegacyMiddleware,
   type LifecycleHook,
   type LifecycleHookEvent,
+  type Isolation,
   type Policy,
+  type PanterTransport,
   type ProxyContext,
   type ProxyEventFilter,
   type ProxyEventHandler,
@@ -125,6 +127,17 @@ type CompiledToolPattern = {
   scopedServer?: string;
 };
 
+type McpServerDescriptor = {
+  readonly __pantherMcpTransport: true;
+  readonly transport: PanterTransport;
+  readonly displayName?: string;
+  readonly env?: EnvResolver;
+  readonly isolation?: Isolation;
+  readonly isolationTimeout?: number;
+};
+
+type McpServerRegistration = McpServer | PanterTransport | McpServerDescriptor;
+
 /**
  * HTTP proxy for multiple MCP servers.
  * @pk
@@ -207,14 +220,15 @@ export class McpProxy {
    * Register or retrieve a scoped server handle.
    * @pk
    */
-  server(name: string, server?: McpServer): ProxyServerHandle {
+  server(name: string, server?: McpServerRegistration): ProxyServerHandle {
     if (server) {
-      if (server.name !== name) {
-        throw new Error(`Server handle "${name}" cannot register MCP server "${server.name}"`);
+      const resolvedServer = toMcpServer(name, server);
+      if (resolvedServer.name !== name) {
+        throw new Error(`Server handle "${name}" cannot register MCP server "${resolvedServer.name}"`);
       }
       if (!this.serverByName.has(name)) {
-        this.servers.push(server);
-        this.serverByName.set(name, server);
+        this.servers.push(resolvedServer);
+        this.serverByName.set(name, resolvedServer);
       }
     }
 
@@ -383,13 +397,13 @@ export class McpProxy {
 
     let tools: ListToolsResult["tools"] = results.flat();
     const log = this.createContextualLogger({
-      operation: "tools:list",
+      operation: "tools/list",
       user: resolvedUser,
       subject: resolvedSubject,
       identity,
     });
     const context = this.createProxyContext({
-      operation: "tools:list",
+      operation: "tools/list",
       user: resolvedUser,
       subject: resolvedSubject,
       identity,
@@ -445,7 +459,7 @@ export class McpProxy {
       raw: params,
     };
     const log = this.createContextualLogger({
-      operation: "tool:call",
+      operation: "tools/call",
       user: resolvedUser,
       subject: resolvedSubject,
       identity,
@@ -454,7 +468,7 @@ export class McpProxy {
       proxyToolName: params.name,
     });
     const context = this.createProxyContext({
-      operation: "tool:call",
+      operation: "tools/call",
       user: resolvedUser,
       subject: resolvedSubject,
       identity,
@@ -507,7 +521,7 @@ export class McpProxy {
             );
           }
 
-          return this.forwardToolCall(params, upstreamUser);
+          return this.forwardToolCall({ ...params, arguments: context.args }, upstreamUser);
         }));
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
@@ -871,7 +885,7 @@ export class McpProxy {
     }
 
     if (entry.kind === "tool") {
-      return context.operation === "tool:call" && entry.pattern !== undefined && matchesToolPattern(entry.pattern, request);
+      return context.operation === "tools/call" && entry.pattern !== undefined && matchesToolPattern(entry.pattern, request);
     }
 
     return true;
@@ -1049,7 +1063,7 @@ export class McpProxy {
   ): { user: UserContext; credentialSource?: CredentialSourceMetadata } {
     const binding = this.auth?.getBinding(serverName);
     if (!binding) {
-      return { user };
+      return { user: withInternalSubject(user, subject) };
     }
 
     if (!subject) {
@@ -1064,7 +1078,7 @@ export class McpProxy {
     const env = toUpstreamEnv(binding, credential.value);
     return {
       user: {
-        ...user,
+        ...withInternalSubject(user, subject),
         __pantherUpstreamEnv: {
           ...(isRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : {}),
           ...env,
@@ -1127,6 +1141,7 @@ export class McpProxy {
     payload: Parameters<ProxyEventHandler>[0],
   ): Promise<ListToolsResult["tools"] | ListToolsResult | void> {
     let transformedTools: ListToolsResult["tools"] | ListToolsResult | undefined = undefined;
+    payload.ctx.durationMs = payload.durationMs;
     for (const entry of this.eventHandlers) {
       if (entry.eventName !== eventName || !matchesEventFilter(entry.filter, payload.ctx)) {
         continue;
@@ -1219,6 +1234,40 @@ function toUpstreamEnv(binding: NonNullable<ReturnType<PantherAuth["getBinding"]
   }
 
   return { [binding.env]: credential };
+}
+
+function toMcpServer(name: string, registration: McpServerRegistration): McpServer {
+  if (registration instanceof McpServer) {
+    return registration;
+  }
+
+  if (isMcpServerDescriptor(registration)) {
+    return new McpServer({
+      name,
+      displayName: registration.displayName,
+      transport: registration.transport,
+      env: registration.env,
+      isolation: registration.isolation,
+      isolationTimeout: registration.isolationTimeout,
+    });
+  }
+
+  return new McpServer({ name, transport: registration });
+}
+
+function isMcpServerDescriptor(value: unknown): value is McpServerDescriptor {
+  return Boolean(value && typeof value === "object" && "__pantherMcpTransport" in value);
+}
+
+function withInternalSubject(user: UserContext, subject: ResolvedSubject | undefined): UserContext {
+  if (!subject) {
+    return user;
+  }
+
+  return {
+    ...user,
+    __pantherSubject: subject,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, string> {

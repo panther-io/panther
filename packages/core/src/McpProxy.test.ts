@@ -169,7 +169,7 @@ describe("McpProxy", () => {
     ]);
     expect(seen).toEqual([
       {
-        operation: "tool:call",
+        operation: "tools/call",
         subjectId: undefined,
         authUserId: "user-1",
         server: "github",
@@ -185,7 +185,7 @@ describe("McpProxy", () => {
     expect(driver.entries[0]).toMatchObject({
       message: "validated",
       context: {
-        operation: "tool:call",
+        operation: "tools/call",
         userId: "user-1",
         subjectId: "user-1",
         serverName: "github",
@@ -433,7 +433,7 @@ describe("McpProxy", () => {
     });
 
     proxy.on("tools:list:after", ({ ctx, tools }) => {
-      expect(ctx.operation).toBe("tools:list");
+      expect(ctx.operation).toBe("tools/list");
       expect(ctx.server).toBeUndefined();
       expect(ctx.tool).toBeUndefined();
       return [
