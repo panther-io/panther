@@ -7,12 +7,12 @@
 
 ## 2. Policy Evaluation And Filtering
 
-- [ ] 2.1 Implement policy evaluation for `resources/list` and `resources/read`
-- [ ] 2.2 Implement policy evaluation for `resources/templates/list`
-- [ ] 2.3 Implement policy evaluation for `prompts/list` and `prompts/get`
-- [ ] 2.4 Implement policy evaluation for `completion/complete`
-- [ ] 2.5 Filter listed resources, resource templates, and prompts according to effective policy
-- [ ] 2.6 Return structured MCP errors for denied direct operations before upstream forwarding
+- [x] 2.1 Implement policy evaluation for `resources/list` and `resources/read`
+- [x] 2.2 Implement policy evaluation for `resources/templates/list`
+- [x] 2.3 Implement policy evaluation for `prompts/list` and `prompts/get`
+- [x] 2.4 Implement policy evaluation for `completion/complete`
+- [x] 2.5 Filter listed resources, resource templates, and prompts according to effective policy
+- [x] 2.6 Return structured MCP errors for denied direct operations before upstream forwarding
 
 ## 3. Unified Context
 

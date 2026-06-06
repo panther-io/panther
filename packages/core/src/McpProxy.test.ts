@@ -16,6 +16,8 @@ import type {
 import { Logger } from "./logger.js";
 import { McpProxy } from "./McpProxy.js";
 import { McpServer } from "./McpServer.js";
+import { PantherErrorCode } from "./errors.js";
+import { Policy } from "./governance.js";
 import {
   fromProxyPromptName,
   fromProxyResourceTemplateUri,
@@ -408,6 +410,65 @@ describe("McpProxy", () => {
       ref: { type: "ref/resource", uri: "file:///{path}" },
       argument: { name: "path", value: "r" },
     });
+  });
+
+  it("filters listed resources, resource templates, and prompts through capability policy", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "capabilities" })
+        .server("github")
+        .allowCapability({ operation: "resources:list", targetKind: "resource" })
+        .server("github")
+        .denyCapability({ operation: "resource:read", target: "file:///shared.md", targetKind: "resource" })
+        .server("github")
+        .allowCapability({ operation: "resource-templates:list", targetKind: "resourceTemplate" })
+        .server("github")
+        .denyCapability({ operation: "resource-templates:list", target: "file:///{path}", targetKind: "resourceTemplate" })
+        .server("github")
+        .allowCapability({ operation: "prompts:list", targetKind: "prompt" })
+        .server("github")
+        .denyCapability({ operation: "prompt:get", target: "summarize", targetKind: "prompt" }),
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    await expect(proxy.listResources()).resolves.toEqual({ resources: [] });
+    await expect(proxy.listResourceTemplates()).resolves.toEqual({ resourceTemplates: [] });
+    await expect(proxy.listPrompts()).resolves.toEqual({ prompts: [] });
+  });
+
+  it("rejects denied resource, prompt, and completion operations before forwarding upstream", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "blocked" })
+        .server("github")
+        .denyCapability({ operation: "resource:read", target: "file:///shared.md", targetKind: "resource" })
+        .server("github")
+        .denyCapability({ operation: "prompt:get", target: "summarize", targetKind: "prompt" })
+        .server("github")
+        .denyCapability({ operation: "completion:complete", target: "summarize", targetKind: "completion" }),
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    await expect(proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: 'Operation "resource:read" denied by policy "blocked"',
+    });
+    await expect(proxy.getPrompt({ name: "github__summarize" })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: 'Operation "prompt:get" denied by policy "blocked"',
+    });
+    await expect(
+      proxy.complete({
+        ref: { type: "ref/prompt", name: "github__summarize" },
+        argument: { name: "topic", value: "m" },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: 'Operation "completion:complete" denied by policy "blocked"',
+    });
+    expect(transport.readResource).not.toHaveBeenCalled();
+    expect(transport.getPrompt).not.toHaveBeenCalled();
+    expect(transport.complete).not.toHaveBeenCalled();
   });
 
   it("rejects unknown routed resource and prompt identifiers", async () => {

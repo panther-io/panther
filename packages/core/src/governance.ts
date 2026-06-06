@@ -430,19 +430,27 @@ export function buildSubjectIndex(groups: Group[]): SubjectIndex {
 
 export async function evaluateGroupPolicies(
   groups: Group[],
-  request: ToolCallRequest,
+  request: ToolCallRequest | CapabilityOperationRequest,
   user: UserContext,
   context: MiddlewareContext,
 ): Promise<PolicyDecision> {
+  const capabilityRequest = toCapabilityRequest(request);
   const decisions = await Promise.all(groups.map((group) => group.policy.evaluate(request, user, context)));
   const denied = decisions.find((decision) => !decision.allowed && decision.metadata?.matchedPermissions?.some((permission) => permission.effect === "deny"));
   if (denied) {
-    return mergeGroupDecisions(false, groups, decisions, denied.reason ?? "Tool call denied by group policy");
+    return mergeGroupDecisions(false, groups, decisions, denied.reason ?? `${capabilityRequest.operation} denied by group policy`);
   }
 
   const allowed = decisions.some((decision) => decision.allowed);
   if (!allowed) {
-    return mergeGroupDecisions(false, groups, decisions, `Tool "${request.toolName}" not permitted by effective group policies`);
+    return mergeGroupDecisions(
+      false,
+      groups,
+      decisions,
+      capabilityRequest.operation === "tool:call"
+        ? `Tool "${capabilityRequest.target ?? "*"}" not permitted by effective group policies`
+        : `Operation "${capabilityRequest.operation}" not permitted by effective group policies`,
+    );
   }
 
   return mergeGroupDecisions(true, groups, decisions);
