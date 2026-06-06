@@ -1,8 +1,20 @@
 import type {
   CallToolRequest,
   CallToolResult,
+  CompleteRequest,
+  CompleteResult,
+  GetPromptRequest,
+  GetPromptResult,
+  ListPromptsRequest,
+  ListPromptsResult,
+  ListResourcesRequest,
+  ListResourcesResult,
+  ListResourceTemplatesRequest,
+  ListResourceTemplatesResult,
   ListToolsRequest,
   ListToolsResult,
+  ReadResourceRequest,
+  ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "./logger.js";
 
@@ -11,6 +23,33 @@ import type { Logger } from "./logger.js";
  * @pk
  */
 export type MaybePromise<T> = T | Promise<T>;
+
+/**
+ * Request/result aliases for MCP server resource operations.
+ * @pk
+ */
+export type ListResourcesParams = ListResourcesRequest["params"];
+export type ListResourcesResponse = ListResourcesResult;
+export type ReadResourceParams = ReadResourceRequest["params"];
+export type ReadResourceResponse = ReadResourceResult;
+export type ListResourceTemplatesParams = ListResourceTemplatesRequest["params"];
+export type ListResourceTemplatesResponse = ListResourceTemplatesResult;
+
+/**
+ * Request/result aliases for MCP server prompt operations.
+ * @pk
+ */
+export type ListPromptsParams = ListPromptsRequest["params"];
+export type ListPromptsResponse = ListPromptsResult;
+export type GetPromptParams = GetPromptRequest["params"];
+export type GetPromptResponse = GetPromptResult;
+
+/**
+ * Request/result aliases for MCP completion operations.
+ * @pk
+ */
+export type CompleteParams = CompleteRequest["params"];
+export type CompleteResponse = CompleteResult;
 
 /**
  * User context passed through requests.
@@ -526,6 +565,12 @@ export type ProxyServerHandle = {
 export type PanterTransport = {
   listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
   callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
+  listResources?(params?: ListResourcesParams): Promise<ListResourcesResponse>;
+  readResource?(params: ReadResourceParams): Promise<ReadResourceResponse>;
+  listResourceTemplates?(params?: ListResourceTemplatesParams): Promise<ListResourceTemplatesResponse>;
+  listPrompts?(params?: ListPromptsParams): Promise<ListPromptsResponse>;
+  getPrompt?(params: GetPromptParams): Promise<GetPromptResponse>;
+  complete?(params: CompleteParams): Promise<CompleteResponse>;
   close(): Promise<void>;
 };
 
