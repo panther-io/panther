@@ -4,7 +4,7 @@ import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { McpProxy } from "./McpProxy.js";
 import { McpServer } from "./McpServer.js";
-import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "./types.js";
+import type { McpUpstreamNotificationHandler, ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "./types.js";
 import type {
   CallToolRequest,
   CallToolResult,
@@ -55,6 +55,24 @@ class MockTransport implements PanterTransport {
   });
 
   async close(): Promise<void> {}
+}
+
+class SubscribableTransport extends MockTransport {
+  private readonly notificationHandlers = new Set<McpUpstreamNotificationHandler>();
+
+  readonly subscribeResource = vi.fn(async (): Promise<{ _meta?: Record<string, unknown> }> => ({}));
+  readonly unsubscribeResource = vi.fn(async (): Promise<{ _meta?: Record<string, unknown> }> => ({}));
+
+  onNotification(handler: McpUpstreamNotificationHandler): () => void {
+    this.notificationHandlers.add(handler);
+    return () => {
+      this.notificationHandlers.delete(handler);
+    };
+  }
+
+  async emitResourceUpdated(uri: string): Promise<void> {
+    await Promise.all([...this.notificationHandlers].map((handler) => handler({ type: "resources:updated", uri })));
+  }
 }
 
 class ToolOnlyTransport implements PanterTransport {
@@ -324,5 +342,73 @@ describe("proxy exposure pipeline", () => {
     ]);
 
     await proxy.close();
+  });
+
+  it("coalesces resource subscriptions and routes updates only to subscribed sessions", async () => {
+    const upstream = new SubscribableTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: upstream })],
+    });
+    const handle = await proxy.listen(new NotificationProbeExposure());
+    const proxyUri = "panther://resources/github/file%3A%2F%2F%2Freadme.md";
+
+    await proxy.subscribeResource({ uri: proxyUri }, {}, undefined, undefined, "session-a");
+    await proxy.subscribeResource({ uri: proxyUri }, {}, undefined, undefined, "session-b");
+
+    expect(upstream.subscribeResource).toHaveBeenCalledTimes(1);
+    expect(upstream.subscribeResource).toHaveBeenCalledWith({ uri: "file:///readme.md" });
+
+    await upstream.emitResourceUpdated("file:///readme.md");
+
+    expect(handle.sent.get("session-a")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/resources/updated",
+        params: { uri: proxyUri },
+      },
+    ]);
+    expect(handle.sent.get("session-b")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/resources/updated",
+        params: { uri: proxyUri },
+      },
+    ]);
+
+    handle.sent.clear();
+    await proxy.unsubscribeResource({ uri: proxyUri }, {}, undefined, undefined, "session-a");
+    expect(upstream.unsubscribeResource).not.toHaveBeenCalled();
+
+    await upstream.emitResourceUpdated("file:///readme.md");
+    expect(handle.sent.get("session-a")).toBeUndefined();
+    expect(handle.sent.get("session-b")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/resources/updated",
+        params: { uri: proxyUri },
+      },
+    ]);
+
+    await proxy.unsubscribeResource({ uri: proxyUri }, {}, undefined, undefined, "session-b");
+    expect(upstream.unsubscribeResource).toHaveBeenCalledTimes(1);
+    expect(upstream.unsubscribeResource).toHaveBeenCalledWith({ uri: "file:///readme.md" });
+
+    await proxy.close();
+  });
+
+  it("rejects resource subscriptions when the owning upstream does not support them", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+
+    await expect(
+      proxy.subscribeResource(
+        { uri: "panther://resources/github/file%3A%2F%2F%2Freadme.md" },
+        {},
+        undefined,
+        undefined,
+        "session-a",
+      ),
+    ).rejects.toThrow(/resource subscriptions/);
   });
 });

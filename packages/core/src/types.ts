@@ -21,7 +21,9 @@ import type {
   ReadResourceResult,
   ResourceListChangedNotification,
   ResourceUpdatedNotification,
+  SubscribeRequest,
   ToolListChangedNotification,
+  UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "./logger.js";
 
@@ -39,6 +41,10 @@ export type ListResourcesParams = ListResourcesRequest["params"];
 export type ListResourcesResponse = ListResourcesResult;
 export type ReadResourceParams = ReadResourceRequest["params"];
 export type ReadResourceResponse = ReadResourceResult;
+export type SubscribeResourceParams = SubscribeRequest["params"];
+export type SubscribeResourceResponse = { _meta?: Record<string, unknown> };
+export type UnsubscribeResourceParams = UnsubscribeRequest["params"];
+export type UnsubscribeResourceResponse = { _meta?: Record<string, unknown> };
 export type ListResourceTemplatesParams = ListResourceTemplatesRequest["params"];
 export type ListResourceTemplatesResponse = ListResourceTemplatesResult;
 
@@ -676,6 +682,8 @@ export type PanterTransport = {
   callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
   listResources?(params?: ListResourcesParams): Promise<ListResourcesResponse>;
   readResource?(params: ReadResourceParams): Promise<ReadResourceResponse>;
+  subscribeResource?(params: SubscribeResourceParams): Promise<SubscribeResourceResponse>;
+  unsubscribeResource?(params: UnsubscribeResourceParams): Promise<UnsubscribeResourceResponse>;
   listResourceTemplates?(params?: ListResourceTemplatesParams): Promise<ListResourceTemplatesResponse>;
   listPrompts?(params?: ListPromptsParams): Promise<ListPromptsResponse>;
   getPrompt?(params: GetPromptParams): Promise<GetPromptResponse>;

@@ -14,11 +14,11 @@
 
 ## 3. Resource Subscriptions
 
-- [ ] 3.1 Register downstream handlers for `resources/subscribe` and `resources/unsubscribe`
-- [ ] 3.2 Route subscribe/unsubscribe to the owning upstream resource URI
-- [ ] 3.3 Coalesce upstream subscriptions when multiple downstream sessions subscribe to the same upstream resource
-- [ ] 3.4 Route upstream resource update notifications only to subscribed downstream sessions
-- [ ] 3.5 Add tests for subscribe, unsubscribe, unsupported upstreams, and update delivery
+- [x] 3.1 Register downstream handlers for `resources/subscribe` and `resources/unsubscribe`
+- [x] 3.2 Route subscribe/unsubscribe to the owning upstream resource URI
+- [x] 3.3 Coalesce upstream subscriptions when multiple downstream sessions subscribe to the same upstream resource
+- [x] 3.4 Route upstream resource update notifications only to subscribed downstream sessions
+- [x] 3.5 Add tests for subscribe, unsubscribe, unsupported upstreams, and update delivery
 
 ## 4. List Change Notifications
 

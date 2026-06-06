@@ -15,6 +15,8 @@ import type {
   ListToolsResult,
   ReadResourceRequest,
   ReadResourceResult,
+  SubscribeRequest,
+  UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
 import type { Isolation, McpUpstreamNotificationHandler, PanterTransport, UserContext } from "./types.js";
@@ -125,6 +127,24 @@ export class McpServer {
     }
 
     return transport.readResource(params);
+  }
+
+  async subscribeResource(params: SubscribeRequest["params"], user: UserContext = {}): Promise<{ _meta?: Record<string, unknown> }> {
+    const transport = this.transportFor(user);
+    if (!transport.subscribeResource) {
+      throw unsupportedCapability(this.name, "resource subscriptions");
+    }
+
+    return transport.subscribeResource(params);
+  }
+
+  async unsubscribeResource(params: UnsubscribeRequest["params"], user: UserContext = {}): Promise<{ _meta?: Record<string, unknown> }> {
+    const transport = this.transportFor(user);
+    if (!transport.unsubscribeResource) {
+      throw unsupportedCapability(this.name, "resource subscriptions");
+    }
+
+    return transport.unsubscribeResource(params);
   }
 
   /**
@@ -294,6 +314,6 @@ function isStringRecord(value: unknown): value is Record<string, string> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions"): Error {
+function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions" | "resource subscriptions"): Error {
   return new Error(`Transport for server "${serverName}" does not support ${capability}`);
 }

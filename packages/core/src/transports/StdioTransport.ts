@@ -18,6 +18,8 @@ import type {
   ListToolsResult,
   ReadResourceRequest,
   ReadResourceResult,
+  SubscribeRequest,
+  UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
   ProgressNotificationSchema,
@@ -127,6 +129,24 @@ export class StdioTransport implements PanterTransport {
     return client.readResource(params);
   }
 
+  async subscribeResource(params: SubscribeRequest["params"]): Promise<{ _meta?: Record<string, unknown> }> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.resources?.subscribe) {
+      throw unsupportedCapability("resource subscriptions");
+    }
+
+    return client.subscribeResource(params);
+  }
+
+  async unsubscribeResource(params: UnsubscribeRequest["params"]): Promise<{ _meta?: Record<string, unknown> }> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.resources?.subscribe) {
+      throw unsupportedCapability("resource subscriptions");
+    }
+
+    return client.unsubscribeResource(params);
+  }
+
   async listResourceTemplates(params?: ListResourceTemplatesRequest["params"]): Promise<ListResourceTemplatesResult> {
     const client = await this.getClient();
     if (!client.getServerCapabilities()?.resources) {
@@ -214,6 +234,10 @@ export class StdioTransport implements PanterTransport {
   }
 
   private registerNotificationHandlers(client: Client): void {
+    if (typeof client.setNotificationHandler !== "function") {
+      return;
+    }
+
     client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
       await this.emitNotification({ type: "tools:list-changed" });
     });
@@ -242,6 +266,6 @@ export class StdioTransport implements PanterTransport {
   }
 }
 
-function unsupportedCapability(capability: "resources" | "prompts" | "completions"): Error {
+function unsupportedCapability(capability: "resources" | "prompts" | "completions" | "resource subscriptions"): Error {
   return new Error(`Upstream MCP server does not support ${capability}`);
 }

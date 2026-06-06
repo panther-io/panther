@@ -9,6 +9,8 @@ import {
   ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
+  SubscribeRequestSchema,
+  UnsubscribeRequestSchema,
   type CallToolRequest,
   type CallToolResult,
   type CompleteRequest,
@@ -25,6 +27,8 @@ import {
   type ListToolsResult,
   type ReadResourceRequest,
   type ReadResourceResult,
+  type SubscribeRequest,
+  type UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
@@ -86,6 +90,7 @@ import {
   type UserContext,
   type ResolvedSubject,
   type McpDownstreamNotification,
+  type McpUpstreamNotification,
   type SessionUtilityRegistry,
   type SessionUtilityState,
 } from "./types.js";
@@ -204,6 +209,7 @@ export class McpProxy {
   private readonly exposureHandles = new Set<ProxyExposureHandle>();
   private readonly sessionUtilities = new Map<string, SessionUtilityState>();
   private readonly sessionNotificationSenders = new Map<string, (notification: McpDownstreamNotification) => Promise<void>>();
+  private readonly resourceSubscriptions = new Map<string, { serverName: string; uri: string; proxyUri: string; sessions: Set<string> }>();
 
   /**
    * Create a new MCP proxy instance.
@@ -231,6 +237,7 @@ export class McpProxy {
         throw new Error(`Duplicate MCP server name "${server.name}"`);
       }
       this.serverByName.set(server.name, server);
+      server.onNotification((notification) => this.handleUpstreamNotification(notification));
     }
   }
 
@@ -713,6 +720,68 @@ export class McpProxy {
     }) as Promise<ReadResourceResult>;
   }
 
+  async subscribeResource(
+    params: SubscribeRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+    sessionId?: string,
+  ): Promise<{ _meta?: Record<string, unknown> }> {
+    if (!sessionId) {
+      throw new Error("Resource subscriptions require an active downstream session");
+    }
+
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const { serverName, uri } = fromProxyResourceUri(params.uri);
+    const server = this.requireServer(serverName);
+    const key = resourceSubscriptionKey(serverName, uri);
+    let subscription = this.resourceSubscriptions.get(key);
+    if (!subscription) {
+      const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      await server.subscribeResource({ ...params, uri }, userForServer);
+      subscription = { serverName, uri, proxyUri: params.uri, sessions: new Set() };
+      this.resourceSubscriptions.set(key, subscription);
+    }
+
+    subscription.sessions.add(sessionId);
+    this.ensureSessionUtilityState(sessionId).resourceSubscriptions.add(params.uri);
+    return {};
+  }
+
+  async unsubscribeResource(
+    params: UnsubscribeRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+    sessionId?: string,
+  ): Promise<{ _meta?: Record<string, unknown> }> {
+    if (!sessionId) {
+      throw new Error("Resource subscriptions require an active downstream session");
+    }
+
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const { serverName, uri } = fromProxyResourceUri(params.uri);
+    const key = resourceSubscriptionKey(serverName, uri);
+    const subscription = this.resourceSubscriptions.get(key);
+    if (!subscription) {
+      this.sessionUtilities.get(sessionId)?.resourceSubscriptions.delete(params.uri);
+      return {};
+    }
+
+    subscription.sessions.delete(sessionId);
+    this.sessionUtilities.get(sessionId)?.resourceSubscriptions.delete(params.uri);
+    if (subscription.sessions.size === 0) {
+      const server = this.requireServer(serverName);
+      const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      await server.unsubscribeResource({ ...params, uri }, userForServer);
+      this.resourceSubscriptions.delete(key);
+    }
+
+    return {};
+  }
+
   /**
    * List resource templates across all configured servers.
    * @pk
@@ -947,6 +1016,10 @@ export class McpProxy {
         this.readResource(request.params, user, identity, subject));
       server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) =>
         this.listResourceTemplates(request.params, user, identity, subject));
+      server.setRequestHandler(SubscribeRequestSchema, async (request, extra) =>
+        this.subscribeResource(request.params, user, identity, subject, extra.sessionId));
+      server.setRequestHandler(UnsubscribeRequestSchema, async (request, extra) =>
+        this.unsubscribeResource(request.params, user, identity, subject, extra.sessionId));
     }
     if (capabilities.prompts) {
       server.setRequestHandler(ListPromptsRequestSchema, async (request) =>
@@ -1009,6 +1082,9 @@ export class McpProxy {
    * @pk
    */
   async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
+    if (context.sessionId) {
+      this.cleanupSessionSubscriptions(context.sessionId);
+    }
     await this.emitLifecycle("sessionEnd", context);
     const proxyContext = this.createProxyContext({
       operation: "session:end",
@@ -1080,6 +1156,40 @@ export class McpProxy {
     return true;
   }
 
+  private async handleUpstreamNotification(notification: McpUpstreamNotification): Promise<void> {
+    if (notification.type !== "resources:updated") {
+      return;
+    }
+
+    const serverName = notification.serverName;
+    if (!serverName) {
+      return;
+    }
+
+    const subscription = this.resourceSubscriptions.get(resourceSubscriptionKey(serverName, notification.uri));
+    if (!subscription) {
+      return;
+    }
+
+    await Promise.all(
+      [...subscription.sessions].map((sessionId) =>
+        this.sendSessionNotification(sessionId, {
+          method: "notifications/resources/updated",
+          params: { uri: subscription.proxyUri },
+        }),
+      ),
+    );
+  }
+
+  private cleanupSessionSubscriptions(sessionId: string): void {
+    for (const [key, subscription] of this.resourceSubscriptions) {
+      subscription.sessions.delete(sessionId);
+      if (subscription.sessions.size === 0) {
+        this.resourceSubscriptions.delete(key);
+      }
+    }
+  }
+
   private registerSessionNotificationSender(
     sessionId: string,
     sender: (notification: McpDownstreamNotification) => Promise<void> | void,
@@ -1098,14 +1208,7 @@ export class McpProxy {
 
   private createSessionUtilityRegistry(): SessionUtilityRegistry {
     return {
-      ensure: (sessionId) => {
-        let state = this.sessionUtilities.get(sessionId);
-        if (!state) {
-          state = createSessionUtilityState();
-          this.sessionUtilities.set(sessionId, state);
-        }
-        return state;
-      },
+      ensure: (sessionId) => this.ensureSessionUtilityState(sessionId),
       get: (sessionId) => this.sessionUtilities.get(sessionId),
       delete: (sessionId) => {
         const state = this.sessionUtilities.get(sessionId);
@@ -1120,6 +1223,15 @@ export class McpProxy {
       },
       size: () => this.sessionUtilities.size,
     };
+  }
+
+  private ensureSessionUtilityState(sessionId: string): SessionUtilityState {
+    let state = this.sessionUtilities.get(sessionId);
+    if (!state) {
+      state = createSessionUtilityState();
+      this.sessionUtilities.set(sessionId, state);
+    }
+    return state;
   }
 
   private createServerCapabilities(): {
@@ -2049,6 +2161,10 @@ function createSessionUtilityState(): SessionUtilityState {
     cancellations: new Set(),
     logLevel: "info",
   };
+}
+
+function resourceSubscriptionKey(serverName: string, uri: string): string {
+  return `${serverName}\0${uri}`;
 }
 
 function routeCompletion(params: CompleteRequest["params"]): {
