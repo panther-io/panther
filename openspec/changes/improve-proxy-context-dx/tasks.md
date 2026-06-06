@@ -36,6 +36,6 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Run `pnpm --filter @panther/core test`
-- [ ] 6.2 Run `pnpm --filter @panther/core build`
-- [ ] 6.3 Run `pnpm typecheck`
+- [x] 6.1 Run `pnpm --filter @panther/core test`
+- [x] 6.2 Run `pnpm --filter @panther/core build`
+- [x] 6.3 Run `pnpm typecheck`
