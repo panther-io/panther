@@ -24,13 +24,13 @@
 
 ## 4. Proxy Aggregation And Routing
 
-- [ ] 4.1 Implement `McpProxy.listResources` with per-upstream aggregation and proxied resource URIs
-- [ ] 4.2 Implement `McpProxy.readResource` with proxy URI parsing and upstream URI restoration
-- [ ] 4.3 Implement `McpProxy.listResourceTemplates` with proxied URI templates
-- [ ] 4.4 Implement `McpProxy.listPrompts` with proxied prompt names
-- [ ] 4.5 Implement `McpProxy.getPrompt` with prompt name parsing and upstream prompt restoration
-- [ ] 4.6 Implement `McpProxy.complete` for proxied prompt and resource template references
-- [ ] 4.7 Preserve upstream metadata and payload content except for documented routing rewrites
+- [x] 4.1 Implement `McpProxy.listResources` with per-upstream aggregation and proxied resource URIs
+- [x] 4.2 Implement `McpProxy.readResource` with proxy URI parsing and upstream URI restoration
+- [x] 4.3 Implement `McpProxy.listResourceTemplates` with proxied URI templates
+- [x] 4.4 Implement `McpProxy.listPrompts` with proxied prompt names
+- [x] 4.5 Implement `McpProxy.getPrompt` with prompt name parsing and upstream prompt restoration
+- [x] 4.6 Implement `McpProxy.complete` for proxied prompt and resource template references
+- [x] 4.7 Preserve upstream metadata and payload content except for documented routing rewrites
 
 ## 5. Downstream MCP Server Exposure
 

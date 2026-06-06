@@ -2,7 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   CallToolRequest,
   CallToolResult,
+  CompleteRequest,
+  CompleteResult,
+  GetPromptRequest,
+  GetPromptResult,
+  ListPromptsResult,
+  ListResourcesResult,
+  ListResourceTemplatesResult,
   ListToolsResult,
+  ReadResourceRequest,
+  ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Logger } from "./logger.js";
 import { McpProxy } from "./McpProxy.js";
@@ -48,6 +57,90 @@ class MockTransport implements PanterTransport {
   });
 
   readonly close = vi.fn(async (): Promise<void> => {});
+}
+
+class FeatureTransport extends MockTransport {
+  readonly listResources = vi.fn(async (): Promise<ListResourcesResult> => {
+    return {
+      resources: [
+        {
+          uri: "file:///shared.md",
+          name: "shared",
+          title: "Shared",
+          description: "Shared resource",
+          mimeType: "text/markdown",
+          size: 42,
+          _meta: { upstream: true },
+        },
+      ],
+    };
+  });
+
+  readonly readResource = vi.fn(async (params: ReadResourceRequest["params"]): Promise<ReadResourceResult> => {
+    return {
+      contents: [
+        {
+          uri: params.uri,
+          text: "resource text",
+          mimeType: "text/markdown",
+          _meta: { content: true },
+        },
+      ],
+      _meta: { read: true },
+    };
+  });
+
+  readonly listResourceTemplates = vi.fn(async (): Promise<ListResourceTemplatesResult> => {
+    return {
+      resourceTemplates: [
+        {
+          uriTemplate: "file:///{path}",
+          name: "file",
+          description: "File template",
+          mimeType: "text/plain",
+          _meta: { template: true },
+        },
+      ],
+    };
+  });
+
+  readonly listPrompts = vi.fn(async (): Promise<ListPromptsResult> => {
+    return {
+      prompts: [
+        {
+          name: "summarize",
+          title: "Summarize",
+          description: "Summarize content",
+          arguments: [{ name: "topic", required: true }],
+          _meta: { prompt: true },
+        },
+      ],
+    };
+  });
+
+  readonly getPrompt = vi.fn(async (params: GetPromptRequest["params"]): Promise<GetPromptResult> => {
+    return {
+      description: "Prompt response",
+      messages: [
+        {
+          role: "user",
+          content: { type: "text", text: `prompt:${params.name}:${params.arguments?.topic ?? ""}` },
+        },
+      ],
+      _meta: { got: true },
+    };
+  });
+
+  readonly complete = vi.fn(async (params: CompleteRequest["params"]): Promise<CompleteResult> => {
+    return {
+      completion: {
+        values: [`${params.ref.type}:${"name" in params.ref ? params.ref.name : params.ref.uri}:${params.argument.value}`],
+        total: 1,
+        hasMore: false,
+      },
+      _meta: { complete: true },
+    };
+  });
 }
 
 describe("proxied tool names", () => {
@@ -163,6 +256,169 @@ describe("McpProxy", () => {
       name: "create_issue",
       arguments: { title: "Bug" },
     });
+  });
+
+  it("aggregates resources with proxied URIs and preserves metadata", async () => {
+    const githubTransport = new FeatureTransport();
+    const notionTransport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [
+        new McpServer({ name: "github", transport: githubTransport }),
+        new McpServer({ name: "notion", transport: notionTransport }),
+      ],
+    });
+
+    const result = await proxy.listResources();
+
+    expect(result.resources).toEqual([
+      expect.objectContaining({
+        uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+        name: "shared",
+        title: "Shared",
+        description: "Shared resource",
+        mimeType: "text/markdown",
+        size: 42,
+        _meta: { upstream: true },
+      }),
+      expect.objectContaining({
+        uri: "panther://resources/notion/file%3A%2F%2F%2Fshared.md",
+        name: "shared",
+      }),
+    ]);
+  });
+
+  it("routes proxied resource reads and rewrites returned content URIs", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    const result = await proxy.readResource({
+      uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+    });
+
+    expect(transport.readResource).toHaveBeenCalledWith({ uri: "file:///shared.md" });
+    expect(result).toEqual({
+      contents: [
+        {
+          uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+          text: "resource text",
+          mimeType: "text/markdown",
+          _meta: { content: true },
+        },
+      ],
+      _meta: { read: true },
+    });
+  });
+
+  it("aggregates resource templates with proxied URI templates", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new FeatureTransport() })],
+    });
+
+    const result = await proxy.listResourceTemplates();
+
+    expect(result.resourceTemplates).toEqual([
+      expect.objectContaining({
+        uriTemplate: "panther://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D",
+        name: "file",
+        description: "File template",
+        mimeType: "text/plain",
+        _meta: { template: true },
+      }),
+    ]);
+  });
+
+  it("aggregates prompts with proxied names and preserves prompt metadata", async () => {
+    const githubTransport = new FeatureTransport();
+    const notionTransport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [
+        new McpServer({ name: "github", transport: githubTransport }),
+        new McpServer({ name: "notion", transport: notionTransport }),
+      ],
+    });
+
+    const result = await proxy.listPrompts();
+
+    expect(result.prompts).toEqual([
+      expect.objectContaining({
+        name: "github__summarize",
+        title: "Summarize",
+        description: "Summarize content",
+        arguments: [{ name: "topic", required: true }],
+        _meta: { prompt: true },
+      }),
+      expect.objectContaining({
+        name: "notion__summarize",
+      }),
+    ]);
+  });
+
+  it("routes proxied prompt get requests to the upstream prompt name", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    const result = await proxy.getPrompt({
+      name: "github__summarize",
+      arguments: { topic: "mcp" },
+    });
+
+    expect(transport.getPrompt).toHaveBeenCalledWith({
+      name: "summarize",
+      arguments: { topic: "mcp" },
+    });
+    expect(result).toMatchObject({
+      messages: [{ content: { text: "prompt:summarize:mcp" } }],
+      _meta: { got: true },
+    });
+  });
+
+  it("routes completion for proxied prompt and resource-template references", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    await expect(
+      proxy.complete({
+        ref: { type: "ref/prompt", name: "github__summarize" },
+        argument: { name: "topic", value: "m" },
+      }),
+    ).resolves.toMatchObject({
+      completion: { values: ["ref/prompt:summarize:m"] },
+      _meta: { complete: true },
+    });
+    await expect(
+      proxy.complete({
+        ref: { type: "ref/resource", uri: "panther://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D" },
+        argument: { name: "path", value: "r" },
+      }),
+    ).resolves.toMatchObject({
+      completion: { values: ["ref/resource:file:///{path}:r"] },
+      _meta: { complete: true },
+    });
+    expect(transport.complete).toHaveBeenNthCalledWith(1, {
+      ref: { type: "ref/prompt", name: "summarize" },
+      argument: { name: "topic", value: "m" },
+    });
+    expect(transport.complete).toHaveBeenNthCalledWith(2, {
+      ref: { type: "ref/resource", uri: "file:///{path}" },
+      argument: { name: "path", value: "r" },
+    });
+  });
+
+  it("rejects unknown routed resource and prompt identifiers", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new FeatureTransport() })],
+    });
+
+    await expect(proxy.readResource({ uri: "panther://resources/missing/file%3A%2F%2F%2Fshared.md" })).rejects.toThrow(
+      /Unknown MCP server/,
+    );
+    await expect(proxy.getPrompt({ name: "missing__summarize" })).rejects.toThrow(/Unknown MCP server/);
   });
 
   it("runs middleware before forwarding a tool call", async () => {

@@ -5,13 +5,34 @@ import {
   ListToolsRequestSchema,
   type CallToolRequest,
   type CallToolResult,
+  type CompleteRequest,
+  type CompleteResult,
+  type GetPromptRequest,
+  type GetPromptResult,
+  type ListPromptsRequest,
+  type ListPromptsResult,
+  type ListResourcesRequest,
+  type ListResourcesResult,
+  type ListResourceTemplatesRequest,
+  type ListResourceTemplatesResult,
   type ListToolsRequest,
   type ListToolsResult,
+  type ReadResourceRequest,
+  type ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
-import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+import {
+  fromProxyPromptName,
+  fromProxyResourceTemplateUri,
+  fromProxyResourceUri,
+  fromProxyToolName,
+  toProxyPromptName,
+  toProxyResourceTemplateUri,
+  toProxyResourceUri,
+  toProxyToolName,
+} from "./nameMapping.js";
 import { filterToolsByPolicy, getToolPermission } from "./policy.js";
 import type { PantherAuth } from "./auth.js";
 import {
@@ -540,6 +561,146 @@ export class McpProxy {
   }
 
   /**
+   * List resources across all configured servers.
+   * @pk
+   */
+  async listResources(
+    params?: ListResourcesRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+  ): Promise<ListResourcesResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const results = await Promise.all(
+      this.servers.map(async (server) => {
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const result = await server.listResources(params, userForServer);
+        return result.resources.map((resource) => ({
+          ...resource,
+          uri: toProxyResourceUri(server.name, resource.uri),
+        }));
+      }),
+    );
+
+    return { resources: results.flat() };
+  }
+
+  /**
+   * Read a proxied resource from its owning upstream server.
+   * @pk
+   */
+  async readResource(
+    params: ReadResourceRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+  ): Promise<ReadResourceResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const { serverName, uri } = fromProxyResourceUri(params.uri);
+    const server = this.requireServer(serverName);
+    const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+    const result = await server.readResource({ ...params, uri }, userForServer);
+
+    return {
+      ...result,
+      contents: result.contents.map((content) => ({
+        ...content,
+        uri: toProxyResourceUri(server.name, content.uri),
+      })),
+    };
+  }
+
+  /**
+   * List resource templates across all configured servers.
+   * @pk
+   */
+  async listResourceTemplates(
+    params?: ListResourceTemplatesRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+  ): Promise<ListResourceTemplatesResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const results = await Promise.all(
+      this.servers.map(async (server) => {
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const result = await server.listResourceTemplates(params, userForServer);
+        return result.resourceTemplates.map((template) => ({
+          ...template,
+          uriTemplate: toProxyResourceTemplateUri(server.name, template.uriTemplate),
+        }));
+      }),
+    );
+
+    return { resourceTemplates: results.flat() };
+  }
+
+  /**
+   * List prompts across all configured servers.
+   * @pk
+   */
+  async listPrompts(
+    params?: ListPromptsRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+  ): Promise<ListPromptsResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const results = await Promise.all(
+      this.servers.map(async (server) => {
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const result = await server.listPrompts(params, userForServer);
+        return result.prompts.map((prompt) => ({
+          ...prompt,
+          name: toProxyPromptName(server.name, prompt.name),
+        }));
+      }),
+    );
+
+    return { prompts: results.flat() };
+  }
+
+  /**
+   * Get a proxied prompt from its owning upstream server.
+   * @pk
+   */
+  async getPrompt(
+    params: GetPromptRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+  ): Promise<GetPromptResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const { serverName, promptName } = fromProxyPromptName(params.name);
+    const server = this.requireServer(serverName);
+    const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+    return server.getPrompt({ ...params, name: promptName }, userForServer);
+  }
+
+  /**
+   * Complete a proxied prompt or resource-template argument.
+   * @pk
+   */
+  async complete(
+    params: CompleteRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+  ): Promise<CompleteResult> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const routed = routeCompletion(params);
+    const server = this.requireServer(routed.serverName);
+    const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+    return server.complete(routed.params, userForServer);
+  }
+
+  /**
    * Handle an MCP HTTP request for session setup or routing.
    * @pk
    */
@@ -973,6 +1134,15 @@ export class McpProxy {
     );
   }
 
+  private requireServer(serverName: string): McpServer {
+    const server = this.serverByName.get(serverName);
+    if (!server) {
+      throw new Error(`Unknown MCP server "${serverName}"`);
+    }
+
+    return server;
+  }
+
   /**
    * Resolve the user context from the incoming request.
    * @pk
@@ -1258,6 +1428,37 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
     startLevel: options.startLevel ?? "debug",
     successLevel: options.successLevel ?? "info",
     failureLevel: options.failureLevel ?? "error",
+  };
+}
+
+function routeCompletion(params: CompleteRequest["params"]): {
+  serverName: string;
+  params: CompleteRequest["params"];
+} {
+  if (params.ref.type === "ref/prompt") {
+    const { serverName, promptName } = fromProxyPromptName(params.ref.name);
+    return {
+      serverName,
+      params: {
+        ...params,
+        ref: {
+          ...params.ref,
+          name: promptName,
+        },
+      },
+    };
+  }
+
+  const { serverName, uriTemplate } = fromProxyResourceTemplateUri(params.ref.uri);
+  return {
+    serverName,
+    params: {
+      ...params,
+      ref: {
+        ...params.ref,
+        uri: uriTemplate,
+      },
+    },
   };
 }
 
