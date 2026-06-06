@@ -3,7 +3,7 @@ title: "Hooks"
 description: "Intercept tool calls with fine-grained filters."
 ---
 
-Hooks provide targeted interception without wrapping every request. They are best for focused events like auditing a single server or capturing diagnostics for specific tools.
+Unified events provide targeted observation without wrapping every request. They are best for focused events like auditing a single server, capturing diagnostics for specific tools, and observing session lifecycle.
 
 If you need to enforce policy for *all* tool calls, use [Middleware](/guides/middleware).
 
@@ -13,19 +13,29 @@ If you need to enforce policy for *all* tool calls, use [Middleware](/guides/mid
 - You want audit logs without changing the control flow.
 - You want lightweight metrics without blocking requests.
 
-## Call hook
+## Tool success event
 
 ```ts theme={null}
-proxy.on("call", async (request, context) => {
-  context.log.info("hook.call", { tool: request.proxyToolName });
+proxy.on("tool:success", async ({ ctx, result, durationMs }) => {
+  ctx.log.info("tool.success", { durationMs, isError: result?.isError });
 });
 ```
 
-## Filtered hook
+## Filtered event
 
 ```ts theme={null}
-proxy.on("call", { server: "diagnostics" }, async (request, context) => {
-  context.log.info("diagnostics", { tool: request.toolName });
+proxy.on("tool:success", { server: "diagnostics" }, async ({ ctx }) => {
+  ctx.log.info("diagnostics");
+});
+```
+
+## Server-scoped event
+
+```ts theme={null}
+const github = proxy.server("github");
+
+github.on("tool:error", async ({ ctx, error }) => {
+  ctx.log.warn("github.tool.error", { message: error?.message });
 });
 ```
 
@@ -37,13 +47,16 @@ proxy.on("call", { server: "diagnostics" }, async (request, context) => {
 
 Hooks run before middleware and can return a tool result to short-circuit the call.
 
+Legacy `proxy.on("call", ...)` hooks are still supported for compatibility. Use middleware or tool routes for runtime control, and use `tool:start`, `tool:success`, `tool:error`, `tool:after`, `tools:list:after`, `session:start`, and `session:end` for observation.
+
 ## Use hooks for audits
 
 ```ts theme={null}
-proxy.on("call", { proxyTool: "filesystem__delete" }, async (request, context) => {
-  context.log.warn("audit.delete", {
-    userId: context.user.id,
-    tool: request.proxyToolName,
+proxy.on("tool:after", { proxyTool: "filesystem__delete" }, async ({ ctx, success }) => {
+  ctx.log.warn("audit.delete", {
+    userId: ctx.user.id,
+    tool: ctx.tool?.proxyName,
+    success,
   });
 });
 ```
@@ -51,10 +64,11 @@ proxy.on("call", { proxyTool: "filesystem__delete" }, async (request, context) =
 ## Use hooks for metrics
 
 ```ts theme={null}
-proxy.on("call", async (request, context) => {
-  context.log.info("metric.tool", {
-    tool: request.proxyToolName,
-    server: request.serverName,
+proxy.on("tool:success", async ({ ctx, durationMs }) => {
+  ctx.log.info("metric.tool", {
+    tool: ctx.tool?.proxyName,
+    server: ctx.server?.name,
+    durationMs,
   });
 });
 ```
@@ -64,15 +78,14 @@ proxy.on("call", async (request, context) => {
 Hooks can collect data while middleware enforces policy. This lets you capture metrics without blocking the request.
 
 ```ts theme={null}
-proxy.on("call", async (request, context) => {
-  context.log.info("hook.metric", { tool: request.proxyToolName });
+proxy.on("tool:success", async ({ ctx }) => {
+  ctx.log.info("hook.metric", { tool: ctx.tool?.proxyName });
 });
 
-proxy.use(async (request, context, next) => {
-  if (request.proxyToolName === "filesystem__delete") {
-    return context.res.deny("Delete is disabled.");
+proxy.tool("filesystem.delete", async (ctx) => {
+  if (ctx.user.role !== "admin") {
+    return ctx.deny("Delete is disabled.");
   }
-  return next();
 });
 ```
 

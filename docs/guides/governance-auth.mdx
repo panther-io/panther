@@ -101,7 +101,39 @@ For an upstream binding such as `github -> bearer github.token`, Panther resolve
 
 If multiple groups provide the same credential reference, the default behavior follows configured group order. Set `credentialConflict` to `"error"` in `upstream-auth.json` to fail closed instead.
 
-Middleware receives credential source metadata such as `{ reference: "github.token", source: "group", groupId: "support" }`, never the decrypted credential value.
+Middleware receives credential source metadata through `ctx.credentials.sources`, such as `{ reference: "github.token", source: "group", groupId: "support" }`, never the decrypted credential value.
+
+## Policy and runtime behavior
+
+Keep durable authorization in groups and policies. Use server-scoped tool routes for runtime behavior after policy allows a call.
+
+```ts theme={null}
+const supportPolicy = policy("support").server("github").allow("create_issue");
+
+const support = group({
+  id: "support",
+  users: [user("alice")],
+  policy: supportPolicy,
+});
+
+const proxy = new McpProxy({
+  servers: [githubServer],
+  groups: [support],
+});
+
+proxy.server("github").tool("create_issue", async (ctx, next) => {
+  if (typeof ctx.args?.title !== "string") {
+    return ctx.deny("Issue title is required.");
+  }
+
+  ctx.log.info("github.create_issue.validated", {
+    allowed: ctx.policy.allowed,
+    groups: ctx.policy.matchedGroups,
+  });
+
+  return next();
+});
+```
 
 ## CLI helpers
 

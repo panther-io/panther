@@ -186,6 +186,65 @@ export type ListToolsContext = {
 };
 
 /**
+ * Operation names handled by the unified proxy context.
+ * @pk
+ */
+export type ProxyOperation = "tool:call" | "tools:list" | "session:start" | "session:end";
+
+/**
+ * Safe downstream transport metadata attached to a proxy operation.
+ * @pk
+ */
+export type ProxyTransportContext = {
+  type?: "http" | "stdio" | "sse" | "unknown";
+  sessionId?: string;
+  requestId?: string;
+};
+
+/**
+ * Normalized authentication metadata exposed through the unified context.
+ * @pk
+ */
+export type ProxyAuthContext = {
+  strategy?: string;
+  authenticated: boolean;
+  userId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+/**
+ * Structured policy metadata exposed through the unified context.
+ * @pk
+ */
+export type ProxyPolicyContext = {
+  allowed?: boolean;
+  reason?: string;
+  matchedGroups: string[];
+  matchedPermissions: NonNullable<PolicyMetadata["matchedPermissions"]>;
+  metadata?: Record<string, unknown>;
+  policy?: Policy;
+  decision?: PolicyDecision;
+};
+
+/**
+ * Selected upstream server metadata.
+ * @pk
+ */
+export type ProxyServerContext = {
+  name: string;
+  displayName?: string;
+};
+
+/**
+ * Selected tool metadata.
+ * @pk
+ */
+export type ProxyToolContext = {
+  name: string;
+  proxyName: string;
+};
+
+/**
  * Helper for returning allow/deny responses from middleware.
  * @pk
  */
@@ -316,11 +375,36 @@ export type MiddlewareContext = {
   identity?: IdentityMetadata;
   log: Logger;
   res: ResponseController;
-  policy?: Policy;
+  policy?: Policy | ProxyPolicyContext;
   policyDecision?: PolicyDecision;
   registry?: Registry;
   rateLimiter?: RateLimiter;
   credentialSources?: CredentialSourceMetadata[];
+};
+
+/**
+ * Unified context for new proxy middleware, routes, and events.
+ * @pk
+ */
+export type ProxyContext = MiddlewareContext & {
+  operation: ProxyOperation;
+  transport: ProxyTransportContext;
+  auth: ProxyAuthContext;
+  policy: ProxyPolicyContext;
+  credentials: {
+    sources: CredentialSourceMetadata[];
+  };
+  server?: ProxyServerContext;
+  tool?: ProxyToolContext;
+  args?: CallToolRequest["params"]["arguments"];
+  raw?: CallToolRequest["params"] | ListToolsRequest["params"];
+  state: Record<string, unknown>;
+  response: ResponseController;
+  deny(message: string): CallToolResult;
+  fail(code: number, message: string): CallToolResult;
+  continue(): undefined;
+  inject(message: string): void;
+  error(code: number, message: string): CallToolResult;
 };
 
 /**
@@ -330,14 +414,103 @@ export type MiddlewareContext = {
 export type Next = () => Promise<CallToolResult>;
 
 /**
- * Middleware function signature.
+ * Next handler for unified proxy middleware.
  * @pk
  */
-export type Middleware = (
+export type ProxyNext = () => Promise<CallToolResult>;
+
+/**
+ * Legacy middleware function signature.
+ * @pk
+ */
+export type LegacyMiddleware = (
   request: ToolCallRequest,
   context: MiddlewareContext,
   next: Next,
 ) => MaybePromise<CallToolResult | void>;
+
+/**
+ * Express-like middleware function signature.
+ * @pk
+ */
+export type ProxyMiddleware = (
+  context: ProxyContext,
+  next: ProxyNext,
+) => MaybePromise<CallToolResult | void>;
+
+/**
+ * Middleware function signature.
+ * @pk
+ */
+export type Middleware = LegacyMiddleware | ProxyMiddleware;
+
+/**
+ * Express-like tool route handler signature.
+ * @pk
+ */
+export type ProxyToolHandler = ProxyMiddleware;
+
+/**
+ * Public tool pattern using `server.tool` dot notation and `*` wildcards.
+ * @pk
+ */
+export type ProxyToolPattern = string;
+
+/**
+ * Unified event names emitted by the proxy runtime.
+ * @pk
+ */
+export type ProxyEventName =
+  | "session:start"
+  | "session:end"
+  | "tools:list:after"
+  | "tool:start"
+  | "tool:success"
+  | "tool:error"
+  | "tool:after";
+
+/**
+ * Filter for unified proxy events.
+ * @pk
+ */
+export type ProxyEventFilter = {
+  server?: string;
+  tool?: string;
+  proxyTool?: string;
+};
+
+/**
+ * Unified event payload.
+ * @pk
+ */
+export type ProxyEventPayload = {
+  ctx: ProxyContext;
+  tools?: ListToolsResult["tools"];
+  result?: CallToolResult;
+  error?: Error;
+  durationMs?: number;
+  success?: boolean;
+};
+
+/**
+ * Unified event handler.
+ * @pk
+ */
+export type ProxyEventHandler = (
+  payload: ProxyEventPayload,
+) => MaybePromise<ListToolsResult["tools"] | ListToolsResult | void>;
+
+/**
+ * Scoped server handle returned by `proxy.server(name)`.
+ * @pk
+ */
+export type ProxyServerHandle = {
+  readonly name: string;
+  use(handler: Middleware): ProxyServerHandle;
+  tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): ProxyServerHandle;
+  on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyServerHandle;
+  on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyServerHandle;
+};
 
 /**
  * Transport interface for MCP client interactions.
