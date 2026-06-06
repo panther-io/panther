@@ -1157,6 +1157,21 @@ export class McpProxy {
   }
 
   private async handleUpstreamNotification(notification: McpUpstreamNotification): Promise<void> {
+    if (notification.type === "tools:list-changed") {
+      await this.broadcastNotification({ method: "notifications/tools/list_changed" });
+      return;
+    }
+
+    if (notification.type === "resources:list-changed") {
+      await this.broadcastNotification({ method: "notifications/resources/list_changed" });
+      return;
+    }
+
+    if (notification.type === "prompts:list-changed") {
+      await this.broadcastNotification({ method: "notifications/prompts/list_changed" });
+      return;
+    }
+
     if (notification.type !== "resources:updated") {
       return;
     }
@@ -1179,6 +1194,10 @@ export class McpProxy {
         }),
       ),
     );
+  }
+
+  private async broadcastNotification(notification: McpDownstreamNotification): Promise<void> {
+    await Promise.all([...this.sessionUtilities.keys()].map((sessionId) => this.sendSessionNotification(sessionId, notification)));
   }
 
   private cleanupSessionSubscriptions(sessionId: string): void {
@@ -1242,10 +1261,10 @@ export class McpProxy {
     completions?: object;
   } {
     return {
-      tools: {},
+      tools: { listChanged: true },
       logging: {},
-      ...(this.servers.some((server) => server.supportsResources()) ? { resources: {} } : {}),
-      ...(this.servers.some((server) => server.supportsPrompts()) ? { prompts: {} } : {}),
+      ...(this.servers.some((server) => server.supportsResources()) ? { resources: { subscribe: true, listChanged: true } } : {}),
+      ...(this.servers.some((server) => server.supportsPrompts()) ? { prompts: { listChanged: true } } : {}),
       ...(this.servers.some((server) => server.supportsCompletions()) ? { completions: {} } : {}),
     };
   }

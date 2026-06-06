@@ -22,11 +22,11 @@
 
 ## 4. List Change Notifications
 
-- [ ] 4.1 Forward upstream tool list change notifications downstream
-- [ ] 4.2 Forward upstream resource list change notifications downstream
-- [ ] 4.3 Forward upstream prompt list change notifications downstream
-- [ ] 4.4 Ensure notifications never expose upstream-only unproxied names or URIs
-- [ ] 4.5 Add tests for each list change notification type
+- [x] 4.1 Forward upstream tool list change notifications downstream
+- [x] 4.2 Forward upstream resource list change notifications downstream
+- [x] 4.3 Forward upstream prompt list change notifications downstream
+- [x] 4.4 Ensure notifications never expose upstream-only unproxied names or URIs
+- [x] 4.5 Add tests for each list change notification type
 
 ## 5. Progress, Cancellation, And Ping
 

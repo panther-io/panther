@@ -73,6 +73,10 @@ class SubscribableTransport extends MockTransport {
   async emitResourceUpdated(uri: string): Promise<void> {
     await Promise.all([...this.notificationHandlers].map((handler) => handler({ type: "resources:updated", uri })));
   }
+
+  async emitListChanged(type: "tools:list-changed" | "resources:list-changed" | "prompts:list-changed"): Promise<void> {
+    await Promise.all([...this.notificationHandlers].map((handler) => handler({ type })));
+  }
 }
 
 class ToolOnlyTransport implements PanterTransport {
@@ -177,6 +181,8 @@ type SessionUtilityProbeHandle = ProxyExposureHandle & {
 class NotificationProbeExposure implements ProxyExposureTransport<NotificationProbeHandle> {
   async listen(runtime: ProxyRuntime): Promise<NotificationProbeHandle> {
     const sent = new Map<string, JSONRPCMessage[]>();
+    runtime.sessionUtilities.ensure("session-a");
+    runtime.sessionUtilities.ensure("session-b");
     const unregisterA = runtime.registerSessionNotificationSender("session-a", (notification) => {
       sent.set("session-a", [...(sent.get("session-a") ?? []), { jsonrpc: "2.0", ...notification }]);
     });
@@ -190,6 +196,8 @@ class NotificationProbeExposure implements ProxyExposureTransport<NotificationPr
       close: async () => {
         unregisterA();
         unregisterB();
+        runtime.sessionUtilities.delete("session-a");
+        runtime.sessionUtilities.delete("session-b");
       },
     };
   }
@@ -410,5 +418,29 @@ describe("proxy exposure pipeline", () => {
         "session-a",
       ),
     ).rejects.toThrow(/resource subscriptions/);
+  });
+
+  it("forwards upstream list-change notifications without upstream-only names or URIs", async () => {
+    const upstream = new SubscribableTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: upstream })],
+    });
+    const handle = await proxy.listen(new NotificationProbeExposure());
+
+    await upstream.emitListChanged("tools:list-changed");
+    await upstream.emitListChanged("resources:list-changed");
+    await upstream.emitListChanged("prompts:list-changed");
+
+    const expected = [
+      { jsonrpc: "2.0", method: "notifications/tools/list_changed" },
+      { jsonrpc: "2.0", method: "notifications/resources/list_changed" },
+      { jsonrpc: "2.0", method: "notifications/prompts/list_changed" },
+    ];
+    expect(handle.sent.get("session-a")).toEqual(expected);
+    expect(handle.sent.get("session-b")).toEqual(expected);
+    expect(JSON.stringify(handle.sent.get("session-a"))).not.toContain("file:///readme.md");
+    expect(JSON.stringify(handle.sent.get("session-a"))).not.toContain("read");
+
+    await proxy.close();
   });
 });
