@@ -22,7 +22,11 @@ If the logic is only for a single tool or server, prefer `proxy.tool(...)` or `p
 
 ```ts theme={null}
 proxy.use(async (ctx, next) => {
-  ctx.log.info("tool-call");
+  ctx.log.info("tool-call", {
+    subject: ctx.subject?.id ?? "anonymous",
+    authenticated: ctx.auth.authenticated,
+    allowed: ctx.policy.allowed,
+  });
 
   return next();
 });
@@ -56,6 +60,23 @@ github.use(async (ctx, next) => {
 
 **Tip:** use a centralized allow/deny list to avoid scattering policy rules across multiple middlewares.
 
+## Check policy capabilities
+
+```ts theme={null}
+proxy.use(async (ctx, next) => {
+  if (ctx.subject?.hasGroup("admins") && ctx.policy.can("github", "delete_repo")) {
+    ctx.log.info("admin-delete-capability", {
+      subject: ctx.subject.id,
+      groups: ctx.subject.groups.map((group) => group.id),
+    });
+  }
+
+  return next();
+});
+```
+
+`ctx.policy.can(server, tool)` checks the configured allow/deny permissions for the current subject. It does not consume rate limits, invoke manual approval callbacks, or expose credential values.
+
 ## Inject guidance
 
 ```ts theme={null}
@@ -71,7 +92,7 @@ This is useful when you want the model to be aware of environment-specific const
 
 ```ts theme={null}
 proxy.use(async (ctx, next) => {
-  if (ctx.user.plan !== "enterprise" && ctx.tool?.proxyName === "analytics__export") {
+  if (ctx.subject?.metadata?.plan !== "enterprise" && ctx.tool?.proxyName === "analytics__export") {
     return ctx.deny("Export is available only on the enterprise plan.");
   }
   return next();
@@ -125,7 +146,7 @@ Panther does not implement rate limiting directly, but you can implement a simpl
 const calls: Record<string, number> = {};
 
 proxy.use(async (ctx, next) => {
-  const userId = ctx.user.id ?? "anonymous";
+  const userId = ctx.subject?.id ?? ctx.auth.userId ?? "anonymous";
   calls[userId] = (calls[userId] ?? 0) + 1;
   if (calls[userId] > 1000) {
     return ctx.deny("Rate limit exceeded.");
@@ -148,7 +169,7 @@ proxy.use(async (ctx, next) => {
 });
 ```
 
-`ctx.user` and `ctx.res` remain available as compatibility aliases. Prefer `ctx.subject`, `ctx.policy`, `ctx.credentials`, `ctx.response`, and the root helpers in new code.
+`ctx.user`, `ctx.policyDecision`, and `ctx.res` remain available as compatibility aliases. Prefer `ctx.subject`, `ctx.auth`, `ctx.policy`, `ctx.credentials`, `ctx.response`, and the root helpers in new code.
 
 ## Debugging middleware
 

@@ -779,7 +779,11 @@ export class McpProxy {
 
       if (this.policy) {
         const permission = getToolPermission(this.policy.getPermissions(serverName), toolName);
-        return Boolean(permission) && permission.effect !== "deny";
+        if (!permission) {
+          return false;
+        }
+
+        return permission.effect !== "deny";
       }
 
       return true;

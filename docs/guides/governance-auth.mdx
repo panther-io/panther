@@ -50,9 +50,10 @@ const proxy = new McpProxy({
   servers: [github],
 });
 
-proxy.use((request, context, next) => {
-  context.log.setTag("subject", context.subject?.id ?? "anonymous");
-  context.log.setTag("groups", context.subject?.groups.map((group) => group.id).join(",") ?? "");
+proxy.use((ctx, next) => {
+  ctx.log.setTag("subject", ctx.subject?.id ?? "anonymous");
+  ctx.log.setTag("groups", ctx.subject?.groups.map((group) => group.id).join(",") ?? "");
+  ctx.log.setTag("authenticated", String(ctx.auth.authenticated));
   return next();
 });
 ```
@@ -134,6 +135,32 @@ proxy.server("github").tool("create_issue", async (ctx, next) => {
   return next();
 });
 ```
+
+Use `ctx.subject` for resolved subject data and `ctx.policy` for the effective authorization decision:
+
+```ts theme={null}
+proxy.server("github").use(async (ctx, next) => {
+  if (!ctx.subject?.hasGroup("maintainers")) {
+    return ctx.deny("Maintainer group required.");
+  }
+
+  if (!ctx.policy.can("github", "delete_repo")) {
+    return ctx.deny("delete_repo is not allowed for this subject.");
+  }
+
+  ctx.log.info("github.delete_repo.capability", {
+    subject: ctx.subject.id,
+    email: ctx.subject.email,
+    tenant: ctx.subject.tenant,
+    groups: ctx.subject.groups.map((group) => group.id),
+    matchedPermissions: ctx.policy.matchedPermissions,
+  });
+
+  return next();
+});
+```
+
+`ctx.policy.can(server, tool)` evaluates allow/deny permissions only. It does not consume rate limits, invoke manual approval callbacks, or expose raw API keys, bearer tokens, decrypted credentials, or environment secret values.
 
 ## CLI helpers
 

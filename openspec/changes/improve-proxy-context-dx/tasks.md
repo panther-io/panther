@@ -17,7 +17,7 @@
 - [x] 3.2 Ensure explicit deny takes precedence over allow when multiple group policies match
 - [x] 3.3 Ensure `ctx.policy.can(server, tool)` returns `false` when policy is configured and no allow matches
 - [x] 3.4 Ensure `ctx.policy.can(server, tool)` returns `true` when no policy model is configured, matching current permissive runtime behavior
-- [ ] 3.5 Document that `can` does not consume rate limits, invoke manual approval, or expose credential values
+- [x] 3.5 Document that `can` does not consume rate limits, invoke manual approval, or expose credential values
 
 ## 4. Tests
 
@@ -30,9 +30,9 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Update middleware/governance docs to show `ctx.subject`, `ctx.auth`, and `ctx.policy` as the recommended DX
-- [ ] 5.2 Add examples for `ctx.subject.hasGroup("admins")` and `ctx.policy.can("github", "delete_repo")`
-- [ ] 5.3 Regenerate API reference docs if public exported types change
+- [x] 5.1 Update middleware/governance docs to show `ctx.subject`, `ctx.auth`, and `ctx.policy` as the recommended DX
+- [x] 5.2 Add examples for `ctx.subject.hasGroup("admins")` and `ctx.policy.can("github", "delete_repo")`
+- [x] 5.3 Regenerate API reference docs if public exported types change
 
 ## 6. Verification
 

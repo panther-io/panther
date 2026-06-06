@@ -809,7 +809,7 @@ Close the HTTP server and all backends.
 
 > **createSdkServer**(`user?`, `identity?`, `subject?`): `Server`
 
-Defined in: packages/core/src/McpProxy.ts:549
+Defined in: packages/core/src/McpProxy.ts:550
 
 Create the MCP SDK server and attach handlers.
 
@@ -835,7 +835,7 @@ Create the MCP SDK server and attach handlers.
 
 > **emitSessionEnd**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpProxy.ts:613
+Defined in: packages/core/src/McpProxy.ts:614
 
 Emit a downstream session end lifecycle event.
 
@@ -853,7 +853,7 @@ Emit a downstream session end lifecycle event.
 
 > **emitSessionStart**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpProxy.ts:588
+Defined in: packages/core/src/McpProxy.ts:589
 
 Emit a downstream session start lifecycle event.
 
@@ -1085,7 +1085,7 @@ Register a hook that can transform listed tools.
 
 > **registerServerEvent**(`serverName`, `eventName`, `filter`, `handler`): `void`
 
-Defined in: packages/core/src/McpProxy.ts:642
+Defined in: packages/core/src/McpProxy.ts:643
 
 #### Parameters
 
@@ -1113,7 +1113,7 @@ Defined in: packages/core/src/McpProxy.ts:642
 
 > **registerServerMiddleware**(`serverName`, `handler`): `void`
 
-Defined in: packages/core/src/McpProxy.ts:634
+Defined in: packages/core/src/McpProxy.ts:635
 
 #### Parameters
 
@@ -1133,7 +1133,7 @@ Defined in: packages/core/src/McpProxy.ts:634
 
 > **registerServerTool**(`serverName`, `pattern`, `handler`): `void`
 
-Defined in: packages/core/src/McpProxy.ts:638
+Defined in: packages/core/src/McpProxy.ts:639
 
 #### Parameters
 
@@ -1157,7 +1157,7 @@ Defined in: packages/core/src/McpProxy.ts:638
 
 > **resolveHttpUser**(`req`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:571
+Defined in: packages/core/src/McpProxy.ts:572
 
 Resolve user context from an HTTP downstream request.
 
@@ -1175,7 +1175,7 @@ Resolve user context from an HTTP downstream request.
 
 > **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:579
+Defined in: packages/core/src/McpProxy.ts:580
 
 Resolve user context for non-HTTP stdio downstream exposure.
 
@@ -2651,7 +2651,7 @@ Store or replace a user record.
 
 @panther/core / ResponseController
 
-Defined in: packages/core/src/types.ts:251
+Defined in: packages/core/src/types.ts:258
 
 Helper for returning allow/deny responses from middleware.
 
@@ -2671,7 +2671,7 @@ Helper for returning allow/deny responses from middleware.
 
 > **continue**(): `undefined`
 
-Defined in: packages/core/src/types.ts:286
+Defined in: packages/core/src/types.ts:293
 
 Allow middleware to continue without overriding the response.
 
@@ -2683,7 +2683,7 @@ Allow middleware to continue without overriding the response.
 
 > **deny**(`message`): `object`
 
-Defined in: packages/core/src/types.ts:260
+Defined in: packages/core/src/types.ts:267
 
 Deny a tool call with a message.
 
@@ -2741,7 +2741,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **fail**(`code`, `message`): `object`
 
-Defined in: packages/core/src/types.ts:271
+Defined in: packages/core/src/types.ts:278
 
 Return a structured MCP-style error without throwing.
 
@@ -2803,7 +2803,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **injectToAgent**(`message`): `void`
 
-Defined in: packages/core/src/types.ts:294
+Defined in: packages/core/src/types.ts:301
 
 Add guidance for the calling agent to the eventual tool response.
 
@@ -2821,7 +2821,7 @@ Add guidance for the calling agent to the eventual tool response.
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: packages/core/src/types.ts:304
+Defined in: packages/core/src/types.ts:311
 
 Register a response event handler.
 
@@ -4405,7 +4405,7 @@ Helper to declare a user.
 
 @panther/core / Isolation
 
-Defined in: packages/core/src/types.ts:645
+Defined in: packages/core/src/types.ts:652
 
 Isolation runtime for per-user execution.
 
@@ -4415,7 +4415,7 @@ Isolation runtime for per-user execution.
 
 > **close**(): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:651
+Defined in: packages/core/src/types.ts:658
 
 #### Returns
 
@@ -4425,7 +4425,7 @@ Defined in: packages/core/src/types.ts:651
 
 > **queue**(`userId`, `fn`, `timeout?`): `MaybePromise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/types.ts:646
+Defined in: packages/core/src/types.ts:653
 
 #### Parameters
 
@@ -4451,7 +4451,7 @@ Defined in: packages/core/src/types.ts:646
 
 @panther/core / PolicyContract
 
-Defined in: packages/core/src/types.ts:581
+Defined in: packages/core/src/types.ts:588
 
 Policy for RBAC-style permission enforcement.
 
@@ -4461,13 +4461,13 @@ Policy for RBAC-style permission enforcement.
 
 > `optional` **description?**: `string`
 
-Defined in: packages/core/src/types.ts:583
+Defined in: packages/core/src/types.ts:590
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:590
+Defined in: packages/core/src/types.ts:597
 
 #### Index Signature
 
@@ -4485,7 +4485,7 @@ Defined in: packages/core/src/types.ts:590
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:582
+Defined in: packages/core/src/types.ts:589
 
 ## Methods
 
@@ -4493,7 +4493,7 @@ Defined in: packages/core/src/types.ts:582
 
 > **evaluate**(`request`, `user`, `context?`): `MaybePromise`\<`PolicyDecision`\>
 
-Defined in: packages/core/src/types.ts:585
+Defined in: packages/core/src/types.ts:592
 
 #### Parameters
 
@@ -4517,7 +4517,7 @@ Defined in: packages/core/src/types.ts:585
 
 > **getPermissions**(`serverName`): `ToolPermission`[]
 
-Defined in: packages/core/src/types.ts:584
+Defined in: packages/core/src/types.ts:591
 
 #### Parameters
 
@@ -4535,7 +4535,7 @@ Defined in: packages/core/src/types.ts:584
 
 @panther/core / RateLimiter
 
-Defined in: packages/core/src/types.ts:621
+Defined in: packages/core/src/types.ts:628
 
 Rate limiter with sliding window and quota support.
 
@@ -4545,7 +4545,7 @@ Rate limiter with sliding window and quota support.
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:625
+Defined in: packages/core/src/types.ts:632
 
 #### maxDailyCalls?
 
@@ -4565,7 +4565,7 @@ Defined in: packages/core/src/types.ts:625
 
 > **checkLimit**(`key`): `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:622
+Defined in: packages/core/src/types.ts:629
 
 #### Parameters
 
@@ -4581,7 +4581,7 @@ Defined in: packages/core/src/types.ts:622
 
 > **getRemainingCalls**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:624
+Defined in: packages/core/src/types.ts:631
 
 #### Parameters
 
@@ -4597,7 +4597,7 @@ Defined in: packages/core/src/types.ts:624
 
 > **recordCall**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:623
+Defined in: packages/core/src/types.ts:630
 
 #### Parameters
 
@@ -4615,7 +4615,7 @@ Defined in: packages/core/src/types.ts:623
 
 @panther/core / RateLimitStore
 
-Defined in: packages/core/src/types.ts:611
+Defined in: packages/core/src/types.ts:618
 
 Rate limit store for distributed tracking.
 
@@ -4625,7 +4625,7 @@ Rate limit store for distributed tracking.
 
 > **get**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:613
+Defined in: packages/core/src/types.ts:620
 
 #### Parameters
 
@@ -4641,7 +4641,7 @@ Defined in: packages/core/src/types.ts:613
 
 > **increment**(`key`, `window`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:612
+Defined in: packages/core/src/types.ts:619
 
 #### Parameters
 
@@ -4661,7 +4661,7 @@ Defined in: packages/core/src/types.ts:612
 
 > **reset**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:614
+Defined in: packages/core/src/types.ts:621
 
 #### Parameters
 
@@ -4679,7 +4679,7 @@ Defined in: packages/core/src/types.ts:614
 
 @panther/core / Registry
 
-Defined in: packages/core/src/types.ts:601
+Defined in: packages/core/src/types.ts:608
 
 Registry for resolving user data and secrets.
 
@@ -4689,7 +4689,7 @@ Registry for resolving user data and secrets.
 
 > **getSecrets**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:603
+Defined in: packages/core/src/types.ts:610
 
 #### Parameters
 
@@ -4705,7 +4705,7 @@ Defined in: packages/core/src/types.ts:603
 
 > **getTokens**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:604
+Defined in: packages/core/src/types.ts:611
 
 #### Parameters
 
@@ -4721,7 +4721,7 @@ Defined in: packages/core/src/types.ts:604
 
 > **getUser**(`userId`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:602
+Defined in: packages/core/src/types.ts:609
 
 #### Parameters
 
@@ -4845,7 +4845,7 @@ Resolve environment variables per user.
 
 > **ErrorMapper** = `object`
 
-Defined in: packages/core/src/types.ts:658
+Defined in: packages/core/src/types.ts:665
 
 Error mapper for standardized MCP error responses.
 
@@ -4855,7 +4855,7 @@ Error mapper for standardized MCP error responses.
 
 > **mapError**(`error`, `context`): `object`
 
-Defined in: packages/core/src/types.ts:659
+Defined in: packages/core/src/types.ts:666
 
 #### Parameters
 
@@ -4893,7 +4893,7 @@ Defined in: packages/core/src/types.ts:659
 
 > **GovernanceContext** = `MiddlewareContext` & `object`
 
-Defined in: packages/core/src/types.ts:669
+Defined in: packages/core/src/types.ts:676
 
 Extended middleware context with governance.
 
@@ -5137,7 +5137,7 @@ Defined in: packages/core/src/transports/HttpTransport.ts:15
 
 > **IdentityMetadata** = `object`
 
-Defined in: packages/core/src/types.ts:95
+Defined in: packages/core/src/types.ts:101
 
 Identity metadata resolved at the proxy edge.
 
@@ -5147,25 +5147,25 @@ Identity metadata resolved at the proxy edge.
 
 > `optional` **authenticated?**: `boolean`
 
-Defined in: packages/core/src/types.ts:97
+Defined in: packages/core/src/types.ts:103
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:99
+Defined in: packages/core/src/types.ts:105
 
 ### strategy?
 
 > `optional` **strategy?**: `string`
 
-Defined in: packages/core/src/types.ts:96
+Defined in: packages/core/src/types.ts:102
 
 ### userId?
 
 > `optional` **userId?**: `string`
 
-Defined in: packages/core/src/types.ts:98
+Defined in: packages/core/src/types.ts:104
 
   </Accordion>
 
@@ -5201,7 +5201,7 @@ Defined in: packages/core/src/McpProxy.ts:95
 
 > **IdentityStrategy** = `object`
 
-Defined in: packages/core/src/types.ts:636
+Defined in: packages/core/src/types.ts:643
 
 Identity resolution strategy.
 
@@ -5211,7 +5211,7 @@ Identity resolution strategy.
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:637
+Defined in: packages/core/src/types.ts:644
 
 ## Methods
 
@@ -5219,7 +5219,7 @@ Defined in: packages/core/src/types.ts:637
 
 > **resolve**(`request`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:638
+Defined in: packages/core/src/types.ts:645
 
 #### Parameters
 
@@ -5241,7 +5241,7 @@ Defined in: packages/core/src/types.ts:638
 
 > **LegacyMiddleware** = (`request`, `context`, `next`) => `MaybePromise`\<`CallToolResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:426
+Defined in: packages/core/src/types.ts:433
 
 Legacy middleware function signature.
 
@@ -5271,7 +5271,7 @@ Legacy middleware function signature.
 
 > **LifecycleHook** = (`event`, `context`) => `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:154
+Defined in: packages/core/src/types.ts:160
 
 Hook invoked for proxy lifecycle events.
 
@@ -5297,7 +5297,7 @@ Hook invoked for proxy lifecycle events.
 
 > **LifecycleHookContext** = `object`
 
-Defined in: packages/core/src/types.ts:140
+Defined in: packages/core/src/types.ts:146
 
 Lifecycle hook context.
 
@@ -5307,43 +5307,43 @@ Lifecycle hook context.
 
 > `optional` **error?**: `Error`
 
-Defined in: packages/core/src/types.ts:146
+Defined in: packages/core/src/types.ts:152
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:143
+Defined in: packages/core/src/types.ts:149
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:147
+Defined in: packages/core/src/types.ts:153
 
 ### request?
 
 > `optional` **request?**: `ToolCallRequest`
 
-Defined in: packages/core/src/types.ts:145
+Defined in: packages/core/src/types.ts:151
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: packages/core/src/types.ts:144
+Defined in: packages/core/src/types.ts:150
 
 ### subject?
 
 > `optional` **subject?**: `ResolvedSubject`
 
-Defined in: packages/core/src/types.ts:142
+Defined in: packages/core/src/types.ts:148
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:141
+Defined in: packages/core/src/types.ts:147
 
   </Accordion>
 
@@ -5353,7 +5353,7 @@ Defined in: packages/core/src/types.ts:141
 
 > **LifecycleHookEvent** = `"sessionStart"` \| `"sessionEnd"` \| `"toolFailure"`
 
-Defined in: packages/core/src/types.ts:134
+Defined in: packages/core/src/types.ts:140
 
 Lifecycle event names emitted by the proxy.
 
@@ -5365,7 +5365,7 @@ Lifecycle event names emitted by the proxy.
 
 > **ListToolsContext** = `object`
 
-Defined in: packages/core/src/types.ts:178
+Defined in: packages/core/src/types.ts:184
 
 Context passed to list tool hooks.
 
@@ -5375,43 +5375,43 @@ Context passed to list tool hooks.
 
 > `optional` **credentialSources?**: `CredentialSourceMetadata`[]
 
-Defined in: packages/core/src/types.ts:185
+Defined in: packages/core/src/types.ts:191
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:181
+Defined in: packages/core/src/types.ts:187
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:182
+Defined in: packages/core/src/types.ts:188
 
 ### policy?
 
 > `optional` **policy?**: `PolicyContract`
 
-Defined in: packages/core/src/types.ts:183
+Defined in: packages/core/src/types.ts:189
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:184
+Defined in: packages/core/src/types.ts:190
 
 ### subject?
 
 > `optional` **subject?**: `ResolvedSubject`
 
-Defined in: packages/core/src/types.ts:180
+Defined in: packages/core/src/types.ts:186
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:179
+Defined in: packages/core/src/types.ts:185
 
   </Accordion>
 
@@ -5421,7 +5421,7 @@ Defined in: packages/core/src/types.ts:179
 
 > **ListToolsHook** = (`tools`, `context`) => `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:169
+Defined in: packages/core/src/types.ts:175
 
 Hook invoked after upstream tool discovery and before returning tools to the client.
 
@@ -5819,7 +5819,7 @@ Defined in: packages/core/src/McpServer.ts:23
 
 > **Middleware** = `LegacyMiddleware` \| `ProxyMiddleware`
 
-Defined in: packages/core/src/types.ts:445
+Defined in: packages/core/src/types.ts:452
 
 Middleware function signature.
 
@@ -5831,7 +5831,7 @@ Middleware function signature.
 
 > **MiddlewareContext** = `object`
 
-Defined in: packages/core/src/types.ts:372
+Defined in: packages/core/src/types.ts:379
 
 Middleware execution context.
 
@@ -5841,61 +5841,61 @@ Middleware execution context.
 
 > `optional` **credentialSources?**: `CredentialSourceMetadata`[]
 
-Defined in: packages/core/src/types.ts:382
+Defined in: packages/core/src/types.ts:389
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:375
+Defined in: packages/core/src/types.ts:382
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:376
+Defined in: packages/core/src/types.ts:383
 
 ### policy?
 
 > `optional` **policy?**: `PolicyContract` \| `ProxyPolicyContext`
 
-Defined in: packages/core/src/types.ts:378
+Defined in: packages/core/src/types.ts:385
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:379
+Defined in: packages/core/src/types.ts:386
 
 ### rateLimiter?
 
 > `optional` **rateLimiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:381
+Defined in: packages/core/src/types.ts:388
 
 ### registry?
 
 > `optional` **registry?**: `Registry`
 
-Defined in: packages/core/src/types.ts:380
+Defined in: packages/core/src/types.ts:387
 
 ### res
 
 > **res**: `ResponseController`
 
-Defined in: packages/core/src/types.ts:377
+Defined in: packages/core/src/types.ts:384
 
 ### subject?
 
 > `optional` **subject?**: `ResolvedSubject`
 
-Defined in: packages/core/src/types.ts:374
+Defined in: packages/core/src/types.ts:381
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:373
+Defined in: packages/core/src/types.ts:380
 
   </Accordion>
 
@@ -5905,7 +5905,7 @@ Defined in: packages/core/src/types.ts:373
 
 > **Next** = () => `Promise`\<`CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:414
+Defined in: packages/core/src/types.ts:421
 
 Next middleware handler.
 
@@ -5921,7 +5921,7 @@ Next middleware handler.
 
 > **PanterTransport** = `object`
 
-Defined in: packages/core/src/types.ts:519
+Defined in: packages/core/src/types.ts:526
 
 Transport interface for MCP client interactions.
 
@@ -5931,7 +5931,7 @@ Transport interface for MCP client interactions.
 
 > **callTool**(`params`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `content`: `z.ZodDefault`\<`z.ZodArray`\<`z.ZodUnion`\<readonly \[`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `text`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `description`: `z.ZodOptional`\<...\>; `icons`: `z.ZodOptional`\<...\>; `mimeType`: `z.ZodOptional`\<...\>; `name`: `z.ZodString`; `size`: `z.ZodOptional`\<...\>; `title`: `z.ZodOptional`\<...\>; `type`: `z.ZodLiteral`\<...\>; `uri`: `z.ZodString`; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `resource`: `z.ZodUnion`\<...\>; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>\]\>\>\>; `isError?`: `z.ZodOptional`\<`z.ZodBoolean`\>; `structuredContent?`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:521
+Defined in: packages/core/src/types.ts:528
 
 #### Parameters
 
@@ -5961,7 +5961,7 @@ Defined in: packages/core/src/types.ts:521
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:522
+Defined in: packages/core/src/types.ts:529
 
 #### Returns
 
@@ -5971,7 +5971,7 @@ Defined in: packages/core/src/types.ts:522
 
 > **listTools**(`params?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `nextCursor?`: `z.ZodOptional`\<`z.ZodString`\>; `tools`: `z.ZodArray`\<`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; `annotations`: `z.ZodOptional`\<`z.ZodObject`\<\{ `destructiveHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `idempotentHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `openWorldHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `readOnlyHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; `description`: `z.ZodOptional`\<`z.ZodString`\>; `execution`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskSupport`: `z.ZodOptional`\<`z.ZodEnum`\<...\>\>; \}, `z.core.$strip`\>\>; `icons`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodObject`\<\{ `mimeType`: `z.ZodOptional`\<...\>; `sizes`: `z.ZodOptional`\<...\>; `src`: `z.ZodString`; `theme`: `z.ZodOptional`\<...\>; \}, `z.core.$strip`\>\>\>; `inputSchema`: `z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodCustom`\<..., ...\>\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodString`\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>; `name`: `z.ZodString`; `outputSchema`: `z.ZodOptional`\<`z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<..., ...\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<...\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:520
+Defined in: packages/core/src/types.ts:527
 
 #### Parameters
 
@@ -5997,7 +5997,7 @@ Defined in: packages/core/src/types.ts:520
 
 > **PolicyDecision** = `object`
 
-Defined in: packages/core/src/types.ts:571
+Defined in: packages/core/src/types.ts:578
 
 Policy evaluation result.
 
@@ -6007,19 +6007,19 @@ Policy evaluation result.
 
 > **allowed**: `boolean`
 
-Defined in: packages/core/src/types.ts:572
+Defined in: packages/core/src/types.ts:579
 
 ### metadata?
 
 > `optional` **metadata?**: `PolicyMetadata` & `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:574
+Defined in: packages/core/src/types.ts:581
 
 ### reason?
 
 > `optional` **reason?**: `string`
 
-Defined in: packages/core/src/types.ts:573
+Defined in: packages/core/src/types.ts:580
 
   </Accordion>
 
@@ -6091,7 +6091,7 @@ Defined in: packages/core/src/types.ts:64
 
 > **ProxyAuthContext** = `object`
 
-Defined in: packages/core/src/types.ts:208
+Defined in: packages/core/src/types.ts:214
 
 Normalized authentication metadata exposed through the unified context.
 
@@ -6101,25 +6101,25 @@ Normalized authentication metadata exposed through the unified context.
 
 > **authenticated**: `boolean`
 
-Defined in: packages/core/src/types.ts:210
+Defined in: packages/core/src/types.ts:216
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:212
+Defined in: packages/core/src/types.ts:218
 
 ### strategy?
 
 > `optional` **strategy?**: `string`
 
-Defined in: packages/core/src/types.ts:209
+Defined in: packages/core/src/types.ts:215
 
 ### userId?
 
 > `optional` **userId?**: `string`
 
-Defined in: packages/core/src/types.ts:211
+Defined in: packages/core/src/types.ts:217
 
   </Accordion>
 
@@ -6129,7 +6129,7 @@ Defined in: packages/core/src/types.ts:211
 
 > **ProxyContext** = `MiddlewareContext` & `object`
 
-Defined in: packages/core/src/types.ts:389
+Defined in: packages/core/src/types.ts:396
 
 Unified context for new proxy middleware, routes, and events.
 
@@ -6311,7 +6311,7 @@ Unified context for new proxy middleware, routes, and events.
 
 > **ProxyEventFilter** = `object`
 
-Defined in: packages/core/src/types.ts:476
+Defined in: packages/core/src/types.ts:483
 
 Filter for unified proxy events.
 
@@ -6321,19 +6321,19 @@ Filter for unified proxy events.
 
 > `optional` **proxyTool?**: `string`
 
-Defined in: packages/core/src/types.ts:479
+Defined in: packages/core/src/types.ts:486
 
 ### server?
 
 > `optional` **server?**: `string`
 
-Defined in: packages/core/src/types.ts:477
+Defined in: packages/core/src/types.ts:484
 
 ### tool?
 
 > `optional` **tool?**: `string`
 
-Defined in: packages/core/src/types.ts:478
+Defined in: packages/core/src/types.ts:485
 
   </Accordion>
 
@@ -6343,7 +6343,7 @@ Defined in: packages/core/src/types.ts:478
 
 > **ProxyEventHandler** = (`payload`) => `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:499
+Defined in: packages/core/src/types.ts:506
 
 Unified event handler.
 
@@ -6365,7 +6365,7 @@ Unified event handler.
 
 > **ProxyEventName** = `"session:start"` \| `"session:end"` \| `"tools:list:after"` \| `"tool:start"` \| `"tool:success"` \| `"tool:error"` \| `"tool:after"`
 
-Defined in: packages/core/src/types.ts:463
+Defined in: packages/core/src/types.ts:470
 
 Unified event names emitted by the proxy runtime.
 
@@ -6377,7 +6377,7 @@ Unified event names emitted by the proxy runtime.
 
 > **ProxyExposureHandle** = `object`
 
-Defined in: packages/core/src/types.ts:529
+Defined in: packages/core/src/types.ts:536
 
 Active downstream proxy exposure handle.
 
@@ -6387,7 +6387,7 @@ Active downstream proxy exposure handle.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:530
+Defined in: packages/core/src/types.ts:537
 
 #### Returns
 
@@ -6401,7 +6401,7 @@ Defined in: packages/core/src/types.ts:530
 
 > **ProxyExposureTransport**\<`THandle`\> = `object`
 
-Defined in: packages/core/src/types.ts:551
+Defined in: packages/core/src/types.ts:558
 
 Transport interface for exposing the Panther proxy to downstream MCP clients.
 
@@ -6417,7 +6417,7 @@ Transport interface for exposing the Panther proxy to downstream MCP clients.
 
 > **listen**(`runtime`): `Promise`\<`THandle`\>
 
-Defined in: packages/core/src/types.ts:552
+Defined in: packages/core/src/types.ts:559
 
 #### Parameters
 
@@ -6437,7 +6437,7 @@ Defined in: packages/core/src/types.ts:552
 
 > **ProxyHookEvent** = `"call"`
 
-Defined in: packages/core/src/types.ts:128
+Defined in: packages/core/src/types.ts:134
 
 Event names supported by the proxy hook system.
 
@@ -6449,7 +6449,7 @@ Event names supported by the proxy hook system.
 
 > **ProxyMiddleware** = (`context`, `next`) => `MaybePromise`\<`CallToolResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:436
+Defined in: packages/core/src/types.ts:443
 
 Express-like middleware function signature.
 
@@ -6475,7 +6475,7 @@ Express-like middleware function signature.
 
 > **ProxyNext** = () => `Promise`\<`CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:420
+Defined in: packages/core/src/types.ts:427
 
 Next handler for unified proxy middleware.
 
@@ -6491,7 +6491,7 @@ Next handler for unified proxy middleware.
 
 > **ProxyOperation** = `"tool:call"` \| `"tools:list"` \| `"session:start"` \| `"session:end"`
 
-Defined in: packages/core/src/types.ts:192
+Defined in: packages/core/src/types.ts:198
 
 Operation names handled by the unified proxy context.
 
@@ -6503,7 +6503,7 @@ Operation names handled by the unified proxy context.
 
 > **ProxyPolicyContext** = `object`
 
-Defined in: packages/core/src/types.ts:219
+Defined in: packages/core/src/types.ts:225
 
 Structured policy metadata exposed through the unified context.
 
@@ -6513,43 +6513,65 @@ Structured policy metadata exposed through the unified context.
 
 > `optional` **allowed?**: `boolean`
 
-Defined in: packages/core/src/types.ts:220
+Defined in: packages/core/src/types.ts:226
 
 ### decision?
 
 > `optional` **decision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:226
+Defined in: packages/core/src/types.ts:232
 
 ### matchedGroups
 
 > **matchedGroups**: `string`[]
 
-Defined in: packages/core/src/types.ts:222
+Defined in: packages/core/src/types.ts:228
 
 ### matchedPermissions
 
 > **matchedPermissions**: `NonNullable`\<`PolicyMetadata`\[`"matchedPermissions"`\]\>
 
-Defined in: packages/core/src/types.ts:223
+Defined in: packages/core/src/types.ts:229
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:224
+Defined in: packages/core/src/types.ts:230
 
 ### policy?
 
 > `optional` **policy?**: `PolicyContract`
 
-Defined in: packages/core/src/types.ts:225
+Defined in: packages/core/src/types.ts:231
 
 ### reason?
 
 > `optional` **reason?**: `string`
 
-Defined in: packages/core/src/types.ts:221
+Defined in: packages/core/src/types.ts:227
+
+## Methods
+
+### can()
+
+> **can**(`server`, `tool`): `MaybePromise`\<`boolean`\>
+
+Defined in: packages/core/src/types.ts:233
+
+#### Parameters
+
+##### server
+
+`string`
+
+##### tool
+
+`string`
+
+#### Returns
+
+`MaybePromise`\<`boolean`\>
 
   </Accordion>
 
@@ -6559,7 +6581,7 @@ Defined in: packages/core/src/types.ts:221
 
 > **ProxyRuntime** = `object`
 
-Defined in: packages/core/src/types.ts:537
+Defined in: packages/core/src/types.ts:544
 
 Runtime operations shared by downstream proxy exposure transports.
 
@@ -6569,13 +6591,13 @@ Runtime operations shared by downstream proxy exposure transports.
 
 > **identityRequired**: `boolean`
 
-Defined in: packages/core/src/types.ts:544
+Defined in: packages/core/src/types.ts:551
 
 ### logger
 
 > **logger**: `Logger`
 
-Defined in: packages/core/src/types.ts:543
+Defined in: packages/core/src/types.ts:550
 
 ## Methods
 
@@ -6583,7 +6605,7 @@ Defined in: packages/core/src/types.ts:543
 
 > **createSdkServer**(`user?`, `identity?`, `subject?`): `unknown`
 
-Defined in: packages/core/src/types.ts:538
+Defined in: packages/core/src/types.ts:545
 
 #### Parameters
 
@@ -6607,7 +6629,7 @@ Defined in: packages/core/src/types.ts:538
 
 > **emitSessionEnd**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:542
+Defined in: packages/core/src/types.ts:549
 
 #### Parameters
 
@@ -6623,7 +6645,7 @@ Defined in: packages/core/src/types.ts:542
 
 > **emitSessionStart**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:541
+Defined in: packages/core/src/types.ts:548
 
 #### Parameters
 
@@ -6639,7 +6661,7 @@ Defined in: packages/core/src/types.ts:541
 
 > **resolveHttpUser**(`request`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/types.ts:539
+Defined in: packages/core/src/types.ts:546
 
 #### Parameters
 
@@ -6655,7 +6677,7 @@ Defined in: packages/core/src/types.ts:539
 
 > **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/types.ts:540
+Defined in: packages/core/src/types.ts:547
 
 #### Returns
 
@@ -6669,7 +6691,7 @@ Defined in: packages/core/src/types.ts:540
 
 > **ProxyServerContext** = `object`
 
-Defined in: packages/core/src/types.ts:233
+Defined in: packages/core/src/types.ts:240
 
 Selected upstream server metadata.
 
@@ -6679,13 +6701,13 @@ Selected upstream server metadata.
 
 > `optional` **displayName?**: `string`
 
-Defined in: packages/core/src/types.ts:235
+Defined in: packages/core/src/types.ts:242
 
 ### name
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:234
+Defined in: packages/core/src/types.ts:241
 
   </Accordion>
 
@@ -6695,7 +6717,7 @@ Defined in: packages/core/src/types.ts:234
 
 > **ProxyServerHandle** = `object`
 
-Defined in: packages/core/src/types.ts:507
+Defined in: packages/core/src/types.ts:514
 
 Scoped server handle returned by `proxy.server(name)`.
 
@@ -6705,7 +6727,7 @@ Scoped server handle returned by `proxy.server(name)`.
 
 > `readonly` **name**: `string`
 
-Defined in: packages/core/src/types.ts:508
+Defined in: packages/core/src/types.ts:515
 
 ## Methods
 
@@ -6715,7 +6737,7 @@ Defined in: packages/core/src/types.ts:508
 
 > **on**(`eventName`, `handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:511
+Defined in: packages/core/src/types.ts:518
 
 ##### Parameters
 
@@ -6735,7 +6757,7 @@ Defined in: packages/core/src/types.ts:511
 
 > **on**(`eventName`, `filter`, `handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:512
+Defined in: packages/core/src/types.ts:519
 
 ##### Parameters
 
@@ -6759,7 +6781,7 @@ Defined in: packages/core/src/types.ts:512
 
 > **tool**(`pattern`, `handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:510
+Defined in: packages/core/src/types.ts:517
 
 #### Parameters
 
@@ -6779,7 +6801,7 @@ Defined in: packages/core/src/types.ts:510
 
 > **use**(`handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:509
+Defined in: packages/core/src/types.ts:516
 
 #### Parameters
 
@@ -6799,7 +6821,7 @@ Defined in: packages/core/src/types.ts:509
 
 > **ProxyToolContext** = `object`
 
-Defined in: packages/core/src/types.ts:242
+Defined in: packages/core/src/types.ts:249
 
 Selected tool metadata.
 
@@ -6809,13 +6831,13 @@ Selected tool metadata.
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:243
+Defined in: packages/core/src/types.ts:250
 
 ### proxyName
 
 > **proxyName**: `string`
 
-Defined in: packages/core/src/types.ts:244
+Defined in: packages/core/src/types.ts:251
 
   </Accordion>
 
@@ -6825,7 +6847,7 @@ Defined in: packages/core/src/types.ts:244
 
 > **ProxyToolHandler** = `ProxyMiddleware`
 
-Defined in: packages/core/src/types.ts:451
+Defined in: packages/core/src/types.ts:458
 
 Express-like tool route handler signature.
 
@@ -6837,7 +6859,7 @@ Express-like tool route handler signature.
 
 > **ProxyToolPattern** = `string`
 
-Defined in: packages/core/src/types.ts:457
+Defined in: packages/core/src/types.ts:464
 
 Public tool pattern using `server.tool` dot notation and `*` wildcards.
 
@@ -6849,7 +6871,7 @@ Public tool pattern using `server.tool` dot notation and `*` wildcards.
 
 > **ProxyTransportContext** = `object`
 
-Defined in: packages/core/src/types.ts:198
+Defined in: packages/core/src/types.ts:204
 
 Safe downstream transport metadata attached to a proxy operation.
 
@@ -6859,19 +6881,19 @@ Safe downstream transport metadata attached to a proxy operation.
 
 > `optional` **requestId?**: `string`
 
-Defined in: packages/core/src/types.ts:201
+Defined in: packages/core/src/types.ts:207
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: packages/core/src/types.ts:200
+Defined in: packages/core/src/types.ts:206
 
 ### type?
 
 > `optional` **type?**: `"http"` \| `"stdio"` \| `"sse"` \| `"unknown"`
 
-Defined in: packages/core/src/types.ts:199
+Defined in: packages/core/src/types.ts:205
 
   </Accordion>
 
@@ -7415,7 +7437,7 @@ Defined in: packages/core/src/types.ts:33
 
 > **ToolCallHook** = (`request`, `context`) => `MaybePromise`\<`void` \| `CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:160
+Defined in: packages/core/src/types.ts:166
 
 Hook invoked for matched tool calls.
 
@@ -7441,7 +7463,7 @@ Hook invoked for matched tool calls.
 
 > **ToolCallHookFilter** = `object`
 
-Defined in: packages/core/src/types.ts:118
+Defined in: packages/core/src/types.ts:124
 
 Filter for proxy call hooks.
 
@@ -7451,19 +7473,19 @@ Filter for proxy call hooks.
 
 > `optional` **proxyTool?**: `string`
 
-Defined in: packages/core/src/types.ts:121
+Defined in: packages/core/src/types.ts:127
 
 ### server?
 
 > `optional` **server?**: `string`
 
-Defined in: packages/core/src/types.ts:119
+Defined in: packages/core/src/types.ts:125
 
 ### tool?
 
 > `optional` **tool?**: `string`
 
-Defined in: packages/core/src/types.ts:120
+Defined in: packages/core/src/types.ts:126
 
   </Accordion>
 
@@ -7473,7 +7495,7 @@ Defined in: packages/core/src/types.ts:120
 
 > **ToolCallRequest** = `object`
 
-Defined in: packages/core/src/types.ts:106
+Defined in: packages/core/src/types.ts:112
 
 Normalized tool call details for middleware.
 
@@ -7483,31 +7505,31 @@ Normalized tool call details for middleware.
 
 > **arguments**: `CallToolRequest`\[`"params"`\]\[`"arguments"`\]
 
-Defined in: packages/core/src/types.ts:110
+Defined in: packages/core/src/types.ts:116
 
 ### proxyToolName
 
 > **proxyToolName**: `string`
 
-Defined in: packages/core/src/types.ts:109
+Defined in: packages/core/src/types.ts:115
 
 ### raw
 
 > **raw**: `CallToolRequest`\[`"params"`\]
 
-Defined in: packages/core/src/types.ts:111
+Defined in: packages/core/src/types.ts:117
 
 ### serverName
 
 > **serverName**: `string`
 
-Defined in: packages/core/src/types.ts:107
+Defined in: packages/core/src/types.ts:113
 
 ### toolName
 
 > **toolName**: `string`
 
-Defined in: packages/core/src/types.ts:108
+Defined in: packages/core/src/types.ts:114
 
   </Accordion>
 
@@ -7517,7 +7539,7 @@ Defined in: packages/core/src/types.ts:108
 
 > **ToolPermission** = `object`
 
-Defined in: packages/core/src/types.ts:559
+Defined in: packages/core/src/types.ts:566
 
 Tool permission model for policy enforcement.
 
@@ -7527,7 +7549,7 @@ Tool permission model for policy enforcement.
 
 > `optional` **approval?**: (`request`, `context`) => `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:563
+Defined in: packages/core/src/types.ts:570
 
 #### Parameters
 
@@ -7547,25 +7569,25 @@ Defined in: packages/core/src/types.ts:563
 
 > `optional` **effect?**: `"allow"` \| `"deny"`
 
-Defined in: packages/core/src/types.ts:561
+Defined in: packages/core/src/types.ts:568
 
 ### limiter?
 
 > `optional` **limiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:562
+Defined in: packages/core/src/types.ts:569
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:564
+Defined in: packages/core/src/types.ts:571
 
 ### tool
 
 > **tool**: `string`
 
-Defined in: packages/core/src/types.ts:560
+Defined in: packages/core/src/types.ts:567
 
   </Accordion>
 
@@ -7807,7 +7829,7 @@ Close the HTTP server and all backends.
 
 > **createSdkServer**(`user?`, `identity?`, `subject?`): `Server`
 
-Defined in: packages/core/src/McpProxy.ts:549
+Defined in: packages/core/src/McpProxy.ts:550
 
 Create the MCP SDK server and attach handlers.
 
@@ -7833,7 +7855,7 @@ Create the MCP SDK server and attach handlers.
 
 > **emitSessionEnd**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpProxy.ts:613
+Defined in: packages/core/src/McpProxy.ts:614
 
 Emit a downstream session end lifecycle event.
 
@@ -7851,7 +7873,7 @@ Emit a downstream session end lifecycle event.
 
 > **emitSessionStart**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/McpProxy.ts:588
+Defined in: packages/core/src/McpProxy.ts:589
 
 Emit a downstream session start lifecycle event.
 
@@ -8083,7 +8105,7 @@ Register a hook that can transform listed tools.
 
 > **registerServerEvent**(`serverName`, `eventName`, `filter`, `handler`): `void`
 
-Defined in: packages/core/src/McpProxy.ts:642
+Defined in: packages/core/src/McpProxy.ts:643
 
 #### Parameters
 
@@ -8111,7 +8133,7 @@ Defined in: packages/core/src/McpProxy.ts:642
 
 > **registerServerMiddleware**(`serverName`, `handler`): `void`
 
-Defined in: packages/core/src/McpProxy.ts:634
+Defined in: packages/core/src/McpProxy.ts:635
 
 #### Parameters
 
@@ -8131,7 +8153,7 @@ Defined in: packages/core/src/McpProxy.ts:634
 
 > **registerServerTool**(`serverName`, `pattern`, `handler`): `void`
 
-Defined in: packages/core/src/McpProxy.ts:638
+Defined in: packages/core/src/McpProxy.ts:639
 
 #### Parameters
 
@@ -8155,7 +8177,7 @@ Defined in: packages/core/src/McpProxy.ts:638
 
 > **resolveHttpUser**(`req`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:571
+Defined in: packages/core/src/McpProxy.ts:572
 
 Resolve user context from an HTTP downstream request.
 
@@ -8173,7 +8195,7 @@ Resolve user context from an HTTP downstream request.
 
 > **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/McpProxy.ts:579
+Defined in: packages/core/src/McpProxy.ts:580
 
 Resolve user context for non-HTTP stdio downstream exposure.
 
@@ -9437,7 +9459,7 @@ Defined in: logger.ts:84
 
 @panther/core / ResponseController
 
-Defined in: packages/core/src/types.ts:251
+Defined in: packages/core/src/types.ts:258
 
 Helper for returning allow/deny responses from middleware.
 
@@ -9457,7 +9479,7 @@ Helper for returning allow/deny responses from middleware.
 
 > **continue**(): `undefined`
 
-Defined in: packages/core/src/types.ts:286
+Defined in: packages/core/src/types.ts:293
 
 Allow middleware to continue without overriding the response.
 
@@ -9469,7 +9491,7 @@ Allow middleware to continue without overriding the response.
 
 > **deny**(`message`): `object`
 
-Defined in: packages/core/src/types.ts:260
+Defined in: packages/core/src/types.ts:267
 
 Deny a tool call with a message.
 
@@ -9527,7 +9549,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **fail**(`code`, `message`): `object`
 
-Defined in: packages/core/src/types.ts:271
+Defined in: packages/core/src/types.ts:278
 
 Return a structured MCP-style error without throwing.
 
@@ -9589,7 +9611,7 @@ If specified, the caller is requesting out-of-band progress notifications for th
 
 > **injectToAgent**(`message`): `void`
 
-Defined in: packages/core/src/types.ts:294
+Defined in: packages/core/src/types.ts:301
 
 Add guidance for the calling agent to the eventual tool response.
 
@@ -9607,7 +9629,7 @@ Add guidance for the calling agent to the eventual tool response.
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: packages/core/src/types.ts:304
+Defined in: packages/core/src/types.ts:311
 
 Register a response event handler.
 
@@ -9631,7 +9653,7 @@ Register a response event handler.
 
 @panther/core / Isolation
 
-Defined in: packages/core/src/types.ts:645
+Defined in: packages/core/src/types.ts:652
 
 Isolation runtime for per-user execution.
 
@@ -9641,7 +9663,7 @@ Isolation runtime for per-user execution.
 
 > **close**(): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:651
+Defined in: packages/core/src/types.ts:658
 
 #### Returns
 
@@ -9651,7 +9673,7 @@ Defined in: packages/core/src/types.ts:651
 
 > **queue**(`userId`, `fn`, `timeout?`): `MaybePromise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: \{\[`key`: `string`\]: `unknown`; `io.modelcontextprotocol/related-task?`: \{ `taskId`: `string`; \}; `progressToken?`: `string` \| `number`; \}; `content`: (\{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `text`: `string`; `type`: `"text"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"image"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `data`: `string`; `mimeType`: `string`; `type`: `"audio"`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `description?`: `string`; `icons?`: `object`[]; `mimeType?`: `string`; `name`: `string`; `size?`: `number`; `title?`: `string`; `type`: `"resource_link"`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `annotations?`: \{ `audience?`: (`"user"` \| `"assistant"`)[]; `lastModified?`: `string`; `priority?`: `number`; \}; `resource`: \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `mimeType?`: `string`; `text`: `string`; `uri`: `string`; \} \| \{ `_meta?`: \{\[`key`: `string`\]: `unknown`; \}; `blob`: `string`; `mimeType?`: `string`; `uri`: `string`; \}; `type`: `"resource"`; \})[]; `isError?`: `boolean`; `structuredContent?`: \{\[`key`: `string`\]: `unknown`; \}; \}\>
 
-Defined in: packages/core/src/types.ts:646
+Defined in: packages/core/src/types.ts:653
 
 #### Parameters
 
@@ -9677,7 +9699,7 @@ Defined in: packages/core/src/types.ts:646
 
 @panther/core / Policy
 
-Defined in: packages/core/src/types.ts:581
+Defined in: packages/core/src/types.ts:588
 
 Policy for RBAC-style permission enforcement.
 
@@ -9687,13 +9709,13 @@ Policy for RBAC-style permission enforcement.
 
 > `optional` **description?**: `string`
 
-Defined in: packages/core/src/types.ts:583
+Defined in: packages/core/src/types.ts:590
 
 ### metadata?
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:590
+Defined in: packages/core/src/types.ts:597
 
 #### Index Signature
 
@@ -9711,7 +9733,7 @@ Defined in: packages/core/src/types.ts:590
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:582
+Defined in: packages/core/src/types.ts:589
 
 ## Methods
 
@@ -9719,7 +9741,7 @@ Defined in: packages/core/src/types.ts:582
 
 > **evaluate**(`request`, `user`, `context?`): `MaybePromise`\<`PolicyDecision`\>
 
-Defined in: packages/core/src/types.ts:585
+Defined in: packages/core/src/types.ts:592
 
 #### Parameters
 
@@ -9743,7 +9765,7 @@ Defined in: packages/core/src/types.ts:585
 
 > **getPermissions**(`serverName`): `ToolPermission`[]
 
-Defined in: packages/core/src/types.ts:584
+Defined in: packages/core/src/types.ts:591
 
 #### Parameters
 
@@ -9761,7 +9783,7 @@ Defined in: packages/core/src/types.ts:584
 
 @panther/core / RateLimiter
 
-Defined in: packages/core/src/types.ts:621
+Defined in: packages/core/src/types.ts:628
 
 Rate limiter with sliding window and quota support.
 
@@ -9771,7 +9793,7 @@ Rate limiter with sliding window and quota support.
 
 > `optional` **metadata?**: `object`
 
-Defined in: packages/core/src/types.ts:625
+Defined in: packages/core/src/types.ts:632
 
 #### maxDailyCalls?
 
@@ -9791,7 +9813,7 @@ Defined in: packages/core/src/types.ts:625
 
 > **checkLimit**(`key`): `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:622
+Defined in: packages/core/src/types.ts:629
 
 #### Parameters
 
@@ -9807,7 +9829,7 @@ Defined in: packages/core/src/types.ts:622
 
 > **getRemainingCalls**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:624
+Defined in: packages/core/src/types.ts:631
 
 #### Parameters
 
@@ -9823,7 +9845,7 @@ Defined in: packages/core/src/types.ts:624
 
 > **recordCall**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:623
+Defined in: packages/core/src/types.ts:630
 
 #### Parameters
 
@@ -9841,7 +9863,7 @@ Defined in: packages/core/src/types.ts:623
 
 @panther/core / RateLimitStore
 
-Defined in: packages/core/src/types.ts:611
+Defined in: packages/core/src/types.ts:618
 
 Rate limit store for distributed tracking.
 
@@ -9851,7 +9873,7 @@ Rate limit store for distributed tracking.
 
 > **get**(`key`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:613
+Defined in: packages/core/src/types.ts:620
 
 #### Parameters
 
@@ -9867,7 +9889,7 @@ Defined in: packages/core/src/types.ts:613
 
 > **increment**(`key`, `window`): `MaybePromise`\<`number`\>
 
-Defined in: packages/core/src/types.ts:612
+Defined in: packages/core/src/types.ts:619
 
 #### Parameters
 
@@ -9887,7 +9909,7 @@ Defined in: packages/core/src/types.ts:612
 
 > **reset**(`key`): `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:614
+Defined in: packages/core/src/types.ts:621
 
 #### Parameters
 
@@ -9905,7 +9927,7 @@ Defined in: packages/core/src/types.ts:614
 
 @panther/core / Registry
 
-Defined in: packages/core/src/types.ts:601
+Defined in: packages/core/src/types.ts:608
 
 Registry for resolving user data and secrets.
 
@@ -9915,7 +9937,7 @@ Registry for resolving user data and secrets.
 
 > **getSecrets**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:603
+Defined in: packages/core/src/types.ts:610
 
 #### Parameters
 
@@ -9931,7 +9953,7 @@ Defined in: packages/core/src/types.ts:603
 
 > **getTokens**(`userId`): `MaybePromise`\<`Record`\<`string`, `string`\> \| `null`\>
 
-Defined in: packages/core/src/types.ts:604
+Defined in: packages/core/src/types.ts:611
 
 #### Parameters
 
@@ -9947,7 +9969,7 @@ Defined in: packages/core/src/types.ts:604
 
 > **getUser**(`userId`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:602
+Defined in: packages/core/src/types.ts:609
 
 #### Parameters
 
@@ -10005,7 +10027,7 @@ Defined in: packages/core/src/types.ts:55
 
 > **ErrorMapper** = `object`
 
-Defined in: packages/core/src/types.ts:658
+Defined in: packages/core/src/types.ts:665
 
 Error mapper for standardized MCP error responses.
 
@@ -10015,7 +10037,7 @@ Error mapper for standardized MCP error responses.
 
 > **mapError**(`error`, `context`): `object`
 
-Defined in: packages/core/src/types.ts:659
+Defined in: packages/core/src/types.ts:666
 
 #### Parameters
 
@@ -10053,7 +10075,7 @@ Defined in: packages/core/src/types.ts:659
 
 > **GovernanceContext** = `MiddlewareContext` & `object`
 
-Defined in: packages/core/src/types.ts:669
+Defined in: packages/core/src/types.ts:676
 
 Extended middleware context with governance.
 
@@ -10119,7 +10141,7 @@ Defined in: packages/core/src/types.ts:44
 
 > **IdentityMetadata** = `object`
 
-Defined in: packages/core/src/types.ts:95
+Defined in: packages/core/src/types.ts:101
 
 Identity metadata resolved at the proxy edge.
 
@@ -10129,25 +10151,25 @@ Identity metadata resolved at the proxy edge.
 
 > `optional` **authenticated?**: `boolean`
 
-Defined in: packages/core/src/types.ts:97
+Defined in: packages/core/src/types.ts:103
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:99
+Defined in: packages/core/src/types.ts:105
 
 ### strategy?
 
 > `optional` **strategy?**: `string`
 
-Defined in: packages/core/src/types.ts:96
+Defined in: packages/core/src/types.ts:102
 
 ### userId?
 
 > `optional` **userId?**: `string`
 
-Defined in: packages/core/src/types.ts:98
+Defined in: packages/core/src/types.ts:104
 
   </Accordion>
 
@@ -10157,7 +10179,7 @@ Defined in: packages/core/src/types.ts:98
 
 > **IdentityStrategy** = `object`
 
-Defined in: packages/core/src/types.ts:636
+Defined in: packages/core/src/types.ts:643
 
 Identity resolution strategy.
 
@@ -10167,7 +10189,7 @@ Identity resolution strategy.
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:637
+Defined in: packages/core/src/types.ts:644
 
 ## Methods
 
@@ -10175,7 +10197,7 @@ Defined in: packages/core/src/types.ts:637
 
 > **resolve**(`request`): `MaybePromise`\<`UserContext` \| `null`\>
 
-Defined in: packages/core/src/types.ts:638
+Defined in: packages/core/src/types.ts:645
 
 #### Parameters
 
@@ -10197,7 +10219,7 @@ Defined in: packages/core/src/types.ts:638
 
 > **LegacyMiddleware** = (`request`, `context`, `next`) => `MaybePromise`\<`CallToolResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:426
+Defined in: packages/core/src/types.ts:433
 
 Legacy middleware function signature.
 
@@ -10227,7 +10249,7 @@ Legacy middleware function signature.
 
 > **LifecycleHook** = (`event`, `context`) => `MaybePromise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:154
+Defined in: packages/core/src/types.ts:160
 
 Hook invoked for proxy lifecycle events.
 
@@ -10253,7 +10275,7 @@ Hook invoked for proxy lifecycle events.
 
 > **LifecycleHookContext** = `object`
 
-Defined in: packages/core/src/types.ts:140
+Defined in: packages/core/src/types.ts:146
 
 Lifecycle hook context.
 
@@ -10263,43 +10285,43 @@ Lifecycle hook context.
 
 > `optional` **error?**: `Error`
 
-Defined in: packages/core/src/types.ts:146
+Defined in: packages/core/src/types.ts:152
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:143
+Defined in: packages/core/src/types.ts:149
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:147
+Defined in: packages/core/src/types.ts:153
 
 ### request?
 
 > `optional` **request?**: `ToolCallRequest`
 
-Defined in: packages/core/src/types.ts:145
+Defined in: packages/core/src/types.ts:151
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: packages/core/src/types.ts:144
+Defined in: packages/core/src/types.ts:150
 
 ### subject?
 
 > `optional` **subject?**: `ResolvedSubject`
 
-Defined in: packages/core/src/types.ts:142
+Defined in: packages/core/src/types.ts:148
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:141
+Defined in: packages/core/src/types.ts:147
 
   </Accordion>
 
@@ -10309,7 +10331,7 @@ Defined in: packages/core/src/types.ts:141
 
 > **LifecycleHookEvent** = `"sessionStart"` \| `"sessionEnd"` \| `"toolFailure"`
 
-Defined in: packages/core/src/types.ts:134
+Defined in: packages/core/src/types.ts:140
 
 Lifecycle event names emitted by the proxy.
 
@@ -10321,7 +10343,7 @@ Lifecycle event names emitted by the proxy.
 
 > **ListToolsContext** = `object`
 
-Defined in: packages/core/src/types.ts:178
+Defined in: packages/core/src/types.ts:184
 
 Context passed to list tool hooks.
 
@@ -10331,43 +10353,43 @@ Context passed to list tool hooks.
 
 > `optional` **credentialSources?**: `CredentialSourceMetadata`[]
 
-Defined in: packages/core/src/types.ts:185
+Defined in: packages/core/src/types.ts:191
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:181
+Defined in: packages/core/src/types.ts:187
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:182
+Defined in: packages/core/src/types.ts:188
 
 ### policy?
 
 > `optional` **policy?**: `Policy`
 
-Defined in: packages/core/src/types.ts:183
+Defined in: packages/core/src/types.ts:189
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:184
+Defined in: packages/core/src/types.ts:190
 
 ### subject?
 
 > `optional` **subject?**: `ResolvedSubject`
 
-Defined in: packages/core/src/types.ts:180
+Defined in: packages/core/src/types.ts:186
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:179
+Defined in: packages/core/src/types.ts:185
 
   </Accordion>
 
@@ -10377,7 +10399,7 @@ Defined in: packages/core/src/types.ts:179
 
 > **ListToolsHook** = (`tools`, `context`) => `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:169
+Defined in: packages/core/src/types.ts:175
 
 Hook invoked after upstream tool discovery and before returning tools to the client.
 
@@ -10421,7 +10443,7 @@ Maybe a promise for async compatibility.
 
 > **Middleware** = `LegacyMiddleware` \| `ProxyMiddleware`
 
-Defined in: packages/core/src/types.ts:445
+Defined in: packages/core/src/types.ts:452
 
 Middleware function signature.
 
@@ -10433,7 +10455,7 @@ Middleware function signature.
 
 > **MiddlewareContext** = `object`
 
-Defined in: packages/core/src/types.ts:372
+Defined in: packages/core/src/types.ts:379
 
 Middleware execution context.
 
@@ -10443,61 +10465,61 @@ Middleware execution context.
 
 > `optional` **credentialSources?**: `CredentialSourceMetadata`[]
 
-Defined in: packages/core/src/types.ts:382
+Defined in: packages/core/src/types.ts:389
 
 ### identity?
 
 > `optional` **identity?**: `IdentityMetadata`
 
-Defined in: packages/core/src/types.ts:375
+Defined in: packages/core/src/types.ts:382
 
 ### log
 
 > **log**: `Logger`
 
-Defined in: packages/core/src/types.ts:376
+Defined in: packages/core/src/types.ts:383
 
 ### policy?
 
 > `optional` **policy?**: `Policy` \| `ProxyPolicyContext`
 
-Defined in: packages/core/src/types.ts:378
+Defined in: packages/core/src/types.ts:385
 
 ### policyDecision?
 
 > `optional` **policyDecision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:379
+Defined in: packages/core/src/types.ts:386
 
 ### rateLimiter?
 
 > `optional` **rateLimiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:381
+Defined in: packages/core/src/types.ts:388
 
 ### registry?
 
 > `optional` **registry?**: `Registry`
 
-Defined in: packages/core/src/types.ts:380
+Defined in: packages/core/src/types.ts:387
 
 ### res
 
 > **res**: `ResponseController`
 
-Defined in: packages/core/src/types.ts:377
+Defined in: packages/core/src/types.ts:384
 
 ### subject?
 
 > `optional` **subject?**: `ResolvedSubject`
 
-Defined in: packages/core/src/types.ts:374
+Defined in: packages/core/src/types.ts:381
 
 ### user
 
 > **user**: `UserContext`
 
-Defined in: packages/core/src/types.ts:373
+Defined in: packages/core/src/types.ts:380
 
   </Accordion>
 
@@ -10507,7 +10529,7 @@ Defined in: packages/core/src/types.ts:373
 
 > **Next** = () => `Promise`\<`CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:414
+Defined in: packages/core/src/types.ts:421
 
 Next middleware handler.
 
@@ -10523,7 +10545,7 @@ Next middleware handler.
 
 > **PanterTransport** = `object`
 
-Defined in: packages/core/src/types.ts:519
+Defined in: packages/core/src/types.ts:526
 
 Transport interface for MCP client interactions.
 
@@ -10533,7 +10555,7 @@ Transport interface for MCP client interactions.
 
 > **callTool**(`params`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `content`: `z.ZodDefault`\<`z.ZodArray`\<`z.ZodUnion`\<readonly \[`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `text`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `data`: `z.ZodString`; `mimeType`: `z.ZodString`; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `description`: `z.ZodOptional`\<...\>; `icons`: `z.ZodOptional`\<...\>; `mimeType`: `z.ZodOptional`\<...\>; `name`: `z.ZodString`; `size`: `z.ZodOptional`\<...\>; `title`: `z.ZodOptional`\<...\>; `type`: `z.ZodLiteral`\<...\>; `uri`: `z.ZodString`; \}, `z.core.$strip`\>, `z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<...\>; `annotations`: `z.ZodOptional`\<...\>; `resource`: `z.ZodUnion`\<...\>; `type`: `z.ZodLiteral`\<...\>; \}, `z.core.$strip`\>\]\>\>\>; `isError?`: `z.ZodOptional`\<`z.ZodBoolean`\>; `structuredContent?`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:521
+Defined in: packages/core/src/types.ts:528
 
 #### Parameters
 
@@ -10563,7 +10585,7 @@ Defined in: packages/core/src/types.ts:521
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:522
+Defined in: packages/core/src/types.ts:529
 
 #### Returns
 
@@ -10573,7 +10595,7 @@ Defined in: packages/core/src/types.ts:522
 
 > **listTools**(`params?`): `Promise`\<\{\[`key`: `string`\]: `unknown`; `_meta?`: `z.ZodOptional`\<`z.ZodObject`\<\{ `io.modelcontextprotocol/related-task`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskId`: `z.ZodString`; \}, `z.core.$strip`\>\>; `progressToken`: `z.ZodOptional`\<`z.ZodUnion`\<readonly \[`z.ZodString`, `z.ZodNumber`\]\>\>; \}, `z.core.$loose`\>\>; `nextCursor?`: `z.ZodOptional`\<`z.ZodString`\>; `tools`: `z.ZodArray`\<`z.ZodObject`\<\{ `_meta`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodUnknown`\>\>; `annotations`: `z.ZodOptional`\<`z.ZodObject`\<\{ `destructiveHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `idempotentHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `openWorldHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `readOnlyHint`: `z.ZodOptional`\<`z.ZodBoolean`\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; `description`: `z.ZodOptional`\<`z.ZodString`\>; `execution`: `z.ZodOptional`\<`z.ZodObject`\<\{ `taskSupport`: `z.ZodOptional`\<`z.ZodEnum`\<...\>\>; \}, `z.core.$strip`\>\>; `icons`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodObject`\<\{ `mimeType`: `z.ZodOptional`\<...\>; `sizes`: `z.ZodOptional`\<...\>; `src`: `z.ZodString`; `theme`: `z.ZodOptional`\<...\>; \}, `z.core.$strip`\>\>\>; `inputSchema`: `z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<`z.ZodString`, `z.ZodCustom`\<..., ...\>\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<`z.ZodString`\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>; `name`: `z.ZodString`; `outputSchema`: `z.ZodOptional`\<`z.ZodObject`\<\{ `properties`: `z.ZodOptional`\<`z.ZodRecord`\<..., ...\>\>; `required`: `z.ZodOptional`\<`z.ZodArray`\<...\>\>; `type`: `z.ZodLiteral`\<`"object"`\>; \}, `z.core.$catchall`\<`z.ZodUnknown`\>\>\>; `title`: `z.ZodOptional`\<`z.ZodString`\>; \}, `z.core.$strip`\>\>; \}\>
 
-Defined in: packages/core/src/types.ts:520
+Defined in: packages/core/src/types.ts:527
 
 #### Parameters
 
@@ -10599,7 +10621,7 @@ Defined in: packages/core/src/types.ts:520
 
 > **PolicyDecision** = `object`
 
-Defined in: packages/core/src/types.ts:571
+Defined in: packages/core/src/types.ts:578
 
 Policy evaluation result.
 
@@ -10609,19 +10631,19 @@ Policy evaluation result.
 
 > **allowed**: `boolean`
 
-Defined in: packages/core/src/types.ts:572
+Defined in: packages/core/src/types.ts:579
 
 ### metadata?
 
 > `optional` **metadata?**: `PolicyMetadata` & `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:574
+Defined in: packages/core/src/types.ts:581
 
 ### reason?
 
 > `optional` **reason?**: `string`
 
-Defined in: packages/core/src/types.ts:573
+Defined in: packages/core/src/types.ts:580
 
   </Accordion>
 
@@ -10693,7 +10715,7 @@ Defined in: packages/core/src/types.ts:64
 
 > **ProxyAuthContext** = `object`
 
-Defined in: packages/core/src/types.ts:208
+Defined in: packages/core/src/types.ts:214
 
 Normalized authentication metadata exposed through the unified context.
 
@@ -10703,25 +10725,25 @@ Normalized authentication metadata exposed through the unified context.
 
 > **authenticated**: `boolean`
 
-Defined in: packages/core/src/types.ts:210
+Defined in: packages/core/src/types.ts:216
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:212
+Defined in: packages/core/src/types.ts:218
 
 ### strategy?
 
 > `optional` **strategy?**: `string`
 
-Defined in: packages/core/src/types.ts:209
+Defined in: packages/core/src/types.ts:215
 
 ### userId?
 
 > `optional` **userId?**: `string`
 
-Defined in: packages/core/src/types.ts:211
+Defined in: packages/core/src/types.ts:217
 
   </Accordion>
 
@@ -10731,7 +10753,7 @@ Defined in: packages/core/src/types.ts:211
 
 > **ProxyContext** = `MiddlewareContext` & `object`
 
-Defined in: packages/core/src/types.ts:389
+Defined in: packages/core/src/types.ts:396
 
 Unified context for new proxy middleware, routes, and events.
 
@@ -10913,7 +10935,7 @@ Unified context for new proxy middleware, routes, and events.
 
 > **ProxyEventFilter** = `object`
 
-Defined in: packages/core/src/types.ts:476
+Defined in: packages/core/src/types.ts:483
 
 Filter for unified proxy events.
 
@@ -10923,19 +10945,19 @@ Filter for unified proxy events.
 
 > `optional` **proxyTool?**: `string`
 
-Defined in: packages/core/src/types.ts:479
+Defined in: packages/core/src/types.ts:486
 
 ### server?
 
 > `optional` **server?**: `string`
 
-Defined in: packages/core/src/types.ts:477
+Defined in: packages/core/src/types.ts:484
 
 ### tool?
 
 > `optional` **tool?**: `string`
 
-Defined in: packages/core/src/types.ts:478
+Defined in: packages/core/src/types.ts:485
 
   </Accordion>
 
@@ -10945,7 +10967,7 @@ Defined in: packages/core/src/types.ts:478
 
 > **ProxyEventHandler** = (`payload`) => `MaybePromise`\<`ListToolsResult`\[`"tools"`\] \| `ListToolsResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:499
+Defined in: packages/core/src/types.ts:506
 
 Unified event handler.
 
@@ -10967,7 +10989,7 @@ Unified event handler.
 
 > **ProxyEventName** = `"session:start"` \| `"session:end"` \| `"tools:list:after"` \| `"tool:start"` \| `"tool:success"` \| `"tool:error"` \| `"tool:after"`
 
-Defined in: packages/core/src/types.ts:463
+Defined in: packages/core/src/types.ts:470
 
 Unified event names emitted by the proxy runtime.
 
@@ -10979,7 +11001,7 @@ Unified event names emitted by the proxy runtime.
 
 > **ProxyEventPayload** = `object`
 
-Defined in: packages/core/src/types.ts:486
+Defined in: packages/core/src/types.ts:493
 
 Unified event payload.
 
@@ -10989,37 +11011,37 @@ Unified event payload.
 
 > **ctx**: `ProxyContext`
 
-Defined in: packages/core/src/types.ts:487
+Defined in: packages/core/src/types.ts:494
 
 ### durationMs?
 
 > `optional` **durationMs?**: `number`
 
-Defined in: packages/core/src/types.ts:491
+Defined in: packages/core/src/types.ts:498
 
 ### error?
 
 > `optional` **error?**: `Error`
 
-Defined in: packages/core/src/types.ts:490
+Defined in: packages/core/src/types.ts:497
 
 ### result?
 
 > `optional` **result?**: `CallToolResult`
 
-Defined in: packages/core/src/types.ts:489
+Defined in: packages/core/src/types.ts:496
 
 ### success?
 
 > `optional` **success?**: `boolean`
 
-Defined in: packages/core/src/types.ts:492
+Defined in: packages/core/src/types.ts:499
 
 ### tools?
 
 > `optional` **tools?**: `ListToolsResult`\[`"tools"`\]
 
-Defined in: packages/core/src/types.ts:488
+Defined in: packages/core/src/types.ts:495
 
   </Accordion>
 
@@ -11029,7 +11051,7 @@ Defined in: packages/core/src/types.ts:488
 
 > **ProxyExposureHandle** = `object`
 
-Defined in: packages/core/src/types.ts:529
+Defined in: packages/core/src/types.ts:536
 
 Active downstream proxy exposure handle.
 
@@ -11039,7 +11061,7 @@ Active downstream proxy exposure handle.
 
 > **close**(): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:530
+Defined in: packages/core/src/types.ts:537
 
 #### Returns
 
@@ -11053,7 +11075,7 @@ Defined in: packages/core/src/types.ts:530
 
 > **ProxyExposureTransport**\<`THandle`\> = `object`
 
-Defined in: packages/core/src/types.ts:551
+Defined in: packages/core/src/types.ts:558
 
 Transport interface for exposing the Panther proxy to downstream MCP clients.
 
@@ -11069,7 +11091,7 @@ Transport interface for exposing the Panther proxy to downstream MCP clients.
 
 > **listen**(`runtime`): `Promise`\<`THandle`\>
 
-Defined in: packages/core/src/types.ts:552
+Defined in: packages/core/src/types.ts:559
 
 #### Parameters
 
@@ -11089,7 +11111,7 @@ Defined in: packages/core/src/types.ts:552
 
 > **ProxyHookEvent** = `"call"`
 
-Defined in: packages/core/src/types.ts:128
+Defined in: packages/core/src/types.ts:134
 
 Event names supported by the proxy hook system.
 
@@ -11101,7 +11123,7 @@ Event names supported by the proxy hook system.
 
 > **ProxyMiddleware** = (`context`, `next`) => `MaybePromise`\<`CallToolResult` \| `void`\>
 
-Defined in: packages/core/src/types.ts:436
+Defined in: packages/core/src/types.ts:443
 
 Express-like middleware function signature.
 
@@ -11127,7 +11149,7 @@ Express-like middleware function signature.
 
 > **ProxyNext** = () => `Promise`\<`CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:420
+Defined in: packages/core/src/types.ts:427
 
 Next handler for unified proxy middleware.
 
@@ -11143,7 +11165,7 @@ Next handler for unified proxy middleware.
 
 > **ProxyOperation** = `"tool:call"` \| `"tools:list"` \| `"session:start"` \| `"session:end"`
 
-Defined in: packages/core/src/types.ts:192
+Defined in: packages/core/src/types.ts:198
 
 Operation names handled by the unified proxy context.
 
@@ -11155,7 +11177,7 @@ Operation names handled by the unified proxy context.
 
 > **ProxyPolicyContext** = `object`
 
-Defined in: packages/core/src/types.ts:219
+Defined in: packages/core/src/types.ts:225
 
 Structured policy metadata exposed through the unified context.
 
@@ -11165,43 +11187,65 @@ Structured policy metadata exposed through the unified context.
 
 > `optional` **allowed?**: `boolean`
 
-Defined in: packages/core/src/types.ts:220
+Defined in: packages/core/src/types.ts:226
 
 ### decision?
 
 > `optional` **decision?**: `PolicyDecision`
 
-Defined in: packages/core/src/types.ts:226
+Defined in: packages/core/src/types.ts:232
 
 ### matchedGroups
 
 > **matchedGroups**: `string`[]
 
-Defined in: packages/core/src/types.ts:222
+Defined in: packages/core/src/types.ts:228
 
 ### matchedPermissions
 
 > **matchedPermissions**: `NonNullable`\<`PolicyMetadata`\[`"matchedPermissions"`\]\>
 
-Defined in: packages/core/src/types.ts:223
+Defined in: packages/core/src/types.ts:229
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:224
+Defined in: packages/core/src/types.ts:230
 
 ### policy?
 
 > `optional` **policy?**: `Policy`
 
-Defined in: packages/core/src/types.ts:225
+Defined in: packages/core/src/types.ts:231
 
 ### reason?
 
 > `optional` **reason?**: `string`
 
-Defined in: packages/core/src/types.ts:221
+Defined in: packages/core/src/types.ts:227
+
+## Methods
+
+### can()
+
+> **can**(`server`, `tool`): `MaybePromise`\<`boolean`\>
+
+Defined in: packages/core/src/types.ts:233
+
+#### Parameters
+
+##### server
+
+`string`
+
+##### tool
+
+`string`
+
+#### Returns
+
+`MaybePromise`\<`boolean`\>
 
   </Accordion>
 
@@ -11211,7 +11255,7 @@ Defined in: packages/core/src/types.ts:221
 
 > **ProxyRuntime** = `object`
 
-Defined in: packages/core/src/types.ts:537
+Defined in: packages/core/src/types.ts:544
 
 Runtime operations shared by downstream proxy exposure transports.
 
@@ -11221,13 +11265,13 @@ Runtime operations shared by downstream proxy exposure transports.
 
 > **identityRequired**: `boolean`
 
-Defined in: packages/core/src/types.ts:544
+Defined in: packages/core/src/types.ts:551
 
 ### logger
 
 > **logger**: `Logger`
 
-Defined in: packages/core/src/types.ts:543
+Defined in: packages/core/src/types.ts:550
 
 ## Methods
 
@@ -11235,7 +11279,7 @@ Defined in: packages/core/src/types.ts:543
 
 > **createSdkServer**(`user?`, `identity?`, `subject?`): `unknown`
 
-Defined in: packages/core/src/types.ts:538
+Defined in: packages/core/src/types.ts:545
 
 #### Parameters
 
@@ -11259,7 +11303,7 @@ Defined in: packages/core/src/types.ts:538
 
 > **emitSessionEnd**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:542
+Defined in: packages/core/src/types.ts:549
 
 #### Parameters
 
@@ -11275,7 +11319,7 @@ Defined in: packages/core/src/types.ts:542
 
 > **emitSessionStart**(`context`): `Promise`\<`void`\>
 
-Defined in: packages/core/src/types.ts:541
+Defined in: packages/core/src/types.ts:548
 
 #### Parameters
 
@@ -11291,7 +11335,7 @@ Defined in: packages/core/src/types.ts:541
 
 > **resolveHttpUser**(`request`): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/types.ts:539
+Defined in: packages/core/src/types.ts:546
 
 #### Parameters
 
@@ -11307,7 +11351,7 @@ Defined in: packages/core/src/types.ts:539
 
 > **resolveStdioUser**(): `Promise`\<\{ `identity?`: `IdentityMetadata`; `subject?`: `ResolvedSubject`; `user`: `UserContext`; \}\>
 
-Defined in: packages/core/src/types.ts:540
+Defined in: packages/core/src/types.ts:547
 
 #### Returns
 
@@ -11321,7 +11365,7 @@ Defined in: packages/core/src/types.ts:540
 
 > **ProxyServerContext** = `object`
 
-Defined in: packages/core/src/types.ts:233
+Defined in: packages/core/src/types.ts:240
 
 Selected upstream server metadata.
 
@@ -11331,13 +11375,13 @@ Selected upstream server metadata.
 
 > `optional` **displayName?**: `string`
 
-Defined in: packages/core/src/types.ts:235
+Defined in: packages/core/src/types.ts:242
 
 ### name
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:234
+Defined in: packages/core/src/types.ts:241
 
   </Accordion>
 
@@ -11347,7 +11391,7 @@ Defined in: packages/core/src/types.ts:234
 
 > **ProxyServerHandle** = `object`
 
-Defined in: packages/core/src/types.ts:507
+Defined in: packages/core/src/types.ts:514
 
 Scoped server handle returned by `proxy.server(name)`.
 
@@ -11357,7 +11401,7 @@ Scoped server handle returned by `proxy.server(name)`.
 
 > `readonly` **name**: `string`
 
-Defined in: packages/core/src/types.ts:508
+Defined in: packages/core/src/types.ts:515
 
 ## Methods
 
@@ -11367,7 +11411,7 @@ Defined in: packages/core/src/types.ts:508
 
 > **on**(`eventName`, `handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:511
+Defined in: packages/core/src/types.ts:518
 
 ##### Parameters
 
@@ -11387,7 +11431,7 @@ Defined in: packages/core/src/types.ts:511
 
 > **on**(`eventName`, `filter`, `handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:512
+Defined in: packages/core/src/types.ts:519
 
 ##### Parameters
 
@@ -11411,7 +11455,7 @@ Defined in: packages/core/src/types.ts:512
 
 > **tool**(`pattern`, `handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:510
+Defined in: packages/core/src/types.ts:517
 
 #### Parameters
 
@@ -11431,7 +11475,7 @@ Defined in: packages/core/src/types.ts:510
 
 > **use**(`handler`): `ProxyServerHandle`
 
-Defined in: packages/core/src/types.ts:509
+Defined in: packages/core/src/types.ts:516
 
 #### Parameters
 
@@ -11445,13 +11489,25 @@ Defined in: packages/core/src/types.ts:509
 
   </Accordion>
 
+  <Accordion title="Types: type-aliases/ProxySubjectContext">
+
+@panther/core / ProxySubjectContext
+
+> **ProxySubjectContext** = `ResolvedSubject`
+
+Defined in: packages/core/src/types.ts:95
+
+Structured subject metadata exposed through the unified context.
+
+  </Accordion>
+
   <Accordion title="Types: type-aliases/ProxyToolContext">
 
 @panther/core / ProxyToolContext
 
 > **ProxyToolContext** = `object`
 
-Defined in: packages/core/src/types.ts:242
+Defined in: packages/core/src/types.ts:249
 
 Selected tool metadata.
 
@@ -11461,13 +11517,13 @@ Selected tool metadata.
 
 > **name**: `string`
 
-Defined in: packages/core/src/types.ts:243
+Defined in: packages/core/src/types.ts:250
 
 ### proxyName
 
 > **proxyName**: `string`
 
-Defined in: packages/core/src/types.ts:244
+Defined in: packages/core/src/types.ts:251
 
   </Accordion>
 
@@ -11477,7 +11533,7 @@ Defined in: packages/core/src/types.ts:244
 
 > **ProxyToolHandler** = `ProxyMiddleware`
 
-Defined in: packages/core/src/types.ts:451
+Defined in: packages/core/src/types.ts:458
 
 Express-like tool route handler signature.
 
@@ -11489,7 +11545,7 @@ Express-like tool route handler signature.
 
 > **ProxyToolPattern** = `string`
 
-Defined in: packages/core/src/types.ts:457
+Defined in: packages/core/src/types.ts:464
 
 Public tool pattern using `server.tool` dot notation and `*` wildcards.
 
@@ -11501,7 +11557,7 @@ Public tool pattern using `server.tool` dot notation and `*` wildcards.
 
 > **ProxyTransportContext** = `object`
 
-Defined in: packages/core/src/types.ts:198
+Defined in: packages/core/src/types.ts:204
 
 Safe downstream transport metadata attached to a proxy operation.
 
@@ -11511,19 +11567,19 @@ Safe downstream transport metadata attached to a proxy operation.
 
 > `optional` **requestId?**: `string`
 
-Defined in: packages/core/src/types.ts:201
+Defined in: packages/core/src/types.ts:207
 
 ### sessionId?
 
 > `optional` **sessionId?**: `string`
 
-Defined in: packages/core/src/types.ts:200
+Defined in: packages/core/src/types.ts:206
 
 ### type?
 
 > `optional` **type?**: `"http"` \| `"stdio"` \| `"sse"` \| `"unknown"`
 
-Defined in: packages/core/src/types.ts:199
+Defined in: packages/core/src/types.ts:205
 
   </Accordion>
 
@@ -11645,7 +11701,7 @@ Defined in: packages/core/src/types.ts:33
 
 > **ToolCallHook** = (`request`, `context`) => `MaybePromise`\<`void` \| `CallToolResult`\>
 
-Defined in: packages/core/src/types.ts:160
+Defined in: packages/core/src/types.ts:166
 
 Hook invoked for matched tool calls.
 
@@ -11671,7 +11727,7 @@ Hook invoked for matched tool calls.
 
 > **ToolCallHookFilter** = `object`
 
-Defined in: packages/core/src/types.ts:118
+Defined in: packages/core/src/types.ts:124
 
 Filter for proxy call hooks.
 
@@ -11681,19 +11737,19 @@ Filter for proxy call hooks.
 
 > `optional` **proxyTool?**: `string`
 
-Defined in: packages/core/src/types.ts:121
+Defined in: packages/core/src/types.ts:127
 
 ### server?
 
 > `optional` **server?**: `string`
 
-Defined in: packages/core/src/types.ts:119
+Defined in: packages/core/src/types.ts:125
 
 ### tool?
 
 > `optional` **tool?**: `string`
 
-Defined in: packages/core/src/types.ts:120
+Defined in: packages/core/src/types.ts:126
 
   </Accordion>
 
@@ -11703,7 +11759,7 @@ Defined in: packages/core/src/types.ts:120
 
 > **ToolCallRequest** = `object`
 
-Defined in: packages/core/src/types.ts:106
+Defined in: packages/core/src/types.ts:112
 
 Normalized tool call details for middleware.
 
@@ -11713,31 +11769,31 @@ Normalized tool call details for middleware.
 
 > **arguments**: `CallToolRequest`\[`"params"`\]\[`"arguments"`\]
 
-Defined in: packages/core/src/types.ts:110
+Defined in: packages/core/src/types.ts:116
 
 ### proxyToolName
 
 > **proxyToolName**: `string`
 
-Defined in: packages/core/src/types.ts:109
+Defined in: packages/core/src/types.ts:115
 
 ### raw
 
 > **raw**: `CallToolRequest`\[`"params"`\]
 
-Defined in: packages/core/src/types.ts:111
+Defined in: packages/core/src/types.ts:117
 
 ### serverName
 
 > **serverName**: `string`
 
-Defined in: packages/core/src/types.ts:107
+Defined in: packages/core/src/types.ts:113
 
 ### toolName
 
 > **toolName**: `string`
 
-Defined in: packages/core/src/types.ts:108
+Defined in: packages/core/src/types.ts:114
 
   </Accordion>
 
@@ -11747,7 +11803,7 @@ Defined in: packages/core/src/types.ts:108
 
 > **ToolPermission** = `object`
 
-Defined in: packages/core/src/types.ts:559
+Defined in: packages/core/src/types.ts:566
 
 Tool permission model for policy enforcement.
 
@@ -11757,7 +11813,7 @@ Tool permission model for policy enforcement.
 
 > `optional` **approval?**: (`request`, `context`) => `MaybePromise`\<`boolean`\>
 
-Defined in: packages/core/src/types.ts:563
+Defined in: packages/core/src/types.ts:570
 
 #### Parameters
 
@@ -11777,25 +11833,25 @@ Defined in: packages/core/src/types.ts:563
 
 > `optional` **effect?**: `"allow"` \| `"deny"`
 
-Defined in: packages/core/src/types.ts:561
+Defined in: packages/core/src/types.ts:568
 
 ### limiter?
 
 > `optional` **limiter?**: `RateLimiter`
 
-Defined in: packages/core/src/types.ts:562
+Defined in: packages/core/src/types.ts:569
 
 ### metadata?
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: packages/core/src/types.ts:564
+Defined in: packages/core/src/types.ts:571
 
 ### tool
 
 > **tool**: `string`
 
-Defined in: packages/core/src/types.ts:560
+Defined in: packages/core/src/types.ts:567
 
   </Accordion>
 
