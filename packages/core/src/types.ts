@@ -602,7 +602,19 @@ export type ProxyEventName =
   | "tool:start"
   | "tool:success"
   | "tool:error"
-  | "tool:after";
+  | "tool:after"
+  | "resource:start"
+  | "resource:success"
+  | "resource:error"
+  | "resource:after"
+  | "prompt:start"
+  | "prompt:success"
+  | "prompt:error"
+  | "prompt:after"
+  | "completion:start"
+  | "completion:success"
+  | "completion:error"
+  | "completion:after";
 
 /**
  * Filter for unified proxy events.
@@ -621,7 +633,7 @@ export type ProxyEventFilter = {
 export type ProxyEventPayload = {
   ctx: ProxyContext;
   tools?: ListToolsResult["tools"];
-  result?: CallToolResult;
+  result?: ProxyOperationResult;
   error?: Error;
   durationMs?: number;
   success?: boolean;

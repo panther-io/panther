@@ -574,6 +574,74 @@ describe("McpProxy", () => {
     expect(transport.complete).not.toHaveBeenCalled();
   });
 
+  it("emits capability events and audit logs for allowed and denied operations", async () => {
+    const transport = new FeatureTransport();
+    const driver = new MemoryLogDriver();
+    const proxy = new McpProxy({
+      logger: new Logger({ level: "debug", driver }),
+      policy: new Policy({ name: "audit" })
+        .server("github")
+        .allowCapability({ operation: "resource:read", target: "file:///shared.md", targetKind: "resource" })
+        .server("github")
+        .denyCapability({ operation: "prompt:get", target: "summarize", targetKind: "prompt" }),
+      servers: [new McpServer({ name: "github", transport })],
+    });
+    const events: string[] = [];
+
+    proxy.on("resource:success", ({ ctx, result, durationMs }) => {
+      events.push(`resource:success:${ctx.resource?.uri}:${Boolean(result)}:${typeof durationMs}`);
+    });
+    proxy.on("resource:after", ({ success }) => {
+      events.push(`resource:after:${success}`);
+    });
+    proxy.on("prompt:error", ({ ctx, error }) => {
+      events.push(`prompt:error:${ctx.prompt?.name}:${error?.message}`);
+    });
+    proxy.on("prompt:after", ({ success }) => {
+      events.push(`prompt:after:${success}`);
+    });
+
+    await proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" }, { id: "alice" });
+    await expect(proxy.getPrompt({ name: "github__summarize" }, { id: "alice" })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+    });
+
+    expect(events).toEqual([
+      "resource:success:file:///shared.md:true:number",
+      "resource:after:true",
+      'prompt:error:summarize:Operation "prompt:get" denied by policy "audit"',
+      "prompt:after:false",
+    ]);
+    expect(driver.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "MCP capability operation",
+          context: expect.objectContaining({
+            operation: "resource:read",
+            serverName: "github",
+            target: "file:///shared.md",
+          }),
+          metadata: expect.objectContaining({
+            allowed: true,
+            event: "resource:read.success",
+          }),
+        }),
+        expect.objectContaining({
+          message: "MCP capability operation failed",
+          context: expect.objectContaining({
+            operation: "prompt:get",
+            serverName: "github",
+            target: "summarize",
+          }),
+          metadata: expect.objectContaining({
+            allowed: false,
+            event: "prompt:get.failure",
+          }),
+        }),
+      ]),
+    );
+  });
+
   it("rejects unknown routed resource and prompt identifiers", async () => {
     const proxy = new McpProxy({
       servers: [new McpServer({ name: "github", transport: new FeatureTransport() })],

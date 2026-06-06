@@ -33,10 +33,10 @@
 
 ## 5. Events And Logging
 
-- [ ] 5.1 Add event names and payload types for resource, prompt, and completion start/success/error/after flows
-- [ ] 5.2 Emit events with duration and result/error metadata for all governed non-tool operations
-- [ ] 5.3 Add contextual logger metadata for operation, subject, server, target, policy outcome, and credential source
-- [ ] 5.4 Add audit logging tests for allowed and denied operations
+- [x] 5.1 Add event names and payload types for resource, prompt, and completion start/success/error/after flows
+- [x] 5.2 Emit events with duration and result/error metadata for all governed non-tool operations
+- [x] 5.3 Add contextual logger metadata for operation, subject, server, target, policy outcome, and credential source
+- [x] 5.4 Add audit logging tests for allowed and denied operations
 
 ## 6. Documentation And Verification
 
