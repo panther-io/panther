@@ -1,8 +1,20 @@
 import type {
   CallToolRequest,
   CallToolResult,
+  CompleteRequest,
+  CompleteResult,
+  GetPromptRequest,
+  GetPromptResult,
+  ListPromptsRequest,
+  ListPromptsResult,
+  ListResourcesRequest,
+  ListResourcesResult,
+  ListResourceTemplatesRequest,
+  ListResourceTemplatesResult,
   ListToolsRequest,
   ListToolsResult,
+  ReadResourceRequest,
+  ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
 import type { Isolation, PanterTransport, UserContext } from "./types.js";
@@ -88,6 +100,87 @@ export class McpServer {
   }
 
   /**
+   * List resources for a given user.
+   * @pk
+   */
+  async listResources(params?: ListResourcesRequest["params"], user: UserContext = {}): Promise<ListResourcesResult> {
+    const transport = this.transportFor(user);
+    if (!transport.listResources) {
+      return { resources: [] };
+    }
+
+    return transport.listResources(params);
+  }
+
+  /**
+   * Read a resource for a given user.
+   * @pk
+   */
+  async readResource(params: ReadResourceRequest["params"], user: UserContext = {}): Promise<ReadResourceResult> {
+    const transport = this.transportFor(user);
+    if (!transport.readResource) {
+      throw unsupportedCapability(this.name, "resources");
+    }
+
+    return transport.readResource(params);
+  }
+
+  /**
+   * List resource templates for a given user.
+   * @pk
+   */
+  async listResourceTemplates(
+    params?: ListResourceTemplatesRequest["params"],
+    user: UserContext = {},
+  ): Promise<ListResourceTemplatesResult> {
+    const transport = this.transportFor(user);
+    if (!transport.listResourceTemplates) {
+      return { resourceTemplates: [] };
+    }
+
+    return transport.listResourceTemplates(params);
+  }
+
+  /**
+   * List prompts for a given user.
+   * @pk
+   */
+  async listPrompts(params?: ListPromptsRequest["params"], user: UserContext = {}): Promise<ListPromptsResult> {
+    const transport = this.transportFor(user);
+    if (!transport.listPrompts) {
+      return { prompts: [] };
+    }
+
+    return transport.listPrompts(params);
+  }
+
+  /**
+   * Get a prompt for a given user.
+   * @pk
+   */
+  async getPrompt(params: GetPromptRequest["params"], user: UserContext = {}): Promise<GetPromptResult> {
+    const transport = this.transportFor(user);
+    if (!transport.getPrompt) {
+      throw unsupportedCapability(this.name, "prompts");
+    }
+
+    return transport.getPrompt(params);
+  }
+
+  /**
+   * Complete a prompt or resource argument for a given user.
+   * @pk
+   */
+  async complete(params: CompleteRequest["params"], user: UserContext = {}): Promise<CompleteResult> {
+    const transport = this.transportFor(user);
+    if (!transport.complete) {
+      throw unsupportedCapability(this.name, "completions");
+    }
+
+    return transport.complete(params);
+  }
+
+  /**
    * Close all transports.
    * @pk
    */
@@ -148,4 +241,8 @@ function isUserAwareTransport(transport: PanterTransport): transport is UserAwar
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions"): Error {
+  return new Error(`Transport for server "${serverName}" does not support ${capability}`);
 }

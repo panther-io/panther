@@ -18,9 +18,9 @@
 
 ## 3. Server Wrapper
 
-- [ ] 3.1 Add `McpServer` methods for listing resources, reading resources, listing resource templates, listing prompts, getting prompts, and completing arguments
-- [ ] 3.2 Ensure all new `McpServer` methods use existing per-user env and user-aware transport resolution
-- [ ] 3.3 Add tests proving env/user-specific transports apply to non-tool operations
+- [x] 3.1 Add `McpServer` methods for listing resources, reading resources, listing resource templates, listing prompts, getting prompts, and completing arguments
+- [x] 3.2 Ensure all new `McpServer` methods use existing per-user env and user-aware transport resolution
+- [x] 3.3 Add tests proving env/user-specific transports apply to non-tool operations
 
 ## 4. Proxy Aggregation And Routing
 
