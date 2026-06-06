@@ -89,6 +89,12 @@ export type ResolvedSubject = {
 };
 
 /**
+ * Structured subject metadata exposed through the unified context.
+ * @pk
+ */
+export type ProxySubjectContext = ResolvedSubject;
+
+/**
  * Identity metadata resolved at the proxy edge.
  * @pk
  */
@@ -224,6 +230,7 @@ export type ProxyPolicyContext = {
   metadata?: Record<string, unknown>;
   policy?: Policy;
   decision?: PolicyDecision;
+  can(server: string, tool: string): MaybePromise<boolean>;
 };
 
 /**

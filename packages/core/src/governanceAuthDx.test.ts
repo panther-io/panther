@@ -207,6 +207,237 @@ describe("governance auth DX", () => {
     expect(allow("read", { metadata: { scope: "repo" } })).toMatchObject({ tool: "read", effect: "allow" });
     expect(policy("named").server("github").allow("read").name).toBe("named");
   });
+
+  it("exposes structured subject, auth, policy, and compatibility aliases", async () => {
+    const alice = user("alice", {
+      displayName: "Alice",
+      email: "alice@example.com",
+      tenant: { id: "tenant-1", plan: "pro" },
+      metadata: { locale: "it" },
+    });
+    const proxy = new McpProxy({
+      groups: [group({ id: "admins", users: [alice], policy: policy("admins").server("github").allow("read", { metadata: { scope: "repo" } }) })],
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const seen: unknown[] = [];
+
+    proxy.use((ctx, next) => {
+      seen.push({
+        subjectId: ctx.subject?.id,
+        email: ctx.subject?.email,
+        metadata: ctx.subject?.metadata,
+        tenant: ctx.subject?.tenant,
+        groups: ctx.subject?.groups.map((membership) => membership.id),
+        hasAdmins: ctx.subject?.hasGroup("admins"),
+        authenticated: ctx.auth.authenticated,
+        authUserId: ctx.auth.userId,
+        allowed: ctx.policy.allowed,
+        reason: ctx.policy.reason,
+        matchedGroups: ctx.policy.matchedGroups,
+        matchedPermissions: ctx.policy.matchedPermissions.map((permission) => ({
+          policyName: permission.policyName,
+          groupId: permission.groupId,
+          serverName: permission.serverName,
+          toolName: permission.toolName,
+          effect: permission.effect,
+          metadata: permission.metadata,
+        })),
+        canRead: ctx.policy.can("github", "read"),
+        userAlias: ctx.user.id,
+        decisionAlias: ctx.policyDecision === ctx.policy.decision,
+        responseAlias: ctx.res === ctx.response,
+      });
+      return next();
+    });
+
+    await proxy.callTool({ name: "github__read" }, { id: "alice" });
+
+    expect(seen).toEqual([
+      {
+        subjectId: "alice",
+        email: "alice@example.com",
+        metadata: { locale: "it" },
+        tenant: { id: "tenant-1", plan: "pro" },
+        groups: ["admins"],
+        hasAdmins: true,
+        authenticated: true,
+        authUserId: "alice",
+        allowed: true,
+        reason: undefined,
+        matchedGroups: ["admins"],
+        matchedPermissions: [
+          {
+            policyName: "admins",
+            groupId: "admins",
+            serverName: "github",
+            toolName: "read",
+            effect: "allow",
+            metadata: { scope: "repo" },
+          },
+        ],
+        canRead: true,
+        userAlias: "alice",
+        decisionAlias: true,
+        responseAlias: true,
+      },
+    ]);
+  });
+
+  it("keeps unauthenticated contexts explicit without creating an anonymous subject", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const seen: unknown[] = [];
+
+    proxy.use((ctx, next) => {
+      seen.push({
+        authenticated: ctx.auth.authenticated,
+        subject: ctx.subject,
+        policyCanRead: ctx.policy.can("github", "read"),
+      });
+      return next();
+    });
+
+    await proxy.callTool({ name: "github__read" });
+
+    expect(seen).toEqual([{ authenticated: false, subject: undefined, policyCanRead: true }]);
+  });
+
+  it("reports denied policy metadata through the structured policy domain", async () => {
+    const proxy = new McpProxy({
+      groups: [group({ id: "blocked", users: [user("alice")], policy: policy("blocked").server("github").deny("delete") })],
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const seen: unknown[] = [];
+
+    proxy.use((ctx, next) => {
+      seen.push({
+        allowed: ctx.policy.allowed,
+        reason: ctx.policy.reason,
+        matchedGroups: ctx.policy.matchedGroups,
+        matchedPermissions: ctx.policy.matchedPermissions.map((permission) => ({
+          policyName: permission.policyName,
+          groupId: permission.groupId,
+          serverName: permission.serverName,
+          toolName: permission.toolName,
+          effect: permission.effect,
+        })),
+      });
+      return next();
+    });
+
+    const result = await proxy.callTool({ name: "github__delete" }, { id: "alice" });
+
+    expect(result.isError).toBe(true);
+    expect(seen).toEqual([
+      {
+        allowed: false,
+        reason: 'Tool "delete" denied by policy "blocked"',
+        matchedGroups: ["blocked"],
+        matchedPermissions: [
+          {
+            policyName: "blocked",
+            groupId: "blocked",
+            serverName: "github",
+            toolName: "delete",
+            effect: "deny",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("checks capabilities with group policies, global policy, and no configured policy", async () => {
+    const approval = vi.fn(async () => true);
+    const groupProxy = new McpProxy({
+      groups: [
+        group({ id: "admins", users: [user("alice")], policy: policy("admins").server("github").allow("delete") }),
+        group({ id: "blocked", users: [user("alice")], policy: policy("blocked").server("github").deny("delete") }),
+        group({ id: "readers", users: [user("alice")], policy: policy("readers").server("github").allow("read", { approval }) }),
+      ],
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const groupChecks: unknown[] = [];
+    groupProxy.use((ctx, next) => {
+      groupChecks.push({
+        canRead: ctx.policy.can("github", "read"),
+        canDelete: ctx.policy.can("github", "delete"),
+        canWrite: ctx.policy.can("github", "write"),
+      });
+      return next();
+    });
+
+    const groupResult = await groupProxy.callTool({ name: "github__delete" }, { id: "alice" });
+
+    const globalProxy = new McpProxy({
+      policy: policy("global").server("github").allow("read").server("github").deny("delete"),
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const globalChecks: unknown[] = [];
+    globalProxy.use((ctx, next) => {
+      globalChecks.push({
+        canRead: ctx.policy.can("github", "read"),
+        canDelete: ctx.policy.can("github", "delete"),
+        canWrite: ctx.policy.can("github", "write"),
+      });
+      return next();
+    });
+
+    await globalProxy.callTool({ name: "github__read" });
+
+    const permissiveProxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const permissiveChecks: unknown[] = [];
+    permissiveProxy.use((ctx, next) => {
+      permissiveChecks.push(ctx.policy.can("github", "delete"));
+      return next();
+    });
+
+    await permissiveProxy.callTool({ name: "github__read" });
+
+    expect(groupChecks).toEqual([{ canRead: true, canDelete: false, canWrite: false }]);
+    expect(globalChecks).toEqual([{ canRead: true, canDelete: false, canWrite: false }]);
+    expect(permissiveChecks).toEqual([true]);
+    expect(groupResult.isError).toBe(true);
+    expect(approval).not.toHaveBeenCalled();
+  });
+
+  it("does not expose raw credential values through structured context domains", async () => {
+    const auth = await createAuth({
+      users: {
+        alice: {
+          apiKeys: ["raw-api-key"],
+          credentials: { "github.token": "super-secret-token" },
+        },
+      },
+      groups: {},
+      defaults: {},
+    });
+    const proxy = new McpProxy({
+      auth,
+      groups: [group({ id: "admins", users: [user("alice")], policy: Policy.allowAll("admins") })],
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+    const inspected: string[] = [];
+
+    proxy.use((ctx, next) => {
+      inspected.push(JSON.stringify({
+        subject: ctx.subject,
+        auth: ctx.auth,
+        policy: ctx.policy,
+        credentials: ctx.credentials,
+      }));
+      return next();
+    });
+
+    await proxy.callTool({ name: "github__read" }, { id: "alice" });
+
+    expect(inspected).toHaveLength(1);
+    expect(inspected[0]).not.toContain("raw-api-key");
+    expect(inspected[0]).not.toContain("super-secret-token");
+    expect(inspected[0]).toContain("github.token");
+  });
 });
 
 async function createAuth(
