@@ -82,6 +82,30 @@ panther://resource-templates/github/file%3A%2F%2F%2Fissues%2F%7Bid%7D.md
 
 Clients should pass these values back unchanged to `resources/read`, `prompts/get`, and `completion/complete`. Panther restores the upstream prompt name, resource URI, or resource template URI before forwarding the request.
 
+## Support long-lived MCP sessions
+
+For downstream Streamable HTTP and SSE sessions, Panther tracks MCP utilities per session:
+
+- resource subscriptions and `notifications/resources/updated` delivery
+- tools/resources/prompts list-change notifications
+- request progress tokens and `notifications/progress`
+- downstream cancellation notifications
+- ping responses
+- per-session `logging/setLevel` and `notifications/message`
+
+This state is session-scoped and is cleaned up when the downstream session closes. Resource subscriptions are coalesced upstream, so two downstream sessions subscribing to the same proxied resource only create one upstream subscription.
+
+Native MCP upstream transports (`StdioTransport`, `StreamableHttpMcpTransport`, and `SseMcpTransport`) can observe upstream list-change, resource update, progress, and log notifications through the MCP SDK. Transports or compatibility adapters that cannot observe a notification type still support request/response operations, but related notifications are best-effort and may not be emitted.
+
+Use `requestTimeoutMs` when you need local timeout behavior across upstream transports:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  requestTimeoutMs: 30_000,
+});
+```
+
 ## Add environment-aware tool lists
 
 If you need stricter tool lists in production, filter at discovery time. This prevents tools from even showing up in the client UI.

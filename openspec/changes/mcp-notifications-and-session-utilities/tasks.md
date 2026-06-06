@@ -48,7 +48,7 @@
 
 ## 7. Documentation And Verification
 
-- [ ] 7.1 Document subscriptions, list-change notifications, progress, cancellation, ping, and logging behavior
-- [ ] 7.2 Document best-effort behavior for transports that cannot observe upstream notifications
-- [ ] 7.3 Run `pnpm --filter @panther/core test`
-- [ ] 7.4 Run `pnpm --filter @panther/core build`
+- [x] 7.1 Document subscriptions, list-change notifications, progress, cancellation, ping, and logging behavior
+- [x] 7.2 Document best-effort behavior for transports that cannot observe upstream notifications
+- [x] 7.3 Run `pnpm --filter @panther/core test`
+- [x] 7.4 Run `pnpm --filter @panther/core build`

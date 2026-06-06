@@ -14,6 +14,7 @@ new McpProxy({
   path,
   logger,
   user,
+  requestTimeoutMs,
   name,
   version,
 });
@@ -26,6 +27,7 @@ new McpProxy({
 - `path`: HTTP path for MCP requests (default `/mcp`).
 - `logger`: custom `Logger` instance.
 - `user`: static user context or resolver function.
+- `requestTimeoutMs`: optional timeout for proxied requests. Timed-out requests return a structured MCP error and clear session request state.
 - `name` and `version`: MCP server identity.
 
 ## Methods
@@ -73,6 +75,34 @@ Parses a proxied prompt name and retrieves the upstream prompt with the original
 ### `complete(params, user?)`
 
 Routes completion requests for proxied prompt references and proxied resource-template references to the owning upstream server.
+
+## Session MCP utilities
+
+Panther keeps utility state per downstream MCP session. Resource subscriptions, active request ids, progress tokens, cancellation markers, and logging levels are removed when the downstream session closes.
+
+### Resource subscriptions
+
+Downstream clients can call `resources/subscribe` and `resources/unsubscribe` with Panther resource URIs. Panther restores the upstream URI, subscribes to the owning upstream resource, and coalesces duplicate upstream subscriptions when multiple downstream sessions subscribe to the same resource.
+
+When an upstream sends `notifications/resources/updated`, Panther sends the update only to downstream sessions subscribed to that proxied resource URI.
+
+### List-change notifications
+
+Panther forwards upstream list-change notifications as downstream MCP notifications:
+
+- `notifications/tools/list_changed`
+- `notifications/resources/list_changed`
+- `notifications/prompts/list_changed`
+
+These notifications do not include upstream-only tool names, prompt names, or resource URIs.
+
+### Progress, cancellation, ping, and logging
+
+Requests with `_meta.progressToken` are tracked for their downstream session. Upstream `notifications/progress` messages are forwarded only to the originating session with the downstream token.
+
+Downstream `notifications/cancelled` messages mark active requests as cancelled, forward cancellation upstream when the transport supports it, and suppress late results. Downstream `ping` requests return an empty successful response.
+
+Downstream `logging/setLevel` stores a per-session MCP log level. Panther and upstream MCP log messages are delivered as `notifications/message` at or above that level, with known credential fields such as tokens, secrets, passwords, authorization headers, API keys, and credential values redacted.
 
 ## Hooks
 
