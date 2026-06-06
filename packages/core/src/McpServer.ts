@@ -30,6 +30,10 @@ type EnvAwareTransport = PanterTransport & {
   withEnv(env: Record<string, string>): PanterTransport;
 };
 
+type UserAwareTransport = PanterTransport & {
+  withUser(user: UserContext): PanterTransport;
+};
+
 /**
  * MCP server wrapper with optional per-user env injection.
  * @pk
@@ -96,7 +100,8 @@ export class McpServer {
 
   private transportFor(user: UserContext): PanterTransport {
     const upstreamEnv = isStringRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : undefined;
-    if (!this.env && !upstreamEnv) {
+    const supportsUserContext = isUserAwareTransport(this.transport);
+    if (!this.env && !upstreamEnv && !supportsUserContext) {
       return this.transport;
     }
 
@@ -111,11 +116,19 @@ export class McpServer {
       return existing;
     }
 
-    if (!isEnvAwareTransport(this.transport)) {
+    let transport = this.transport;
+    if ((this.env || upstreamEnv) && !isEnvAwareTransport(transport)) {
       throw new Error(`Transport for server "${this.name}" does not support env injection`);
     }
 
-    const transport = this.transport.withEnv(resolvedEnv);
+    if (this.env || upstreamEnv) {
+      transport = (transport as EnvAwareTransport).withEnv(resolvedEnv);
+    }
+
+    if (isUserAwareTransport(transport)) {
+      transport = transport.withUser(user);
+    }
+
     this.userTransports.set(key, transport);
     return transport;
   }
@@ -127,6 +140,10 @@ export class McpServer {
  */
 function isEnvAwareTransport(transport: PanterTransport): transport is EnvAwareTransport {
   return "withEnv" in transport && typeof transport.withEnv === "function";
+}
+
+function isUserAwareTransport(transport: PanterTransport): transport is UserAwareTransport {
+  return "withUser" in transport && typeof transport.withUser === "function";
 }
 
 function isStringRecord(value: unknown): value is Record<string, string> {

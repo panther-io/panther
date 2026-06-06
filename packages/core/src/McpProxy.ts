@@ -1,7 +1,5 @@
-import { randomUUID } from "node:crypto";
-import { createServer, type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
+import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -23,6 +21,7 @@ import {
   type Group,
   type SubjectIndex,
 } from "./governance.js";
+import { HttpProxyExposureTransport } from "./transports/HttpProxyExposureTransport.js";
 import {
   ResponseController,
   type CredentialSourceMetadata,
@@ -36,6 +35,9 @@ import {
   type LifecycleHookEvent,
   type Policy,
   type ProxyHookEvent,
+  type ProxyExposureHandle,
+  type ProxyExposureTransport,
+  type ProxyRuntime,
   type Registry,
   type ToolCallHook,
   type ToolCallHookFilter,
@@ -95,18 +97,6 @@ export type McpProxyStartOptions = {
 };
 
 /**
- * Active MCP session state.
- * @pk
- */
-type SessionState = {
-  transport: StreamableHTTPServerTransport;
-  server: McpSdkServer;
-  user: UserContext;
-  identity?: IdentityMetadata;
-  subject?: ResolvedSubject;
-};
-
-/**
  * HTTP proxy for multiple MCP servers.
  * @pk
  */
@@ -132,6 +122,7 @@ export class McpProxy {
   private readonly defaultPort?: number;
   private readonly defaultPath: string;
   private httpServer: HttpServer | null = null;
+  private readonly exposureHandles = new Set<ProxyExposureHandle>();
 
   /**
    * Create a new MCP proxy instance.
@@ -242,44 +233,29 @@ export class McpProxy {
     const callback = typeof optionsOrCallback === "function" ? optionsOrCallback : onStarted;
     const port = options.port ?? this.defaultPort ?? 3000;
     const path = options.path ?? this.defaultPath;
-    const sessions = new Map<string, SessionState>();
-
-    this.httpServer = createServer(async (req, res) => {
-      if (req.url?.split("?")[0] !== path) {
-        sendText(res, 404, "Not Found");
-        return;
-      }
-
-      if (req.method !== "POST" && req.method !== "GET" && req.method !== "DELETE") {
-        sendText(res, 405, "Method Not Allowed", { Allow: "GET, POST, DELETE" });
-        return;
-      }
-
-      try {
-        const { user, identity, subject } = await this.resolveUser(req);
-        if (this.identityOptions?.required && !identity?.authenticated) {
-          sendJsonRpcError(res, 401, PantherErrorCode.Unauthorized, "Unauthorized");
-          return;
-        }
-
-        await this.handleMcpRequest(req, res, sessions, user, identity, subject);
-      } catch (error) {
-        this.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
-        if (!res.headersSent) {
-          sendJsonRpcError(res, 500, -32603, "Internal server error");
-        }
-      }
-    });
-
-    await new Promise<void>((resolve) => {
-      this.httpServer?.listen(port, () => {
+    const handle = await this.listen(
+      new HttpProxyExposureTransport({
+        port,
+        path,
+        onStarted: () => {
         this.printStartupBanner(port, path);
         callback?.();
-        resolve();
-      });
-    });
+        },
+      }),
+    );
+    this.httpServer = handle.server;
 
     return this.httpServer;
+  }
+
+  /**
+   * Start the proxy with an explicit downstream exposure transport.
+   * @pk
+   */
+  async listen<THandle extends ProxyExposureHandle>(transport: ProxyExposureTransport<THandle>): Promise<THandle> {
+    const handle = await transport.listen(this.createRuntime());
+    this.exposureHandles.add(handle);
+    return handle;
   }
 
   /**
@@ -287,19 +263,8 @@ export class McpProxy {
    * @pk
    */
   async close(): Promise<void> {
-    const closeHttpServer = this.httpServer
-      ? new Promise<void>((resolve, reject) => {
-          this.httpServer?.close((error) => {
-            if (error) {
-              reject(error);
-              return;
-            }
-            resolve();
-          });
-        })
-      : Promise.resolve();
-
-    await closeHttpServer;
+    await Promise.all([...this.exposureHandles].map((handle) => handle.close()));
+    this.exposureHandles.clear();
     this.httpServer = null;
     await Promise.all(this.servers.map((server) => server.close()));
   }
@@ -443,71 +408,11 @@ export class McpProxy {
    * Handle an MCP HTTP request for session setup or routing.
    * @pk
    */
-  private async handleMcpRequest(
-    req: IncomingMessage,
-    res: ServerResponse,
-    sessions: Map<string, SessionState>,
-    user: UserContext,
-    identity: IdentityMetadata | undefined,
-    subject: ResolvedSubject | undefined,
-  ): Promise<void> {
-    const sessionId = req.headers["mcp-session-id"] as string | undefined;
-
-    if (sessionId) {
-      const session = sessions.get(sessionId);
-      if (!session) {
-        sendJsonRpcError(res, 404, -32001, "Session not found");
-        return;
-      }
-
-      await session.transport.handleRequest(req, res);
-      return;
-    }
-
-    if (req.method !== "POST") {
-      sendJsonRpcError(res, 400, -32000, "A new MCP session must start with POST initialize");
-      return;
-    }
-
-    const sdkServer = this.createSdkServer(user, identity, subject);
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      enableJsonResponse: true,
-      onsessioninitialized: (newSessionId) => {
-        sessions.set(newSessionId, { transport, server: sdkServer, user, identity, subject });
-        this.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
-        void this.emitLifecycle("sessionStart", {
-          user,
-          identity,
-          sessionId: newSessionId,
-          log: this.logger.child({ userId: user.id, sessionId: newSessionId }),
-        });
-      },
-    });
-
-    transport.onclose = async () => {
-      const initializedSessionId = transport.sessionId;
-      if (initializedSessionId) {
-        sessions.delete(initializedSessionId);
-      }
-      await this.emitLifecycle("sessionEnd", {
-        user,
-        identity,
-        sessionId: initializedSessionId,
-        log: this.logger.child({ userId: user.id, sessionId: initializedSessionId }),
-      });
-      await sdkServer.close();
-    };
-
-    await sdkServer.connect(transport);
-    await transport.handleRequest(req, res);
-  }
-
   /**
    * Create the MCP SDK server and attach handlers.
    * @pk
    */
-  private createSdkServer(user: UserContext, identity?: IdentityMetadata, subject?: ResolvedSubject): McpSdkServer {
+  createSdkServer(user: UserContext = {}, identity?: IdentityMetadata, subject?: ResolvedSubject): McpSdkServer {
     const server = new McpSdkServer(
       { name: this.name, version: this.version },
       {
@@ -523,6 +428,51 @@ export class McpProxy {
     server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity, subject));
 
     return server;
+  }
+
+  /**
+   * Resolve user context from an HTTP downstream request.
+   * @pk
+   */
+  async resolveHttpUser(req: IncomingMessage): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }> {
+    return this.resolveUser(req);
+  }
+
+  /**
+   * Resolve user context for non-HTTP stdio downstream exposure.
+   * @pk
+   */
+  async resolveStdioUser(): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }> {
+    const user = typeof this.userResolver === "function" ? await this.userResolver({} as IncomingMessage) : this.userResolver ?? {};
+    return { user, subject: this.resolveSubject(user) };
+  }
+
+  /**
+   * Emit a downstream session start lifecycle event.
+   * @pk
+   */
+  async emitSessionStart(context: Parameters<LifecycleHook>[1]): Promise<void> {
+    await this.emitLifecycle("sessionStart", context);
+  }
+
+  /**
+   * Emit a downstream session end lifecycle event.
+   * @pk
+   */
+  async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
+    await this.emitLifecycle("sessionEnd", context);
+  }
+
+  private createRuntime(): ProxyRuntime {
+    return {
+      createSdkServer: (user, identity, subject) => this.createSdkServer(user, identity, subject),
+      resolveHttpUser: (request) => this.resolveHttpUser(request as IncomingMessage),
+      resolveStdioUser: () => this.resolveStdioUser(),
+      emitSessionStart: (context) => this.emitSessionStart(context),
+      emitSessionEnd: (context) => this.emitSessionEnd(context),
+      logger: this.logger,
+      identityRequired: Boolean(this.identityOptions?.required),
+    };
   }
 
   /**
@@ -815,32 +765,6 @@ export class McpProxy {
  */
 function annotateDescription(serverName: string, description: string | undefined): string {
   return description ? `[${serverName}] ${description}` : `Proxied from ${serverName}`;
-}
-
-/**
- * Send a JSON-RPC error response.
- * @pk
- */
-function sendJsonRpcError(res: ServerResponse, httpStatus: number, code: number, message: string): void {
-  res.writeHead(httpStatus, { "content-type": "application/json" });
-  res.end(JSON.stringify({ jsonrpc: "2.0", error: { code, message }, id: null }));
-}
-
-/**
- * Send a plain text response.
- * @pk
- */
-function sendText(res: ServerResponse, status: number, body: string, headers: Record<string, string> = {}): void {
-  res.writeHead(status, { "content-type": "text/plain", ...headers });
-  res.end(body);
-}
-
-/**
- * Get a safe error message for logging.
- * @pk
- */
-function safeErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**

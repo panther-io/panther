@@ -350,6 +350,36 @@ export type PanterTransport = {
 };
 
 /**
+ * Active downstream proxy exposure handle.
+ * @pk
+ */
+export type ProxyExposureHandle = {
+  close(): Promise<void>;
+};
+
+/**
+ * Runtime operations shared by downstream proxy exposure transports.
+ * @pk
+ */
+export type ProxyRuntime = {
+  createSdkServer(user?: UserContext, identity?: IdentityMetadata, subject?: ResolvedSubject): unknown;
+  resolveHttpUser(request: unknown): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }>;
+  resolveStdioUser(): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }>;
+  emitSessionStart(context: LifecycleHookContext): Promise<void>;
+  emitSessionEnd(context: LifecycleHookContext): Promise<void>;
+  logger: Logger;
+  identityRequired: boolean;
+};
+
+/**
+ * Transport interface for exposing the Panther proxy to downstream MCP clients.
+ * @pk
+ */
+export type ProxyExposureTransport<THandle extends ProxyExposureHandle = ProxyExposureHandle> = {
+  listen(runtime: ProxyRuntime): Promise<THandle>;
+};
+
+/**
  * Tool permission model for policy enforcement.
  * @pk
  */

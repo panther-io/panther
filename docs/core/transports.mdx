@@ -7,6 +7,20 @@ Panther uses transports to connect to MCP servers. A transport must list tools, 
 
 Transports are the boundary between Panther and the MCP server runtime. They decide *how* bytes move and *where* the server runs (local process, remote HTTP server, or event stream).
 
+## Supported transport matrix
+
+Panther distinguishes upstream transports, which connect Panther to configured MCP servers, from downstream proxy exposure transports, which expose Panther itself to MCP clients.
+
+| Direction | Transport | Class | Notes |
+| --- | --- | --- | --- |
+| Upstream | stdio | `StdioTransport` | Native MCP SDK stdio client transport. Supports per-user env injection through `McpServer.env(user)` and registry-backed auth bindings. |
+| Upstream | Streamable HTTP/HTTPS | `StreamableHttpMcpTransport` | Native MCP SDK Streamable HTTP client transport for `http://` and `https://` MCP endpoints. Supports shared HTTP-family auth options. |
+| Upstream | SSE | `SseMcpTransport` | Native MCP SDK SSE client transport for SSE-capable MCP servers. Supports shared HTTP-family auth options. |
+| Upstream | simple REST-like HTTP | `HttpTransport` | Compatibility adapter that posts to fixed `/listTools` and `/callTool` endpoints. It is not a native MCP Streamable HTTP transport. |
+| Downstream | Streamable HTTP | `HttpProxyExposureTransport` or `McpProxy.start()` | Default proxy exposure. Preserves the existing `port` and `path` behavior. |
+| Downstream | stdio | `StdioProxyExposureTransport` | Runs Panther as a local MCP server process for clients that launch the proxy over stdio. |
+| Downstream | SSE | `SseProxyExposureTransport` | Exposes Panther through the MCP SDK SSE server transport with session cleanup. |
+
 ## Transport interface
 
 All Panther transports implement the same interface:
@@ -75,6 +89,26 @@ Under the hood the flow is:
 - **Hanging process:** always handle `SIGTERM` and call `proxy.close()`.
 - **Silent stderr:** use `stderr: "inherit"` to see server logs.
 
+### Stdio auth and per-user isolation
+
+Stdio does not have HTTP headers or an OAuth protocol exchange. Configure stdio credentials as environment values:
+
+- Use `McpServer.env(user)` for per-user env values.
+- Use `PantherAuth` upstream bindings or a registry to resolve secrets and tokens into env values before calls reach the stdio transport.
+- Use `McpServer.isolation` when a stdio server needs per-user queueing or process isolation semantics.
+
+```ts theme={null}
+import { McpServer, StdioTransport } from "@panther/core";
+
+const github = new McpServer({
+  name: "github",
+  transport: new StdioTransport({ command: "github-mcp" }),
+  env: (user) => ({
+    GITHUB_TOKEN: user.tokens?.github ?? "",
+  }),
+});
+```
+
 ### Recommended stdio setup
 
 - Prefer `npx -y` for official servers during local dev to avoid manual installs.
@@ -96,76 +130,149 @@ const filesystem = new McpServer({
 });
 ```
 
-## SSE transport patterns
+## Native SSE upstream transport
 
-Panther does not currently ship a dedicated SSE client transport implementation, but you can integrate an SSE-based MCP server by wrapping the MCP SDK transport (or a custom transport) behind a `PanterTransport` interface.
-
-An SSE transport typically works by:
-
-1. Opening a long-lived SSE connection for server events.
-2. Sending tool calls over HTTP (often POST requests).
-3. Correlating responses by request id.
-
-If you already have an SSE-capable MCP server, implement a custom transport that:
-
-- Establishes the SSE stream on `listTools` or on the first `callTool`.
-- Buffers incoming server events and routes them back to the MCP client response.
-- Closes the SSE connection in `close()`.
-
-For reference on the protocol and framing, follow the MCP SDK docs: https://github.com/modelcontextprotocol/sdk
-
-## HTTP transport patterns
-
-HTTP transports are useful when your MCP servers live in another process or host. Panther already exposes an HTTP endpoint for clients via the SDK streamable HTTP server transport, so your internal topology can remain HTTP end-to-end.
-
-The common approach is to:
-
-1. Host your MCP server with the MCP SDK HTTP transport.
-2. Write a `PanterTransport` adapter in Panther that forwards `listTools` and `callTool` via HTTP.
-3. Apply auth and rate limits at the HTTP layer.
-
-Example sketch of a minimal HTTP transport adapter:
+Use `SseMcpTransport` for MCP servers that still expose the SSE transport.
 
 ```ts theme={null}
-import type { CallToolRequest, CallToolResult, ListToolsResult } from "@modelcontextprotocol/sdk/types";
-import type { PanterTransport } from "@panther/core";
+import { McpServer, SseMcpTransport } from "@panther/core";
 
-class HttpTransport implements PanterTransport {
-  constructor(private readonly baseUrl: string, private readonly token?: string) {}
-
-  async listTools(): Promise<ListToolsResult> {
-    const res = await fetch(`${this.baseUrl}/listTools`, {
-      headers: this.authHeaders(),
-    });
-    return res.json();
-  }
-
-  async callTool(params: CallToolRequest["params"]): Promise<CallToolResult> {
-    const res = await fetch(`${this.baseUrl}/callTool`, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...this.authHeaders() },
-      body: JSON.stringify(params),
-    });
-    return res.json();
-  }
-
-  async close(): Promise<void> {}
-
-  private authHeaders(): Record<string, string> {
-    return this.token ? { authorization: `Bearer ${this.token}` } : {};
-  }
-}
+const server = new McpServer({
+  name: "legacy_sse",
+  transport: new SseMcpTransport({
+    url: "https://mcp.example/sse",
+    auth: {
+      bearerToken: ({ user }) => user.tokens?.mcp,
+    },
+  }),
+});
 ```
 
-This adapter pattern keeps Panther transport-agnostic while letting you adopt any MCP server deployment model.
+Panther opens or reuses the SDK SSE client connection on first use, sends tool requests through the SSE flow, and closes the active client/stream resources when the proxy closes.
+
+## Native Streamable HTTP upstream transport
+
+Use `StreamableHttpMcpTransport` for native MCP Streamable HTTP endpoints over HTTP or HTTPS.
+
+```ts theme={null}
+import { McpServer, StreamableHttpMcpTransport } from "@panther/core";
+
+const server = new McpServer({
+  name: "remote_mcp",
+  transport: new StreamableHttpMcpTransport({
+    url: "https://mcp.example/mcp",
+    auth: {
+      headers: { "x-tenant": "acme" },
+      bearerToken: "service-token",
+    },
+  }),
+});
+```
+
+The native transport performs MCP initialization, session reuse, `listTools`, `callTool`, and close behavior through the official MCP SDK client transport.
+
+## HTTP-family upstream auth
+
+`StreamableHttpMcpTransport` and `SseMcpTransport` share the same auth model.
+
+### Static headers
+
+```ts theme={null}
+new StreamableHttpMcpTransport({
+  url: "https://mcp.example/mcp",
+  auth: { headers: { "x-api-version": "2026-06-05" } },
+});
+```
+
+### Bearer tokens and OAuth access tokens
+
+Panther does not acquire or refresh OAuth tokens. If a caller already has an OAuth access token, pass it as a bearer token directly or through a resolver.
+
+```ts theme={null}
+new StreamableHttpMcpTransport({
+  url: "https://mcp.example/mcp",
+  auth: { bearerToken: ({ user }) => user.tokens?.oauthAccessToken },
+});
+```
+
+### API keys
+
+```ts theme={null}
+new SseMcpTransport({
+  url: "https://mcp.example/sse",
+  auth: {
+    apiKey: {
+      header: "x-api-key",
+      resolve: ({ user }) => user.secrets?.remoteMcpApiKey,
+    },
+  },
+});
+```
+
+### Custom per-user headers
+
+```ts theme={null}
+new StreamableHttpMcpTransport({
+  url: "https://mcp.example/mcp",
+  auth: {
+    resolveHeaders: ({ user }) => ({
+      "x-user-id": user.id ?? "anonymous",
+      authorization: `Bearer ${user.tokens?.remote ?? ""}`,
+    }),
+  },
+});
+```
+
+Resolvers receive the resolved `UserContext`, including registry-provided `secrets` and `tokens`. If a required API key or credential resolver cannot produce credentials, Panther fails before sending the upstream request.
+
+## Simple HTTP adapter compatibility
+
+`HttpTransport` remains available for compatibility with REST-like adapters that expose fixed `/listTools` and `/callTool` endpoints. It is intentionally separate from `StreamableHttpMcpTransport`.
+
+```ts theme={null}
+import { HttpTransport } from "@panther/core";
+
+const legacyAdapter = new HttpTransport({
+  baseUrl: "https://adapter.example/",
+  authToken: "service-token",
+});
+```
+
+Use `HttpTransport` only when the upstream server is not speaking native MCP Streamable HTTP.
+
+## Proxy exposure transports
+
+`McpProxy.start()` remains the backward-compatible default and starts HTTP Streamable MCP exposure on the configured `port` and `path`.
+
+```ts theme={null}
+const proxy = new McpProxy({ servers, port: 3000, path: "/mcp" });
+await proxy.start();
+```
+
+For explicit exposure, call `proxy.listen(...)` with a downstream exposure transport.
+
+```ts theme={null}
+import {
+  HttpProxyExposureTransport,
+  SseProxyExposureTransport,
+  StdioProxyExposureTransport,
+} from "@panther/core";
+
+await proxy.listen(new HttpProxyExposureTransport({ port: 3000, path: "/mcp" }));
+await proxy.listen(new SseProxyExposureTransport({ port: 3001 }));
+await proxy.listen(new StdioProxyExposureTransport({ user: { id: "local" } }));
+```
+
+HTTP and SSE exposure resolve downstream identity at the proxy edge from the configured identity strategy. Stdio exposure uses explicit user configuration or the proxy's non-HTTP user resolver behavior because there are no HTTP request headers.
 
 ## Choosing a transport
 
 - **Stdio:** best for local and containerized servers; simplest to operate.
-- **HTTP:** best for remote servers and scaling independently from Panther.
-- **SSE:** best for streaming event-driven servers; requires custom adapter today.
+- **Streamable HTTP/HTTPS:** best for native remote MCP servers and independent scaling.
+- **SSE:** useful for legacy SSE MCP deployments.
+- **Simple HTTP adapter:** only for non-native REST-like adapters.
 
-Start with stdio for fastest development, then move to HTTP when you need horizontal scaling or separate deployment lifecycles.
+Start with stdio for local development, then move to native Streamable HTTP/HTTPS when you need horizontal scaling or separate deployment lifecycles.
 
 ## Env-aware transports
 
