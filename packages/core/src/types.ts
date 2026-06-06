@@ -676,6 +676,32 @@ export type PanterTransport = {
   close(): Promise<void>;
 };
 
+export type SessionLogLevel = "debug" | "info" | "notice" | "warning" | "error" | "critical" | "alert" | "emergency";
+
+export type SessionActiveRequest = {
+  downstreamRequestId: string | number;
+  upstreamRequestId?: string | number;
+  progressToken?: string | number;
+  cancelled: boolean;
+  startedAt: number;
+  timeout?: ReturnType<typeof setTimeout>;
+};
+
+export type SessionUtilityState = {
+  resourceSubscriptions: Set<string>;
+  activeRequests: Map<string | number, SessionActiveRequest>;
+  progressTokens: Map<string | number, string | number>;
+  cancellations: Set<string | number>;
+  logLevel: SessionLogLevel;
+};
+
+export type SessionUtilityRegistry = {
+  ensure(sessionId: string): SessionUtilityState;
+  get(sessionId: string): SessionUtilityState | undefined;
+  delete(sessionId: string): void;
+  size(): number;
+};
+
 /**
  * Active downstream proxy exposure handle.
  * @pk
@@ -694,6 +720,7 @@ export type ProxyRuntime = {
   resolveStdioUser(): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }>;
   emitSessionStart(context: LifecycleHookContext): Promise<void>;
   emitSessionEnd(context: LifecycleHookContext): Promise<void>;
+  sessionUtilities: SessionUtilityRegistry;
   logger: Logger;
   identityRequired: boolean;
 };

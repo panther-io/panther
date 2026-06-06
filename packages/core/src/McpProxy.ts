@@ -85,6 +85,8 @@ import {
   type ToolCallRequest,
   type UserContext,
   type ResolvedSubject,
+  type SessionUtilityRegistry,
+  type SessionUtilityState,
 } from "./types.js";
 
 class PolicyDeniedError extends Error {
@@ -199,6 +201,7 @@ export class McpProxy {
   private readonly defaultPath: string;
   private httpServer: HttpServer | null = null;
   private readonly exposureHandles = new Set<ProxyExposureHandle>();
+  private readonly sessionUtilities = new Map<string, SessionUtilityState>();
 
   /**
    * Create a new MCP proxy instance.
@@ -403,6 +406,7 @@ export class McpProxy {
     await Promise.all([...this.exposureHandles].map((handle) => handle.close()));
     this.exposureHandles.clear();
     this.httpServer = null;
+    this.sessionUtilities.clear();
     await Promise.all(this.servers.map((server) => server.close()));
   }
 
@@ -1052,8 +1056,35 @@ export class McpProxy {
       resolveStdioUser: () => this.resolveStdioUser(),
       emitSessionStart: (context) => this.emitSessionStart(context),
       emitSessionEnd: (context) => this.emitSessionEnd(context),
+      sessionUtilities: this.createSessionUtilityRegistry(),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
+    };
+  }
+
+  private createSessionUtilityRegistry(): SessionUtilityRegistry {
+    return {
+      ensure: (sessionId) => {
+        let state = this.sessionUtilities.get(sessionId);
+        if (!state) {
+          state = createSessionUtilityState();
+          this.sessionUtilities.set(sessionId, state);
+        }
+        return state;
+      },
+      get: (sessionId) => this.sessionUtilities.get(sessionId),
+      delete: (sessionId) => {
+        const state = this.sessionUtilities.get(sessionId);
+        if (state) {
+          for (const request of state.activeRequests.values()) {
+            if (request.timeout) {
+              clearTimeout(request.timeout);
+            }
+          }
+        }
+        this.sessionUtilities.delete(sessionId);
+      },
+      size: () => this.sessionUtilities.size,
     };
   }
 
@@ -1973,6 +2004,16 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
     startLevel: options.startLevel ?? "debug",
     successLevel: options.successLevel ?? "info",
     failureLevel: options.failureLevel ?? "error",
+  };
+}
+
+function createSessionUtilityState(): SessionUtilityState {
+  return {
+    resourceSubscriptions: new Set(),
+    activeRequests: new Map(),
+    progressTokens: new Map(),
+    cancellations: new Set(),
+    logLevel: "info",
   };
 }
 

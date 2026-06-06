@@ -118,6 +118,44 @@ type PipelineProbeHandle = ProxyExposureHandle & {
   client: Client;
 };
 
+class SessionUtilityProbeExposure implements ProxyExposureTransport<SessionUtilityProbeHandle> {
+  async listen(runtime: ProxyRuntime): Promise<SessionUtilityProbeHandle> {
+    const first = runtime.sessionUtilities.ensure("session-a");
+    const second = runtime.sessionUtilities.ensure("session-b");
+
+    first.resourceSubscriptions.add("panther://resources/github/a");
+    first.activeRequests.set("request-a", {
+      downstreamRequestId: "request-a",
+      upstreamRequestId: "upstream-a",
+      progressToken: "progress-a",
+      cancelled: false,
+      startedAt: 1,
+    });
+    first.progressTokens.set("upstream-a", "progress-a");
+    first.cancellations.add("request-a");
+    first.logLevel = "debug";
+
+    second.resourceSubscriptions.add("panther://resources/github/b");
+    second.logLevel = "warning";
+
+    return {
+      first,
+      second,
+      size: () => runtime.sessionUtilities.size(),
+      close: async () => {
+        runtime.sessionUtilities.delete("session-a");
+        runtime.sessionUtilities.delete("session-b");
+      },
+    };
+  }
+}
+
+type SessionUtilityProbeHandle = ProxyExposureHandle & {
+  first: ReturnType<ProxyRuntime["sessionUtilities"]["ensure"]>;
+  second: ReturnType<ProxyRuntime["sessionUtilities"]["ensure"]>;
+  size(): number;
+};
+
 describe("proxy exposure pipeline", () => {
   it("uses the same listTools and callTool pipeline for HTTP, stdio, and SSE exposure transports", async () => {
     const upstream = new MockTransport();
@@ -215,5 +253,30 @@ describe("proxy exposure pipeline", () => {
     expect(handle.client.getServerCapabilities()).not.toHaveProperty("completions");
 
     await proxy.close();
+  });
+
+  it("keeps downstream session utility state isolated and removes it on close", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+    const handle = await proxy.listen(new SessionUtilityProbeExposure());
+
+    expect(handle.size()).toBe(2);
+    expect([...handle.first.resourceSubscriptions]).toEqual(["panther://resources/github/a"]);
+    expect([...handle.second.resourceSubscriptions]).toEqual(["panther://resources/github/b"]);
+    expect(handle.first.activeRequests.get("request-a")).toMatchObject({
+      downstreamRequestId: "request-a",
+      upstreamRequestId: "upstream-a",
+      progressToken: "progress-a",
+    });
+    expect(handle.second.activeRequests.size).toBe(0);
+    expect(handle.first.progressTokens.get("upstream-a")).toBe("progress-a");
+    expect(handle.first.cancellations.has("request-a")).toBe(true);
+    expect(handle.first.logLevel).toBe("debug");
+    expect(handle.second.logLevel).toBe("warning");
+
+    await proxy.close();
+
+    expect(handle.size()).toBe(0);
   });
 });

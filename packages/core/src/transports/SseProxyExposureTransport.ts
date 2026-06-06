@@ -135,9 +135,11 @@ export class SseProxyExposureTransport implements ProxyExposureTransport<SseProx
     const sdkServer = runtime.createSdkServer(user, identity, subject) as McpSdkServer;
     const transport = new SSEServerTransport(this.options.messagePath, res);
 
+    runtime.sessionUtilities.ensure(transport.sessionId);
     sessions.set(transport.sessionId, { transport, server: sdkServer, user, identity, subject });
     transport.onclose = async () => {
       sessions.delete(transport.sessionId);
+      runtime.sessionUtilities.delete(transport.sessionId);
       await runtime.emitSessionEnd({
         user,
         identity,

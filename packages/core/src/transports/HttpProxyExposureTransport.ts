@@ -147,6 +147,7 @@ async function handleMcpRequest(
     sessionIdGenerator: () => randomUUID(),
     enableJsonResponse: true,
     onsessioninitialized: (newSessionId) => {
+      runtime.sessionUtilities.ensure(newSessionId);
       sessions.set(newSessionId, { transport, server: sdkServer, user, identity, subject });
       runtime.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
       void runtime.emitSessionStart({
@@ -162,6 +163,7 @@ async function handleMcpRequest(
     const initializedSessionId = transport.sessionId;
     if (initializedSessionId) {
       sessions.delete(initializedSessionId);
+      runtime.sessionUtilities.delete(initializedSessionId);
     }
     await runtime.emitSessionEnd({
       user,
