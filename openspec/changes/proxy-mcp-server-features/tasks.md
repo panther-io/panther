@@ -41,7 +41,7 @@
 
 ## 6. Documentation And Verification
 
-- [ ] 6.1 Update reference docs for `PanterTransport`, `McpServer`, and `McpProxy`
-- [ ] 6.2 Update guide docs to describe proxied resources, prompts, and completion naming
-- [ ] 6.3 Run `pnpm --filter @panther/core test`
-- [ ] 6.4 Run `pnpm --filter @panther/core build`
+- [x] 6.1 Update reference docs for `PanterTransport`, `McpServer`, and `McpProxy`
+- [x] 6.2 Update guide docs to describe proxied resources, prompts, and completion naming
+- [x] 6.3 Run `pnpm --filter @panther/core test`
+- [x] 6.4 Run `pnpm --filter @panther/core build`

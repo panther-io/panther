@@ -1,6 +1,6 @@
 ---
-title: "Tool naming"
-description: "How Panther prefixes tool names to avoid collisions."
+title: "Proxy naming"
+description: "How Panther prefixes names and URIs to avoid collisions."
 ---
 
 Panther ensures tool names are globally unique by prefixing every tool with its server name.
@@ -17,15 +17,37 @@ Example:
 filesystem__read_file
 ```
 
+Prompts use the same format:
+
+```
+<server>__<prompt>
+```
+
+Example:
+
+```
+github__summarize_issue
+```
+
+Resources and resource templates use Panther-owned proxy URIs so clients can route follow-up reads and completions without preserving metadata:
+
+```
+panther://resources/<server>/<encoded-upstream-uri>
+panther://resource-templates/<server>/<encoded-upstream-uri-template>
+```
+
 ## Why it matters
 
 - Multiple servers can expose the same tool name without conflicts.
+- Multiple servers can expose the same prompt name, resource URI, or resource template without conflicts.
 - Clients can reason about tool ownership instantly.
 - Logs remain consistent across environments.
 
 ## Constraints
 
 Server names cannot be empty and cannot contain the `__` separator. Panther enforces this at startup to avoid ambiguous tool names.
+
+Upstream resource URIs and URI templates are percent-encoded inside the Panther proxy URI. Downstream clients should treat the full Panther URI as opaque and pass it back unchanged for `resources/read` and `completion/complete`.
 
 ## Title formatting
 
