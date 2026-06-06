@@ -16,20 +16,20 @@
 
 ## 3. Unified Context
 
-- [ ] 3.1 Extend `ProxyOperation` with non-tool operations
-- [ ] 3.2 Add `ctx.resource` metadata for resource operations
-- [ ] 3.3 Add `ctx.prompt` metadata for prompt operations
-- [ ] 3.4 Add `ctx.completion` metadata for completion operations
-- [ ] 3.5 Include credentials, policy decision, subject, auth, transport, raw request, and logger fields for all new operations
-- [ ] 3.6 Add context construction tests for resource, prompt, and completion operations
+- [x] 3.1 Extend `ProxyOperation` with non-tool operations
+- [x] 3.2 Add `ctx.resource` metadata for resource operations
+- [x] 3.3 Add `ctx.prompt` metadata for prompt operations
+- [x] 3.4 Add `ctx.completion` metadata for completion operations
+- [x] 3.5 Include credentials, policy decision, subject, auth, transport, raw request, and logger fields for all new operations
+- [x] 3.6 Add context construction tests for resource, prompt, and completion operations
 
 ## 4. Middleware And Routing
 
-- [ ] 4.1 Decide and implement the public route API for non-tool operations
-- [ ] 4.2 Dispatch global middleware for governed non-tool operations
-- [ ] 4.3 Allow middleware to deny or fail non-tool operations before upstream forwarding
-- [ ] 4.4 Preserve existing tool route and middleware ordering semantics
-- [ ] 4.5 Add middleware tests for resource read, prompt get, and completion
+- [x] 4.1 Decide and implement the public route API for non-tool operations
+- [x] 4.2 Dispatch global middleware for governed non-tool operations
+- [x] 4.3 Allow middleware to deny or fail non-tool operations before upstream forwarding
+- [x] 4.4 Preserve existing tool route and middleware ordering semantics
+- [x] 4.5 Add middleware tests for resource read, prompt get, and completion
 
 ## 5. Events And Logging
 

@@ -75,6 +75,8 @@ import {
   type ProxyMiddleware,
   type ProxyRuntime,
   type ProxyServerHandle,
+  type ProxyOperationHandler,
+  type ProxyOperationResult,
   type ProxyToolHandler,
   type ProxyToolPattern,
   type Registry,
@@ -86,10 +88,11 @@ import {
 } from "./types.js";
 
 class PolicyDeniedError extends Error {
-  readonly code = PantherErrorCode.PolicyDenied;
+  readonly code: number;
 
-  constructor(message: string) {
+  constructor(message: string, code: number = PantherErrorCode.PolicyDenied) {
     super(message);
+    this.code = code;
     this.name = "PolicyDeniedError";
   }
 }
@@ -145,10 +148,11 @@ export type McpProxyStartOptions = {
 };
 
 type RouteEntry = {
-  kind: "middleware" | "tool";
+  kind: "middleware" | "tool" | "operation";
   scopeServer?: string;
+  operation?: ProxyContext["operation"];
   pattern?: CompiledToolPattern;
-  handler: Middleware | ProxyToolHandler;
+  handler: Middleware | ProxyToolHandler | ProxyOperationHandler;
 };
 
 type EventEntry = {
@@ -239,6 +243,15 @@ export class McpProxy {
    */
   tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): this {
     this.routes.push({ kind: "tool", pattern: compileToolPattern(pattern), handler });
+    return this;
+  }
+
+  /**
+   * Register a global operation route for governed non-tool operations.
+   * @pk
+   */
+  operation(operation: ProxyContext["operation"], handler: ProxyOperationHandler): this {
+    this.routes.push({ kind: "operation", operation, handler });
     return this;
   }
 
@@ -593,6 +606,15 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
+        const context = this.createCapabilityContext({
+          operation: "resources:list",
+          serverName: server.name,
+          targetKind: "resource",
+          raw: params,
+          user: resolvedUser,
+          subject: resolvedSubject,
+          identity: _identity,
+        });
         if (
           !this.isCapabilityAllowed(
             { serverName: server.name, operation: "resources:list", targetKind: "resource" },
@@ -602,24 +624,31 @@ export class McpProxy {
         ) {
           return [];
         }
-        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-        const result = await server.listResources(params, userForServer);
-        return result.resources.filter((resource) =>
-          this.isCapabilityAllowed(
-            {
-              serverName: server.name,
-              operation: "resource:read",
-              target: resource.uri,
-              targetKind: "resource",
-              raw: resource,
-            },
-            resolvedSubject,
-            userGroups,
-          ),
-        ).map((resource) => ({
-          ...resource,
-          uri: toProxyResourceUri(server.name, resource.uri),
-        }));
+        const result = await this.dispatchOperationRoutes(context, async () => {
+          const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+          context.credentialSources = credentialSource ? [credentialSource] : undefined;
+          context.credentials.sources = context.credentialSources ?? [];
+          const upstream = await server.listResources(params, userForServer);
+          return {
+            resources: upstream.resources.filter((resource) =>
+              this.isCapabilityAllowed(
+                {
+                  serverName: server.name,
+                  operation: "resource:read",
+                  target: resource.uri,
+                  targetKind: "resource",
+                  raw: resource,
+                },
+                resolvedSubject,
+                userGroups,
+              ),
+            ).map((resource) => ({
+              ...resource,
+              uri: toProxyResourceUri(server.name, resource.uri),
+            })),
+          };
+        }) as ListResourcesResult;
+        return result.resources;
       }),
     );
 
@@ -640,20 +669,23 @@ export class McpProxy {
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const { serverName, uri } = fromProxyResourceUri(params.uri);
     const server = this.requireServer(serverName);
-    await this.enforceCapabilityPolicy(
+    const context = await this.enforceCapabilityPolicy(
       {
         serverName,
         operation: "resource:read",
         target: uri,
         targetKind: "resource",
+        proxyTarget: params.uri,
         raw: params,
       },
       resolvedUser,
       resolvedSubject,
       identity,
     );
-    const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-    const result = await server.readResource({ ...params, uri }, userForServer);
+    const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+    context.credentialSources = credentialSource ? [credentialSource] : undefined;
+    context.credentials.sources = context.credentialSources ?? [];
+    const result = await this.dispatchOperationRoutes(context, async () => server.readResource({ ...params, uri }, userForServer)) as ReadResourceResult;
 
     return {
       ...result,
@@ -679,6 +711,15 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
+        const context = this.createCapabilityContext({
+          operation: "resource-templates:list",
+          serverName: server.name,
+          targetKind: "resourceTemplate",
+          raw: params,
+          user: resolvedUser,
+          subject: resolvedSubject,
+          identity: _identity,
+        });
         if (
           !this.isCapabilityAllowed(
             { serverName: server.name, operation: "resource-templates:list", targetKind: "resourceTemplate" },
@@ -688,24 +729,31 @@ export class McpProxy {
         ) {
           return [];
         }
-        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-        const result = await server.listResourceTemplates(params, userForServer);
-        return result.resourceTemplates.filter((template) =>
-          this.isCapabilityAllowed(
-            {
-              serverName: server.name,
-              operation: "resource-templates:list",
-              target: template.uriTemplate,
-              targetKind: "resourceTemplate",
-              raw: template,
-            },
-            resolvedSubject,
-            userGroups,
-          ),
-        ).map((template) => ({
-          ...template,
-          uriTemplate: toProxyResourceTemplateUri(server.name, template.uriTemplate),
-        }));
+        const result = await this.dispatchOperationRoutes(context, async () => {
+          const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+          context.credentialSources = credentialSource ? [credentialSource] : undefined;
+          context.credentials.sources = context.credentialSources ?? [];
+          const upstream = await server.listResourceTemplates(params, userForServer);
+          return {
+            resourceTemplates: upstream.resourceTemplates.filter((template) =>
+              this.isCapabilityAllowed(
+                {
+                  serverName: server.name,
+                  operation: "resource-templates:list",
+                  target: template.uriTemplate,
+                  targetKind: "resourceTemplate",
+                  raw: template,
+                },
+                resolvedSubject,
+                userGroups,
+              ),
+            ).map((template) => ({
+              ...template,
+              uriTemplate: toProxyResourceTemplateUri(server.name, template.uriTemplate),
+            })),
+          };
+        }) as ListResourceTemplatesResult;
+        return result.resourceTemplates;
       }),
     );
 
@@ -727,27 +775,43 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
+        const context = this.createCapabilityContext({
+          operation: "prompts:list",
+          serverName: server.name,
+          targetKind: "prompt",
+          raw: params,
+          user: resolvedUser,
+          subject: resolvedSubject,
+          identity: _identity,
+        });
         if (!this.isCapabilityAllowed({ serverName: server.name, operation: "prompts:list", targetKind: "prompt" }, resolvedSubject, userGroups)) {
           return [];
         }
-        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-        const result = await server.listPrompts(params, userForServer);
-        return result.prompts.filter((prompt) =>
-          this.isCapabilityAllowed(
-            {
-              serverName: server.name,
-              operation: "prompt:get",
-              target: prompt.name,
-              targetKind: "prompt",
-              raw: prompt,
-            },
-            resolvedSubject,
-            userGroups,
-          ),
-        ).map((prompt) => ({
-          ...prompt,
-          name: toProxyPromptName(server.name, prompt.name),
-        }));
+        const result = await this.dispatchOperationRoutes(context, async () => {
+          const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+          context.credentialSources = credentialSource ? [credentialSource] : undefined;
+          context.credentials.sources = context.credentialSources ?? [];
+          const upstream = await server.listPrompts(params, userForServer);
+          return {
+            prompts: upstream.prompts.filter((prompt) =>
+              this.isCapabilityAllowed(
+                {
+                  serverName: server.name,
+                  operation: "prompt:get",
+                  target: prompt.name,
+                  targetKind: "prompt",
+                  raw: prompt,
+                },
+                resolvedSubject,
+                userGroups,
+              ),
+            ).map((prompt) => ({
+              ...prompt,
+              name: toProxyPromptName(server.name, prompt.name),
+            })),
+          };
+        }) as ListPromptsResult;
+        return result.prompts;
       }),
     );
 
@@ -768,20 +832,23 @@ export class McpProxy {
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const { serverName, promptName } = fromProxyPromptName(params.name);
     const server = this.requireServer(serverName);
-    await this.enforceCapabilityPolicy(
+    const context = await this.enforceCapabilityPolicy(
       {
         serverName,
         operation: "prompt:get",
         target: promptName,
         targetKind: "prompt",
+        proxyTarget: params.name,
         raw: params,
       },
       resolvedUser,
       resolvedSubject,
       identity,
     );
-    const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-    return server.getPrompt({ ...params, name: promptName }, userForServer);
+    const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+    context.credentialSources = credentialSource ? [credentialSource] : undefined;
+    context.credentials.sources = context.credentialSources ?? [];
+    return this.dispatchOperationRoutes(context, async () => server.getPrompt({ ...params, name: promptName }, userForServer)) as Promise<GetPromptResult>;
   }
 
   /**
@@ -798,20 +865,25 @@ export class McpProxy {
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const routed = routeCompletion(params);
     const server = this.requireServer(routed.serverName);
-    await this.enforceCapabilityPolicy(
+    const context = await this.enforceCapabilityPolicy(
       {
         serverName: routed.serverName,
         operation: "completion:complete",
         target: completionTarget(routed.params),
         targetKind: "completion",
+        proxyTarget: completionTarget(params),
+        completionRefType: params.ref.type,
+        argumentName: params.argument.name,
         raw: params,
       },
       resolvedUser,
       resolvedSubject,
       identity,
     );
-    const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-    return server.complete(routed.params, userForServer);
+    const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+    context.credentialSources = credentialSource ? [credentialSource] : undefined;
+    context.credentials.sources = context.credentialSources ?? [];
+    return this.dispatchOperationRoutes(context, async () => server.complete(routed.params, userForServer)) as Promise<CompleteResult>;
   }
 
   /**
@@ -932,6 +1004,10 @@ export class McpProxy {
     this.routes.push({ kind: "tool", scopeServer: serverName, pattern: compileToolPattern(pattern, serverName), handler });
   }
 
+  registerServerOperation(serverName: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler): void {
+    this.routes.push({ kind: "operation", scopeServer: serverName, operation, handler });
+  }
+
   registerServerEvent(serverName: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): void {
     this.eventHandlers.push({
       eventName,
@@ -979,6 +1055,8 @@ export class McpProxy {
     serverName?: string;
     toolName?: string;
     proxyToolName?: string;
+    target?: string;
+    targetKind?: string;
     sessionId?: string;
   }): Logger {
     return this.logger.child({
@@ -988,6 +1066,8 @@ export class McpProxy {
       serverName: options.serverName,
       toolName: options.toolName,
       proxyToolName: options.proxyToolName,
+      target: options.target,
+      targetKind: options.targetKind,
       transportType: "unknown",
       sessionId: options.sessionId,
       identityStrategy: options.identity?.strategy,
@@ -1002,7 +1082,12 @@ export class McpProxy {
     identity?: IdentityMetadata;
     log: Logger;
     request?: ToolCallRequest;
-    raw?: CallToolRequest["params"] | ListToolsRequest["params"];
+    capability?: CapabilityOperationRequest & {
+      proxyTarget?: string;
+      completionRefType?: "ref/prompt" | "ref/resource";
+      argumentName?: string;
+    };
+    raw?: ProxyContext["raw"];
     transport?: ProxyContext["transport"];
     policy?: Policy;
   }): ProxyContext {
@@ -1054,6 +1139,36 @@ export class McpProxy {
         proxyName: options.request.proxyToolName,
       };
       context.args = options.request.arguments;
+    }
+    if (options.capability) {
+      const server = this.serverByName.get(options.capability.serverName);
+      context.server = {
+        name: options.capability.serverName,
+        displayName: server?.displayName,
+      };
+      if (options.capability.targetKind === "resource") {
+        context.resource = {
+          uri: options.capability.target,
+          proxyUri: options.capability.proxyTarget,
+        };
+      } else if (options.capability.targetKind === "resourceTemplate") {
+        context.resource = {
+          uriTemplate: options.capability.target,
+          proxyUriTemplate: options.capability.proxyTarget,
+        };
+      } else if (options.capability.targetKind === "prompt" && options.capability.target) {
+        context.prompt = {
+          name: options.capability.target,
+          proxyName: options.capability.proxyTarget ?? options.capability.target,
+        };
+      } else if (options.capability.targetKind === "completion" && options.capability.target) {
+        context.completion = {
+          refType: options.capability.completionRefType ?? "ref/prompt",
+          target: options.capability.target,
+          proxyTarget: options.capability.proxyTarget,
+          argumentName: options.capability.argumentName ?? "",
+        };
+      }
     }
     context.deny = response.deny.bind(response);
     context.fail = response.fail.bind(response);
@@ -1134,31 +1249,54 @@ export class McpProxy {
     return true;
   }
 
-  private async enforceCapabilityPolicy(
-    request: CapabilityOperationRequest,
-    user: UserContext,
-    subject: ResolvedSubject | undefined,
-    identity: IdentityMetadata | undefined,
-  ): Promise<void> {
-    const log = this.logger.child({
+  private createCapabilityContext(
+    request: CapabilityOperationRequest & {
+      proxyTarget?: string;
+      completionRefType?: "ref/prompt" | "ref/resource";
+      argumentName?: string;
+    } & {
+      user: UserContext;
+      subject?: ResolvedSubject;
+      identity?: IdentityMetadata;
+    },
+  ): ProxyContext {
+    const log = this.createContextualLogger({
       operation: request.operation,
-      userId: user.id,
-      subjectId: subject?.id ?? user.id,
+      user: request.user,
+      subject: request.subject,
+      identity: request.identity,
       serverName: request.serverName,
       target: request.target,
       targetKind: request.targetKind,
-      identityStrategy: identity?.strategy,
-      authenticated: identity?.authenticated,
     });
-    const context: MiddlewareContext = {
+    return this.createProxyContext({
+      operation: request.operation,
+      user: request.user,
+      subject: request.subject,
+      identity: request.identity,
+      log,
+      capability: request,
+      raw: request.raw as ProxyContext["raw"],
+      policy: this.policy,
+    });
+  }
+
+  private async enforceCapabilityPolicy(
+    request: CapabilityOperationRequest & {
+      proxyTarget?: string;
+      completionRefType?: "ref/prompt" | "ref/resource";
+      argumentName?: string;
+    },
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+  ): Promise<ProxyContext> {
+    const context = this.createCapabilityContext({
+      ...request,
       user,
       subject,
       identity,
-      log,
-      res: new ResponseController(),
-      policy: this.policy,
-      registry: this.registry,
-    };
+    });
     const userGroups = subject ? this.subjectIndex?.groupsFor(subject.id) ?? [] : [];
     let decision;
 
@@ -1169,10 +1307,22 @@ export class McpProxy {
     }
 
     context.policyDecision = decision;
+    context.policy = {
+      allowed: decision?.allowed,
+      reason: decision?.reason,
+      matchedGroups: decision?.metadata?.matchedGroups ?? userGroups.map((group) => group.id),
+      matchedPermissions: decision?.metadata?.matchedPermissions ?? [],
+      metadata: decision?.metadata,
+      policy: this.policy,
+      decision,
+      can: this.createPolicyCan(subject),
+    };
 
     if (decision && !decision.allowed) {
       throw new PolicyDeniedError(decision.reason ?? `Operation "${request.operation}" denied by policy`);
     }
+
+    return context;
   }
 
   /**
@@ -1240,7 +1390,7 @@ export class McpProxy {
     const result = await dispatchRouteHandler(route.handler, request, context, next);
 
     if (result) {
-      return result;
+      return result as CallToolResult;
     }
 
     if (nextCalled && nextResult) {
@@ -1250,6 +1400,53 @@ export class McpProxy {
     return this.dispatchRoutes(routeIndex + 1, request, context, terminal);
   }
 
+  private async dispatchOperationRoutes(
+    context: ProxyContext,
+    terminal: () => Promise<ProxyOperationResult>,
+    index = 0,
+  ): Promise<ProxyOperationResult> {
+    const route = this.routes.slice(index).find((entry) => this.matchesOperationRoute(entry, context));
+    if (!route) {
+      return terminal();
+    }
+    const routeIndex = this.routes.indexOf(route);
+
+    let nextCalled = false;
+    let nextResult: ProxyOperationResult | undefined;
+    const next = async () => {
+      if (nextCalled) {
+        throw new Error("Middleware next() called multiple times");
+      }
+
+      nextCalled = true;
+      nextResult = await this.dispatchOperationRoutes(context, terminal, routeIndex + 1);
+      return nextResult;
+    };
+
+    const result = await dispatchRouteHandler(route.handler, context.tool ? {
+      serverName: context.server?.name ?? "",
+      toolName: context.tool.name,
+      proxyToolName: context.tool.proxyName,
+      arguments: context.args,
+      raw: context.raw as CallToolRequest["params"],
+    } : capabilityToolRequest(context), context, next);
+
+    if (result) {
+      if (isStructuredPolicyErrorResult(result)) {
+        const error = toStructuredError(result._meta?.error);
+        throw new PolicyDeniedError(error?.message ?? "Operation denied by middleware", error?.code);
+      }
+
+      return result;
+    }
+
+    if (nextCalled && nextResult) {
+      return nextResult;
+    }
+
+    return this.dispatchOperationRoutes(context, terminal, routeIndex + 1);
+  }
+
   private matchesRoute(entry: RouteEntry, request: ToolCallRequest, context: ProxyContext): boolean {
     if (entry.scopeServer && entry.scopeServer !== request.serverName) {
       return false;
@@ -1257,6 +1454,22 @@ export class McpProxy {
 
     if (entry.kind === "tool") {
       return context.operation === "tool:call" && entry.pattern !== undefined && matchesToolPattern(entry.pattern, request);
+    }
+
+    return true;
+  }
+
+  private matchesOperationRoute(entry: RouteEntry, context: ProxyContext): boolean {
+    if (entry.scopeServer && entry.scopeServer !== context.server?.name) {
+      return false;
+    }
+
+    if (entry.kind === "tool") {
+      return false;
+    }
+
+    if (entry.kind === "operation") {
+      return entry.operation === context.operation;
     }
 
     return true;
@@ -1559,6 +1772,11 @@ class McpProxyServerHandle implements ProxyServerHandle {
     return this;
   }
 
+  operation(operation: ProxyContext["operation"], handler: ProxyOperationHandler): ProxyServerHandle {
+    this.proxy.registerServerOperation(this.name, operation, handler);
+    return this;
+  }
+
   on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyServerHandle;
   on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyServerHandle;
   on(
@@ -1735,24 +1953,48 @@ function isLegacyMiddleware(handler: Middleware | ProxyToolHandler): handler is 
 }
 
 async function dispatchRouteHandler(
-  handler: Middleware | ProxyToolHandler,
+  handler: Middleware | ProxyToolHandler | ProxyOperationHandler,
   request: ToolCallRequest,
   context: ProxyContext,
-  next: () => Promise<CallToolResult>,
-): Promise<CallToolResult | void> {
+  next: () => Promise<ProxyOperationResult>,
+): Promise<ProxyOperationResult | void> {
   if (isLegacyMiddleware(handler)) {
-    return (handler as LegacyMiddleware)(request, context, next);
+    return (handler as LegacyMiddleware)(request, context, next as () => Promise<CallToolResult>);
   }
 
   try {
     return await (handler as ProxyMiddleware)(context, next);
   } catch (error) {
     if (handler.length === 2 && isLikelyLegacyTwoArgMiddlewareError(error)) {
-      return (handler as unknown as LegacyMiddleware)(request, context, next);
+      return (handler as unknown as LegacyMiddleware)(request, context, next as () => Promise<CallToolResult>);
     }
 
     throw error;
   }
+}
+
+function capabilityToolRequest(context: ProxyContext): ToolCallRequest {
+  return {
+    serverName: context.server?.name ?? "",
+    toolName: context.operation,
+    proxyToolName: context.operation,
+    arguments: undefined,
+    raw: { name: context.operation },
+  };
+}
+
+function isStructuredPolicyErrorResult(result: ProxyOperationResult): result is CallToolResult {
+  return "isError" in result && result.isError === true && Boolean(result._meta?.error);
+}
+
+function toStructuredError(error: unknown): { code?: number; message?: string } | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+
+  const code = "code" in error && typeof error.code === "number" ? error.code : undefined;
+  const message = "message" in error && typeof error.message === "string" ? error.message : undefined;
+  return { code, message };
 }
 
 function isLikelyLegacyTwoArgMiddlewareError(error: unknown): boolean {

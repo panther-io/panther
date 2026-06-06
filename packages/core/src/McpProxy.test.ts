@@ -471,6 +471,109 @@ describe("McpProxy", () => {
     expect(transport.complete).not.toHaveBeenCalled();
   });
 
+  it("builds capability contexts and dispatches middleware for non-tool operations", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+    const seen: unknown[] = [];
+
+    proxy.use((ctx, next) => {
+      seen.push({
+        operation: ctx.operation,
+        server: ctx.server?.name,
+        resource: ctx.resource,
+        prompt: ctx.prompt,
+        completion: ctx.completion,
+        hasUser: Boolean(ctx.user),
+        hasAuth: Boolean(ctx.auth),
+        hasPolicy: Boolean(ctx.policy),
+        hasCredentials: Boolean(ctx.credentials),
+        hasRaw: Boolean(ctx.raw),
+        hasLogger: Boolean(ctx.log),
+      });
+      return next();
+    });
+
+    await proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" });
+    await proxy.getPrompt({ name: "github__summarize", arguments: { topic: "mcp" } });
+    await proxy.complete({
+      ref: { type: "ref/prompt", name: "github__summarize" },
+      argument: { name: "topic", value: "m" },
+    });
+
+    expect(seen).toEqual([
+      expect.objectContaining({
+        operation: "resource:read",
+        server: "github",
+        resource: {
+          uri: "file:///shared.md",
+          proxyUri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+        },
+        hasUser: true,
+        hasAuth: true,
+        hasPolicy: true,
+        hasCredentials: true,
+        hasRaw: true,
+        hasLogger: true,
+      }),
+      expect.objectContaining({
+        operation: "prompt:get",
+        server: "github",
+        prompt: { name: "summarize", proxyName: "github__summarize" },
+      }),
+      expect.objectContaining({
+        operation: "completion:complete",
+        server: "github",
+        completion: {
+          refType: "ref/prompt",
+          target: "summarize",
+          proxyTarget: "github__summarize",
+          argumentName: "topic",
+        },
+      }),
+    ]);
+  });
+
+  it("lets middleware and operation routes deny non-tool operations before upstream forwarding", async () => {
+    const transport = new FeatureTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    proxy.use((ctx, next) => {
+      if (ctx.operation === "resource:read") {
+        return ctx.fail(PantherErrorCode.PolicyDenied, `blocked:${ctx.resource?.uri}`);
+      }
+      if (ctx.operation === "completion:complete") {
+        return ctx.fail(PantherErrorCode.PolicyDenied, `blocked:${ctx.completion?.target}`);
+      }
+      return next();
+    });
+    proxy.operation("prompt:get", (ctx) => ctx.fail(PantherErrorCode.PolicyDenied, `blocked:${ctx.prompt?.name}`));
+
+    await expect(proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: "blocked:file:///shared.md",
+    });
+    await expect(proxy.getPrompt({ name: "github__summarize" })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: "blocked:summarize",
+    });
+    await expect(
+      proxy.complete({
+        ref: { type: "ref/prompt", name: "github__summarize" },
+        argument: { name: "topic", value: "m" },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: "blocked:summarize",
+    });
+    expect(transport.readResource).not.toHaveBeenCalled();
+    expect(transport.getPrompt).not.toHaveBeenCalled();
+    expect(transport.complete).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown routed resource and prompt identifiers", async () => {
     const proxy = new McpProxy({
       servers: [new McpServer({ name: "github", transport: new FeatureTransport() })],

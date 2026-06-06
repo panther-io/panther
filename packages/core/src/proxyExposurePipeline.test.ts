@@ -177,7 +177,29 @@ describe("proxy exposure pipeline", () => {
       });
     }
 
-    expect(seenUsers).toEqual(["http-user:github__read", "stdio-user:github__read", "sse-user:github__read"]);
+    expect(seenUsers).toEqual([
+      "http-user:github__read",
+      "http-user:resources:list",
+      "http-user:resource:read",
+      "http-user:resource-templates:list",
+      "http-user:prompts:list",
+      "http-user:prompt:get",
+      "http-user:completion:complete",
+      "stdio-user:github__read",
+      "stdio-user:resources:list",
+      "stdio-user:resource:read",
+      "stdio-user:resource-templates:list",
+      "stdio-user:prompts:list",
+      "stdio-user:prompt:get",
+      "stdio-user:completion:complete",
+      "sse-user:github__read",
+      "sse-user:resources:list",
+      "sse-user:resource:read",
+      "sse-user:resource-templates:list",
+      "sse-user:prompts:list",
+      "sse-user:prompt:get",
+      "sse-user:completion:complete",
+    ]);
     await proxy.close();
   });
 
