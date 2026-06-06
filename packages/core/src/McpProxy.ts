@@ -12,7 +12,7 @@ import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
-import { filterToolsByPolicy } from "./policy.js";
+import { filterToolsByPolicy, getToolPermission } from "./policy.js";
 import type { PantherAuth } from "./auth.js";
 import {
   buildSubjectIndex,
@@ -477,6 +477,7 @@ export class McpProxy {
       metadata: context.policyDecision?.metadata,
       policy: this.policy,
       decision: context.policyDecision,
+      can: this.createPolicyCan(resolvedSubject),
     };
 
     const startedAt = Date.now();
@@ -723,13 +724,12 @@ export class McpProxy {
       userId: options.identity?.userId ?? options.user.id,
       metadata: options.identity?.metadata,
     };
-    if (options.operation !== "tool:call") {
-      context.policy = {
-        matchedGroups: [],
-        matchedPermissions: [],
-        policy: options.policy,
-      };
-    }
+    context.policy = {
+      matchedGroups: [],
+      matchedPermissions: [],
+      policy: options.policy,
+      can: this.createPolicyCan(options.subject),
+    };
     context.credentials = { sources: [] };
     context.response = response;
     context.res = response;
@@ -753,6 +753,37 @@ export class McpProxy {
     context.inject = response.injectToAgent.bind(response);
     context.error = response.fail.bind(response);
     return context;
+  }
+
+  private createPolicyCan(subject: ResolvedSubject | undefined): ProxyContext["policy"]["can"] {
+    return (serverName: string, toolName: string): boolean => {
+      if (this.groups.length > 0) {
+        const groups = subject ? this.subjectIndex?.groupsFor(subject.id) ?? [] : [];
+        let allowed = false;
+
+        for (const group of groups) {
+          const permission = getToolPermission(group.policy.getPermissions(serverName), toolName);
+          if (!permission) {
+            continue;
+          }
+
+          if (permission.effect === "deny") {
+            return false;
+          }
+
+          allowed = true;
+        }
+
+        return allowed;
+      }
+
+      if (this.policy) {
+        const permission = getToolPermission(this.policy.getPermissions(serverName), toolName);
+        return Boolean(permission) && permission.effect !== "deny";
+      }
+
+      return true;
+    };
   }
 
   /**
