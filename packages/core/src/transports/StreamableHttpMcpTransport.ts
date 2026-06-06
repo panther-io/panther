@@ -19,8 +19,15 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import {
+  ProgressNotificationSchema,
+  PromptListChangedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+  ResourceUpdatedNotificationSchema,
+  ToolListChangedNotificationSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../transportAuth.js";
-import type { PanterTransport, UserContext } from "../types.js";
+import type { McpUpstreamNotificationHandler, PanterTransport, UserContext } from "../types.js";
 
 /**
  * Options for native MCP Streamable HTTP upstream transport.
@@ -46,6 +53,7 @@ export class StreamableHttpMcpTransport implements PanterTransport {
   private client: Client | null = null;
   private transport: StreamableHTTPClientTransport | null = null;
   private connectPromise: Promise<Client> | null = null;
+  private readonly notificationHandlers = new Set<McpUpstreamNotificationHandler>();
 
   /**
    * Create a native MCP Streamable HTTP transport.
@@ -66,7 +74,18 @@ export class StreamableHttpMcpTransport implements PanterTransport {
    * @pk
    */
   withUser(user: UserContext): StreamableHttpMcpTransport {
-    return new StreamableHttpMcpTransport(this.options, user);
+    const transport = new StreamableHttpMcpTransport(this.options, user);
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  onNotification(handler: McpUpstreamNotificationHandler): () => void {
+    this.notificationHandlers.add(handler);
+    return () => {
+      this.notificationHandlers.delete(handler);
+    };
   }
 
   async listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult> {
@@ -183,9 +202,38 @@ export class StreamableHttpMcpTransport implements PanterTransport {
       },
     });
 
+    this.registerNotificationHandlers(client);
     await client.connect(transport);
     this.transport = transport;
     return client;
+  }
+
+  private registerNotificationHandlers(client: Client): void {
+    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+      await this.emitNotification({ type: "tools:list-changed" });
+    });
+    client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+      await this.emitNotification({ type: "resources:list-changed" });
+    });
+    client.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+      await this.emitNotification({ type: "prompts:list-changed" });
+    });
+    client.setNotificationHandler(ResourceUpdatedNotificationSchema, async (notification) => {
+      await this.emitNotification({ type: "resources:updated", uri: notification.params.uri });
+    });
+    client.setNotificationHandler(ProgressNotificationSchema, async (notification) => {
+      await this.emitNotification({
+        type: "progress",
+        progressToken: notification.params.progressToken,
+        progress: notification.params.progress,
+        total: notification.params.total,
+        message: notification.params.message,
+      });
+    });
+  }
+
+  private async emitNotification(notification: Parameters<McpUpstreamNotificationHandler>[0]): Promise<void> {
+    await Promise.all([...this.notificationHandlers].map((handler) => handler(notification)));
   }
 }
 

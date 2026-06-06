@@ -19,7 +19,14 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { PanterTransport } from "../types.js";
+import {
+  ProgressNotificationSchema,
+  PromptListChangedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+  ResourceUpdatedNotificationSchema,
+  ToolListChangedNotificationSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+import type { McpUpstreamNotificationHandler, PanterTransport } from "../types.js";
 
 /**
  * Options for the stdio transport.
@@ -42,6 +49,7 @@ export class StdioTransport implements PanterTransport {
   private readonly options: StdioTransportOptions;
   private client: Client | null = null;
   private connectPromise: Promise<Client> | null = null;
+  private readonly notificationHandlers = new Set<McpUpstreamNotificationHandler>();
 
   /**
    * Create a new stdio transport.
@@ -60,13 +68,24 @@ export class StdioTransport implements PanterTransport {
    * @pk
    */
   withEnv(env: Record<string, string>): StdioTransport {
-    return new StdioTransport({
+    const transport = new StdioTransport({
       ...this.options,
       env: {
         ...this.options.env,
         ...env,
       },
     });
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  onNotification(handler: McpUpstreamNotificationHandler): () => void {
+    this.notificationHandlers.add(handler);
+    return () => {
+      this.notificationHandlers.delete(handler);
+    };
   }
 
   /**
@@ -181,6 +200,7 @@ export class StdioTransport implements PanterTransport {
       { capabilities: {} },
     );
 
+    this.registerNotificationHandlers(client);
     await client.connect(
       new StdioClientTransport({
         command: this.options.command,
@@ -191,6 +211,34 @@ export class StdioTransport implements PanterTransport {
     );
 
     return client;
+  }
+
+  private registerNotificationHandlers(client: Client): void {
+    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+      await this.emitNotification({ type: "tools:list-changed" });
+    });
+    client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+      await this.emitNotification({ type: "resources:list-changed" });
+    });
+    client.setNotificationHandler(PromptListChangedNotificationSchema, async () => {
+      await this.emitNotification({ type: "prompts:list-changed" });
+    });
+    client.setNotificationHandler(ResourceUpdatedNotificationSchema, async (notification) => {
+      await this.emitNotification({ type: "resources:updated", uri: notification.params.uri });
+    });
+    client.setNotificationHandler(ProgressNotificationSchema, async (notification) => {
+      await this.emitNotification({
+        type: "progress",
+        progressToken: notification.params.progressToken,
+        progress: notification.params.progress,
+        total: notification.params.total,
+        message: notification.params.message,
+      });
+    });
+  }
+
+  private async emitNotification(notification: Parameters<McpUpstreamNotificationHandler>[0]): Promise<void> {
+    await Promise.all([...this.notificationHandlers].map((handler) => handler(notification)));
   }
 }
 

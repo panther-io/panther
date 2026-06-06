@@ -7,10 +7,10 @@
 
 ## 2. Notification Transport Plumbing
 
-- [ ] 2.1 Add runtime helpers for sending downstream MCP notifications to a specific session
-- [ ] 2.2 Add upstream transport notification hooks or event emitters for tools/resources/prompts list changes
-- [ ] 2.3 Add upstream transport notification hooks or event emitters for resource updates and progress
-- [ ] 2.4 Add tests for notification routing through HTTP Streamable and SSE exposure transports
+- [x] 2.1 Add runtime helpers for sending downstream MCP notifications to a specific session
+- [x] 2.2 Add upstream transport notification hooks or event emitters for tools/resources/prompts list changes
+- [x] 2.3 Add upstream transport notification hooks or event emitters for resource updates and progress
+- [x] 2.4 Add tests for notification routing through HTTP Streamable and SSE exposure transports
 
 ## 3. Resource Subscriptions
 

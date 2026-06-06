@@ -10,6 +10,7 @@ import type {
   ProxyRuntime,
   ResolvedSubject,
   UserContext,
+  McpDownstreamNotification,
 } from "../types.js";
 
 /**
@@ -143,11 +144,15 @@ async function handleMcpRequest(
   }
 
   const sdkServer = runtime.createSdkServer(user, identity, subject) as McpSdkServer;
+  let unregisterNotificationSender: (() => void) | undefined;
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
     enableJsonResponse: true,
     onsessioninitialized: (newSessionId) => {
       runtime.sessionUtilities.ensure(newSessionId);
+      unregisterNotificationSender = runtime.registerSessionNotificationSender(newSessionId, async (notification) => {
+        await transport.send(toJsonRpcNotification(notification));
+      });
       sessions.set(newSessionId, { transport, server: sdkServer, user, identity, subject });
       runtime.logger.debug("MCP proxy session initialized", { sessionId: newSessionId, userId: user.id });
       void runtime.emitSessionStart({
@@ -164,6 +169,7 @@ async function handleMcpRequest(
     if (initializedSessionId) {
       sessions.delete(initializedSessionId);
       runtime.sessionUtilities.delete(initializedSessionId);
+      unregisterNotificationSender?.();
     }
     await runtime.emitSessionEnd({
       user,
@@ -190,4 +196,11 @@ function sendText(res: ServerResponse, status: number, body: string, headers: Re
 
 function safeErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function toJsonRpcNotification(notification: McpDownstreamNotification): McpDownstreamNotification & { jsonrpc: "2.0" } {
+  return {
+    jsonrpc: "2.0",
+    ...notification,
+  };
 }

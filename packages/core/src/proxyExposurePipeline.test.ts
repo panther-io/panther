@@ -156,6 +156,32 @@ type SessionUtilityProbeHandle = ProxyExposureHandle & {
   size(): number;
 };
 
+class NotificationProbeExposure implements ProxyExposureTransport<NotificationProbeHandle> {
+  async listen(runtime: ProxyRuntime): Promise<NotificationProbeHandle> {
+    const sent = new Map<string, JSONRPCMessage[]>();
+    const unregisterA = runtime.registerSessionNotificationSender("session-a", (notification) => {
+      sent.set("session-a", [...(sent.get("session-a") ?? []), { jsonrpc: "2.0", ...notification }]);
+    });
+    const unregisterB = runtime.registerSessionNotificationSender("session-b", (notification) => {
+      sent.set("session-b", [...(sent.get("session-b") ?? []), { jsonrpc: "2.0", ...notification }]);
+    });
+
+    return {
+      sent,
+      send: (sessionId, notification) => runtime.sendSessionNotification(sessionId, notification),
+      close: async () => {
+        unregisterA();
+        unregisterB();
+      },
+    };
+  }
+}
+
+type NotificationProbeHandle = ProxyExposureHandle & {
+  sent: Map<string, JSONRPCMessage[]>;
+  send(sessionId: string, notification: { method: string; params?: Record<string, unknown> }): Promise<boolean>;
+};
+
 describe("proxy exposure pipeline", () => {
   it("uses the same listTools and callTool pipeline for HTTP, stdio, and SSE exposure transports", async () => {
     const upstream = new MockTransport();
@@ -278,5 +304,25 @@ describe("proxy exposure pipeline", () => {
     await proxy.close();
 
     expect(handle.size()).toBe(0);
+  });
+
+  it("routes downstream MCP notifications to the selected session sender", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+    const handle = await proxy.listen(new NotificationProbeExposure());
+
+    await expect(handle.send("session-b", { method: "notifications/tools/list_changed" })).resolves.toBe(true);
+    await expect(handle.send("missing", { method: "notifications/tools/list_changed" })).resolves.toBe(false);
+
+    expect(handle.sent.get("session-a")).toBeUndefined();
+    expect(handle.sent.get("session-b")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/tools/list_changed",
+      },
+    ]);
+
+    await proxy.close();
   });
 });

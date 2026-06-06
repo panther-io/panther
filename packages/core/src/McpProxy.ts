@@ -85,6 +85,7 @@ import {
   type ToolCallRequest,
   type UserContext,
   type ResolvedSubject,
+  type McpDownstreamNotification,
   type SessionUtilityRegistry,
   type SessionUtilityState,
 } from "./types.js";
@@ -202,6 +203,7 @@ export class McpProxy {
   private httpServer: HttpServer | null = null;
   private readonly exposureHandles = new Set<ProxyExposureHandle>();
   private readonly sessionUtilities = new Map<string, SessionUtilityState>();
+  private readonly sessionNotificationSenders = new Map<string, (notification: McpDownstreamNotification) => Promise<void>>();
 
   /**
    * Create a new MCP proxy instance.
@@ -407,6 +409,7 @@ export class McpProxy {
     this.exposureHandles.clear();
     this.httpServer = null;
     this.sessionUtilities.clear();
+    this.sessionNotificationSenders.clear();
     await Promise.all(this.servers.map((server) => server.close()));
   }
 
@@ -1056,9 +1059,40 @@ export class McpProxy {
       resolveStdioUser: () => this.resolveStdioUser(),
       emitSessionStart: (context) => this.emitSessionStart(context),
       emitSessionEnd: (context) => this.emitSessionEnd(context),
+      sendSessionNotification: (sessionId, notification) => this.sendSessionNotification(sessionId, notification),
+      registerSessionNotificationSender: (sessionId, sender) => this.registerSessionNotificationSender(sessionId, sender),
       sessionUtilities: this.createSessionUtilityRegistry(),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
+    };
+  }
+
+  private async sendSessionNotification(
+    sessionId: string,
+    notification: McpDownstreamNotification,
+  ): Promise<boolean> {
+    const sender = this.sessionNotificationSenders.get(sessionId);
+    if (!sender) {
+      return false;
+    }
+
+    await sender(notification);
+    return true;
+  }
+
+  private registerSessionNotificationSender(
+    sessionId: string,
+    sender: (notification: McpDownstreamNotification) => Promise<void> | void,
+  ): () => void {
+    this.sessionNotificationSenders.set(sessionId, async (notification) => {
+      await sender(notification);
+    });
+    return () => {
+      if (this.sessionNotificationSenders.get(sessionId) === sender) {
+        this.sessionNotificationSenders.delete(sessionId);
+      } else {
+        this.sessionNotificationSenders.delete(sessionId);
+      }
     };
   }
 

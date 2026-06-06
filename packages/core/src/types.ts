@@ -13,8 +13,15 @@ import type {
   ListResourceTemplatesResult,
   ListToolsRequest,
   ListToolsResult,
+  JSONRPCNotification,
+  LoggingMessageNotification,
+  ProgressNotification,
+  PromptListChangedNotification,
   ReadResourceRequest,
   ReadResourceResult,
+  ResourceListChangedNotification,
+  ResourceUpdatedNotification,
+  ToolListChangedNotification,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "./logger.js";
 
@@ -673,6 +680,7 @@ export type PanterTransport = {
   listPrompts?(params?: ListPromptsParams): Promise<ListPromptsResponse>;
   getPrompt?(params: GetPromptParams): Promise<GetPromptResponse>;
   complete?(params: CompleteParams): Promise<CompleteResponse>;
+  onNotification?(handler: McpUpstreamNotificationHandler): () => void;
   close(): Promise<void>;
 };
 
@@ -702,6 +710,31 @@ export type SessionUtilityRegistry = {
   size(): number;
 };
 
+export type McpDownstreamNotification =
+  | ToolListChangedNotification
+  | ResourceListChangedNotification
+  | PromptListChangedNotification
+  | ResourceUpdatedNotification
+  | ProgressNotification
+  | LoggingMessageNotification
+  | JSONRPCNotification;
+
+export type McpUpstreamNotification =
+  | { type: "tools:list-changed"; serverName?: string }
+  | { type: "resources:list-changed"; serverName?: string }
+  | { type: "prompts:list-changed"; serverName?: string }
+  | { type: "resources:updated"; serverName?: string; uri: string }
+  | {
+      type: "progress";
+      serverName?: string;
+      progressToken: string | number;
+      progress: number;
+      total?: number;
+      message?: string;
+    };
+
+export type McpUpstreamNotificationHandler = (notification: McpUpstreamNotification) => MaybePromise<void>;
+
 /**
  * Active downstream proxy exposure handle.
  * @pk
@@ -720,6 +753,11 @@ export type ProxyRuntime = {
   resolveStdioUser(): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }>;
   emitSessionStart(context: LifecycleHookContext): Promise<void>;
   emitSessionEnd(context: LifecycleHookContext): Promise<void>;
+  sendSessionNotification(sessionId: string, notification: McpDownstreamNotification): Promise<boolean>;
+  registerSessionNotificationSender(
+    sessionId: string,
+    sender: (notification: McpDownstreamNotification) => MaybePromise<void>,
+  ): () => void;
   sessionUtilities: SessionUtilityRegistry;
   logger: Logger;
   identityRequired: boolean;

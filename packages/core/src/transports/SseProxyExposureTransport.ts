@@ -9,6 +9,7 @@ import type {
   ProxyRuntime,
   ResolvedSubject,
   UserContext,
+  McpDownstreamNotification,
 } from "../types.js";
 
 /**
@@ -136,10 +137,14 @@ export class SseProxyExposureTransport implements ProxyExposureTransport<SseProx
     const transport = new SSEServerTransport(this.options.messagePath, res);
 
     runtime.sessionUtilities.ensure(transport.sessionId);
+    const unregisterNotificationSender = runtime.registerSessionNotificationSender(transport.sessionId, async (notification) => {
+      await transport.send(toJsonRpcNotification(notification));
+    });
     sessions.set(transport.sessionId, { transport, server: sdkServer, user, identity, subject });
     transport.onclose = async () => {
       sessions.delete(transport.sessionId);
       runtime.sessionUtilities.delete(transport.sessionId);
+      unregisterNotificationSender();
       await runtime.emitSessionEnd({
         user,
         identity,
@@ -168,4 +173,11 @@ function sendJsonRpcError(res: ServerResponse, httpStatus: number, code: number,
 function sendText(res: ServerResponse, status: number, body: string, headers: Record<string, string> = {}): void {
   res.writeHead(status, { "content-type": "text/plain", ...headers });
   res.end(body);
+}
+
+function toJsonRpcNotification(notification: McpDownstreamNotification): McpDownstreamNotification & { jsonrpc: "2.0" } {
+  return {
+    jsonrpc: "2.0",
+    ...notification,
+  };
 }

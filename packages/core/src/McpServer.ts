@@ -17,7 +17,7 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
-import type { Isolation, PanterTransport, UserContext } from "./types.js";
+import type { Isolation, McpUpstreamNotificationHandler, PanterTransport, UserContext } from "./types.js";
 
 /**
  * Resolve environment variables per user.
@@ -59,6 +59,8 @@ export class McpServer {
   private readonly isolation?: Isolation;
   private readonly isolationTimeout?: number;
   private readonly userTransports = new Map<string, PanterTransport>();
+  private readonly notificationHandlers = new Set<McpUpstreamNotificationHandler>();
+  private readonly notificationUnsubscribers = new WeakMap<PanterTransport, Array<() => void>>();
 
   /**
    * Create a new MCP server wrapper.
@@ -204,6 +206,20 @@ export class McpServer {
     return Boolean(this.transport.complete);
   }
 
+  onNotification(handler: McpUpstreamNotificationHandler): () => void {
+    const scopedHandler: McpUpstreamNotificationHandler = (notification) =>
+      handler({ ...notification, serverName: notification.serverName ?? this.name });
+    this.notificationHandlers.add(scopedHandler);
+    this.attachNotificationHandlers(this.transport);
+    for (const transport of this.userTransports.values()) {
+      this.attachNotificationHandlers(transport);
+    }
+
+    return () => {
+      this.notificationHandlers.delete(scopedHandler);
+    };
+  }
+
   /**
    * Close all transports.
    * @pk
@@ -230,6 +246,7 @@ export class McpServer {
     const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}`;
     const existing = this.userTransports.get(key);
     if (existing) {
+      this.attachNotificationHandlers(existing);
       return existing;
     }
 
@@ -247,7 +264,17 @@ export class McpServer {
     }
 
     this.userTransports.set(key, transport);
+    this.attachNotificationHandlers(transport);
     return transport;
+  }
+
+  private attachNotificationHandlers(transport: PanterTransport): void {
+    if (!transport.onNotification || this.notificationUnsubscribers.has(transport)) {
+      return;
+    }
+
+    const unsubscribers = [...this.notificationHandlers].map((handler) => transport.onNotification?.(handler)).filter(Boolean) as Array<() => void>;
+    this.notificationUnsubscribers.set(transport, unsubscribers);
   }
 }
 
