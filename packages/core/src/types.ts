@@ -195,7 +195,7 @@ export type ListToolsContext = {
  * Operation names handled by the unified proxy context.
  * @pk
  */
-export type ProxyOperation = "tool:call" | "tools:list" | "session:start" | "session:end";
+export type ProxyOperation = "tools/call" | "tools/list" | "session:start" | "session:end";
 
 /**
  * Safe downstream transport metadata attached to a proxy operation.
@@ -407,6 +407,7 @@ export type ProxyContext = MiddlewareContext & {
   raw?: CallToolRequest["params"] | ListToolsRequest["params"];
   state: Record<string, unknown>;
   response: ResponseController;
+  durationMs?: number;
   deny(message: string): CallToolResult;
   fail(code: number, message: string): CallToolResult;
   continue(): undefined;

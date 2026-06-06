@@ -1,7 +1,9 @@
 import type {
+  MaybePromise,
   MiddlewareContext,
   Policy as PolicyContract,
   PolicyDecision,
+  ProxyMiddleware,
   ResolvedSubject,
   SubjectMetadata,
   ToolCallRequest,
@@ -283,13 +285,33 @@ export function limit(limiter: ToolPermission["limiter"]): Pick<ToolPermissionOp
   return { limiter };
 }
 
+export type ManualApprovalOptions = {
+  reason?: string;
+  timeoutMs?: number;
+  approve?: (context: Parameters<ProxyMiddleware>[0]) => MaybePromise<boolean>;
+};
+
 /**
  * Permission helper for approval callbacks.
  * @pk
  */
-export function approval(handler: ToolPermission["approval"]): Pick<ToolPermissionOptions, "approval"> {
-  return { approval: handler };
-}
+export const approval = Object.assign(
+  function approval(handler: ToolPermission["approval"]): Pick<ToolPermissionOptions, "approval"> {
+    return { approval: handler };
+  },
+  {
+    manual(options: ManualApprovalOptions = {}): ProxyMiddleware {
+      return async (context, next) => {
+        const approved = await options.approve?.(context);
+        if (!approved) {
+          return context.deny(options.reason ?? "Manual approval required.");
+        }
+
+        return next();
+      };
+    },
+  },
+);
 
 /**
  * Permission helper for sensitive-operation metadata.

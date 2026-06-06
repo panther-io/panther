@@ -1,8 +1,9 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import type { CredentialSourceMetadata, IdentityStrategy, ResolvedSubject } from "./types.js";
+import type { CredentialSourceMetadata, IdentityStrategy, ResolvedSubject, UserContext } from "./types.js";
+import type { HttpTransportAuthOptions } from "./transportAuth.js";
 
 const encryptedCredentialsSchema = z.object({
   version: z.literal(1),
@@ -64,6 +65,10 @@ export type CredentialResolution = CredentialSourceMetadata & {
   value: string;
 };
 
+export type PantherAuthEnvBindings = ((user: UserContext) => Record<string, string>) & {
+  readonly __pantherAuthEnvBindings: Record<string, string>;
+};
+
 /**
  * Unified local auth configuration.
  * @pk
@@ -81,14 +86,12 @@ export class PantherAuth {
    * Load local encrypted credentials and upstream auth bindings from a directory.
    * @pk
    */
-  static async local(options: LocalAuthOptions): Promise<PantherAuth> {
+  static local(options: LocalAuthOptions): PantherAuth {
     const credentialsPath = path.join(options.dir, options.credentialsFile ?? "credentials.enc.json");
     const upstreamAuthPath = path.join(options.dir, options.upstreamAuthFile ?? "upstream-auth.json");
 
-    const [encryptedCredentials, upstreamBindings] = await Promise.all([
-      readJson(credentialsPath, "encrypted credentials"),
-      readJson(upstreamAuthPath, "upstream auth bindings"),
-    ]);
+    const encryptedCredentials = readJson(credentialsPath, "encrypted credentials");
+    const upstreamBindings = readJson(upstreamAuthPath, "upstream auth bindings");
 
     const envelope = parseWithError(encryptedCredentialsSchema, encryptedCredentials, "Invalid encrypted credentials file");
     const decrypted = decryptLocalCredentials(envelope, options.key);
@@ -151,6 +154,35 @@ export class PantherAuth {
     return apiKeyIdentityStrategy({ auth: this, ...options });
   }
 
+  apiKey(options: { header?: string; name?: string } = {}): IdentityStrategy {
+    return this.identityStrategy(options);
+  }
+
+  bearer(reference: string): HttpTransportAuthOptions {
+    return {
+      bearerToken: ({ user }) => this.resolveCredentialForUser(reference, user)?.value,
+      required: true,
+    };
+  }
+
+  env(bindings: Record<string, string>): PantherAuthEnvBindings {
+    const resolver = ((user: UserContext) => {
+      const env: Record<string, string> = {};
+      for (const [name, reference] of Object.entries(bindings)) {
+        const credential = this.resolveCredentialForUser(reference, user);
+        if (credential) {
+          env[name] = credential.value;
+        }
+      }
+      return env;
+    }) as PantherAuthEnvBindings;
+    Object.defineProperty(resolver, "__pantherAuthEnvBindings", {
+      value: { ...bindings },
+      enumerable: false,
+    });
+    return resolver;
+  }
+
   getBinding(serverName: string): UpstreamAuthBinding | undefined {
     return this.bindings.servers[serverName];
   }
@@ -173,6 +205,27 @@ export class PantherAuth {
     const groupCredential = matches[0];
     if (groupCredential) {
       return { reference, value: groupCredential.value, source: "group", groupId: groupCredential.groupId };
+    }
+
+    const defaultCredential = this.credentials.defaults[reference];
+    if (defaultCredential) {
+      return { reference, value: defaultCredential, source: "default" };
+    }
+
+    return null;
+  }
+
+  private resolveCredentialForUser(reference: string, user: UserContext): CredentialResolution | null {
+    const subject = readInternalSubject(user);
+    if (subject) {
+      return this.resolveCredential(reference, subject);
+    }
+
+    if (user.id) {
+      const userCredential = this.credentials.users[user.id]?.credentials[reference];
+      if (userCredential) {
+        return { reference, value: userCredential, source: "user", userId: user.id };
+      }
     }
 
     const defaultCredential = this.credentials.defaults[reference];
@@ -241,9 +294,9 @@ function hashApiKey(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-async function readJson(filePath: string, label: string): Promise<unknown> {
+function readJson(filePath: string, label: string): unknown {
   try {
-    return JSON.parse(await readFile(filePath, "utf8")) as unknown;
+    return JSON.parse(readFileSync(filePath, "utf8")) as unknown;
   } catch (error: unknown) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       throw new Error(`Missing ${label} file at ${filePath}`, { cause: error });
@@ -251,6 +304,11 @@ async function readJson(filePath: string, label: string): Promise<unknown> {
 
     throw new Error(`Unable to read ${label} file at ${filePath}`, { cause: error });
   }
+}
+
+function readInternalSubject(user: UserContext): ResolvedSubject | undefined {
+  const subject = user.__pantherSubject;
+  return subject && typeof subject === "object" && "id" in subject ? subject as ResolvedSubject : undefined;
 }
 
 function parseWithError<T>(schema: z.ZodType<T>, value: unknown, message: string): T {

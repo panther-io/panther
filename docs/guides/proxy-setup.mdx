@@ -19,6 +19,33 @@ const proxy = new McpProxy({
 });
 ```
 
+## High-level DX
+
+Use the high-level helpers when you want a compact proxy definition. They are additive wrappers around `McpProxy`, `McpServer`, and the transport classes.
+
+```ts theme={null}
+import { http, mcp, panther } from "@panther/core";
+
+const proxy = panther({
+  name: "acme-governance-proxy",
+  defaults: {
+    identityRequired: true,
+    autoLog: true,
+  },
+});
+
+const github = proxy.server("github", mcp.stdio({
+  command: "github-mcp-server",
+}));
+
+github.tool("create_issue", async (ctx, next) => {
+  ctx.args.title = `[${ctx.subject?.tenant?.id}] ${ctx.args.title}`;
+  return next();
+});
+
+await proxy.listen(http({ port: 3000, path: "/mcp" }));
+```
+
 ## Configure proxy identity
 
 ```ts theme={null}
