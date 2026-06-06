@@ -688,6 +688,8 @@ export type PanterTransport = {
   listPrompts?(params?: ListPromptsParams): Promise<ListPromptsResponse>;
   getPrompt?(params: GetPromptParams): Promise<GetPromptResponse>;
   complete?(params: CompleteParams): Promise<CompleteResponse>;
+  ping?(): Promise<{ _meta?: Record<string, unknown> }>;
+  cancelRequest?(requestId: string | number, reason?: string): Promise<void>;
   onNotification?(handler: McpUpstreamNotificationHandler): () => void;
   close(): Promise<void>;
 };
@@ -697,6 +699,7 @@ export type SessionLogLevel = "debug" | "info" | "notice" | "warning" | "error" 
 export type SessionActiveRequest = {
   downstreamRequestId: string | number;
   upstreamRequestId?: string | number;
+  serverName?: string;
   progressToken?: string | number;
   cancelled: boolean;
   startedAt: number;

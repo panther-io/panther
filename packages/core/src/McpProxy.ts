@@ -2,12 +2,14 @@ import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServ
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
+  CancelledNotificationSchema,
   CompleteRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
+  PingRequestSchema,
   ReadResourceRequestSchema,
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
@@ -91,6 +93,7 @@ import {
   type ResolvedSubject,
   type McpDownstreamNotification,
   type McpUpstreamNotification,
+  type SessionActiveRequest,
   type SessionUtilityRegistry,
   type SessionUtilityState,
 } from "./types.js";
@@ -124,6 +127,7 @@ export type McpProxyOptions = {
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
   errorMapper?: ErrorMapper;
+  requestTimeoutMs?: number;
   name?: string;
   version?: string;
 };
@@ -201,6 +205,7 @@ export class McpProxy {
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly errorMapper: ErrorMapper;
+  private readonly requestTimeoutMs?: number;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
@@ -227,6 +232,7 @@ export class McpProxy {
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
+    this.requestTimeoutMs = options.requestTimeoutMs;
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -501,6 +507,8 @@ export class McpProxy {
     user: UserContext = {},
     identity?: IdentityMetadata,
     subject?: ResolvedSubject,
+    sessionId?: string,
+    downstreamRequestId?: string | number,
   ): Promise<CallToolResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -549,6 +557,7 @@ export class McpProxy {
     };
 
     const startedAt = Date.now();
+    const activeRequest = this.trackActiveRequest(params, sessionId, downstreamRequestId, serverName);
     this.writeAutoLog("start", log, request, context, startedAt);
     try {
       let upstreamUser = resolvedUser;
@@ -575,8 +584,11 @@ export class McpProxy {
             );
           }
 
-          return this.forwardToolCall(params, upstreamUser);
+          return this.withRequestTimeout(() => this.forwardToolCall(params, upstreamUser), activeRequest);
         }));
+      if (sessionId && downstreamRequestId !== undefined && this.sessionUtilities.get(sessionId)?.cancellations.has(downstreamRequestId)) {
+        return context.res.fail(-32800, "Tool call cancelled");
+      }
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
       await this.emitProxyEvent("tool:success", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
@@ -604,6 +616,8 @@ export class McpProxy {
       const failed = context.res.fail(mappedError.code, mappedError.message);
       await this.emitProxyEvent("tool:after", { ctx: context, result: failed, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
       return failed;
+    } finally {
+      this.cleanupActiveRequest(sessionId, downstreamRequestId, activeRequest);
     }
   }
 
@@ -1008,7 +1022,14 @@ export class McpProxy {
     );
 
     server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity, subject));
+    server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
+      this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId));
+    server.setRequestHandler(PingRequestSchema, async () => ({}));
+    server.setNotificationHandler(CancelledNotificationSchema, async (notification) => {
+      if (notification.params.requestId !== undefined) {
+        await this.cancelDownstreamRequest(undefined, notification.params.requestId, notification.params.reason, user);
+      }
+    });
     if (capabilities.resources) {
       server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
         this.listResources(request.params, user, identity, subject));
@@ -1173,6 +1194,9 @@ export class McpProxy {
     }
 
     if (notification.type !== "resources:updated") {
+      if (notification.type === "progress") {
+        await this.forwardProgressNotification(notification);
+      }
       return;
     }
 
@@ -1194,6 +1218,123 @@ export class McpProxy {
         }),
       ),
     );
+  }
+
+  private async forwardProgressNotification(notification: Extract<McpUpstreamNotification, { type: "progress" }>): Promise<void> {
+    for (const [sessionId, state] of this.sessionUtilities) {
+      const downstreamToken = state.progressTokens.get(notification.progressToken);
+      if (downstreamToken === undefined) {
+        continue;
+      }
+
+      await this.sendSessionNotification(sessionId, {
+        method: "notifications/progress",
+        params: {
+          progressToken: downstreamToken,
+          progress: notification.progress,
+          total: notification.total,
+          message: notification.message,
+        },
+      });
+      return;
+    }
+  }
+
+  private trackActiveRequest(
+    params: { _meta?: { progressToken?: string | number } },
+    sessionId: string | undefined,
+    downstreamRequestId: string | number | undefined,
+    serverName: string,
+  ): SessionActiveRequest | undefined {
+    if (!sessionId || downstreamRequestId === undefined) {
+      return undefined;
+    }
+
+    const state = this.ensureSessionUtilityState(sessionId);
+    const request: SessionActiveRequest = {
+      downstreamRequestId,
+      upstreamRequestId: downstreamRequestId,
+      serverName,
+      progressToken: params._meta?.progressToken,
+      cancelled: false,
+      startedAt: Date.now(),
+    };
+    state.activeRequests.set(downstreamRequestId, request);
+    if (params._meta?.progressToken !== undefined) {
+      state.progressTokens.set(params._meta.progressToken, params._meta.progressToken);
+    }
+    return request;
+  }
+
+  private cleanupActiveRequest(
+    sessionId: string | undefined,
+    downstreamRequestId: string | number | undefined,
+    request: SessionActiveRequest | undefined,
+  ): void {
+    if (request?.timeout) {
+      clearTimeout(request.timeout);
+    }
+    if (!sessionId || downstreamRequestId === undefined) {
+      return;
+    }
+
+    const state = this.sessionUtilities.get(sessionId);
+    state?.activeRequests.delete(downstreamRequestId);
+    if (request?.progressToken !== undefined) {
+      state?.progressTokens.delete(request.progressToken);
+    }
+    state?.cancellations.delete(downstreamRequestId);
+  }
+
+  private async withRequestTimeout<T>(
+    operation: () => Promise<T>,
+    request: SessionActiveRequest | undefined,
+  ): Promise<T> {
+    if (!this.requestTimeoutMs || this.requestTimeoutMs <= 0) {
+      return operation();
+    }
+
+    return Promise.race([
+      operation(),
+      new Promise<T>((_, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`MCP request timed out after ${this.requestTimeoutMs}ms`));
+        }, this.requestTimeoutMs);
+        if (request) {
+          request.timeout = timeout;
+        }
+      }),
+    ]);
+  }
+
+  private async cancelDownstreamRequest(
+    sessionId: string | undefined,
+    requestId: string | number,
+    reason: string | undefined,
+    user: UserContext,
+  ): Promise<void> {
+    if (!sessionId) {
+      for (const [candidateSessionId, state] of this.sessionUtilities) {
+        if (state.activeRequests.has(requestId)) {
+          await this.cancelDownstreamRequest(candidateSessionId, requestId, reason, user);
+          return;
+        }
+      }
+      return;
+    }
+
+    const state = this.sessionUtilities.get(sessionId);
+    const request = state?.activeRequests.get(requestId);
+    if (!state || !request) {
+      return;
+    }
+
+    request.cancelled = true;
+    state.cancellations.add(requestId);
+    const serverName = request.serverName;
+    if (serverName && this.serverByName.has(serverName)) {
+      await this.serverByName.get(serverName)?.cancelRequest(request.upstreamRequestId ?? requestId, reason, user);
+    }
   }
 
   private async broadcastNotification(notification: McpDownstreamNotification): Promise<void> {

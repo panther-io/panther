@@ -30,13 +30,13 @@
 
 ## 5. Progress, Cancellation, And Ping
 
-- [ ] 5.1 Track downstream `_meta.progressToken` values and upstream request mappings
-- [ ] 5.2 Forward progress notifications to the originating downstream session
-- [ ] 5.3 Handle downstream `notifications/cancelled` for active proxied requests
-- [ ] 5.4 Forward cancellation upstream where supported and ignore late upstream results
-- [ ] 5.5 Add downstream ping request support
-- [ ] 5.6 Add configurable request timeout behavior and cleanup
-- [ ] 5.7 Add tests for progress, cancellation races, ping, and timeout cleanup
+- [x] 5.1 Track downstream `_meta.progressToken` values and upstream request mappings
+- [x] 5.2 Forward progress notifications to the originating downstream session
+- [x] 5.3 Handle downstream `notifications/cancelled` for active proxied requests
+- [x] 5.4 Forward cancellation upstream where supported and ignore late upstream results
+- [x] 5.5 Add downstream ping request support
+- [x] 5.6 Add configurable request timeout behavior and cleanup
+- [x] 5.7 Add tests for progress, cancellation races, ping, and timeout cleanup
 
 ## 6. MCP Logging
 

@@ -202,6 +202,20 @@ export class McpServer {
     return transport.complete(params);
   }
 
+  async ping(user: UserContext = {}): Promise<{ _meta?: Record<string, unknown> }> {
+    const transport = this.transportFor(user);
+    if (!transport.ping) {
+      return {};
+    }
+
+    return transport.ping();
+  }
+
+  async cancelRequest(requestId: string | number, reason: string | undefined, user: UserContext = {}): Promise<void> {
+    const transport = this.transportFor(user);
+    await transport.cancelRequest?.(requestId, reason);
+  }
+
   /**
    * Whether the configured transport exposes resource operations.
    * @pk

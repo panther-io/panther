@@ -62,6 +62,7 @@ class SubscribableTransport extends MockTransport {
 
   readonly subscribeResource = vi.fn(async (): Promise<{ _meta?: Record<string, unknown> }> => ({}));
   readonly unsubscribeResource = vi.fn(async (): Promise<{ _meta?: Record<string, unknown> }> => ({}));
+  readonly cancelRequest = vi.fn(async (): Promise<void> => {});
 
   onNotification(handler: McpUpstreamNotificationHandler): () => void {
     this.notificationHandlers.add(handler);
@@ -74,8 +75,26 @@ class SubscribableTransport extends MockTransport {
     await Promise.all([...this.notificationHandlers].map((handler) => handler({ type: "resources:updated", uri })));
   }
 
+  async emitProgress(progressToken: string | number, progress: number): Promise<void> {
+    await Promise.all([...this.notificationHandlers].map((handler) => handler({ type: "progress", progressToken, progress })));
+  }
+
   async emitListChanged(type: "tools:list-changed" | "resources:list-changed" | "prompts:list-changed"): Promise<void> {
     await Promise.all([...this.notificationHandlers].map((handler) => handler({ type })));
+  }
+}
+
+class ControlledToolTransport extends SubscribableTransport {
+  private resolveCall: ((value: CallToolResult) => void) | undefined;
+
+  readonly callTool = vi.fn(async (): Promise<CallToolResult> => {
+    return new Promise<CallToolResult>((resolve) => {
+      this.resolveCall = resolve;
+    });
+  });
+
+  finish(result: CallToolResult = { content: [{ type: "text", text: "done" }] }): void {
+    this.resolveCall?.(result);
   }
 }
 
@@ -234,6 +253,7 @@ describe("proxy exposure pipeline", () => {
       await expect(handle.client.callTool({ name: "github__read" })).resolves.toMatchObject({
         content: [{ text: "called:read" }],
       });
+      await expect(handle.client.ping()).resolves.toEqual({});
       expect(handle.client.getServerCapabilities()).toMatchObject({
         tools: {},
         resources: {},
@@ -440,6 +460,98 @@ describe("proxy exposure pipeline", () => {
     expect(handle.sent.get("session-b")).toEqual(expected);
     expect(JSON.stringify(handle.sent.get("session-a"))).not.toContain("file:///readme.md");
     expect(JSON.stringify(handle.sent.get("session-a"))).not.toContain("read");
+
+    await proxy.close();
+  });
+
+  it("forwards progress to the originating session and ignores it after cleanup", async () => {
+    const upstream = new ControlledToolTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: upstream })],
+    });
+    const handle = await proxy.listen(new NotificationProbeExposure());
+
+    const result = proxy.callTool(
+      { name: "github__read", _meta: { progressToken: "progress-a" } } as never,
+      {},
+      undefined,
+      undefined,
+      "session-a",
+      "request-a",
+    );
+    await vi.waitFor(() => expect(upstream.callTool).toHaveBeenCalled());
+    await upstream.emitProgress("progress-a", 0.5);
+
+    expect(handle.sent.get("session-a")).toEqual([
+      {
+        jsonrpc: "2.0",
+        method: "notifications/progress",
+        params: { progressToken: "progress-a", progress: 0.5 },
+      },
+    ]);
+    expect(handle.sent.get("session-b")).toBeUndefined();
+
+    upstream.finish();
+    await expect(result).resolves.toMatchObject({ content: [{ text: "done" }] });
+    handle.sent.clear();
+    await upstream.emitProgress("progress-a", 1);
+    expect(handle.sent.size).toBe(0);
+
+    await proxy.close();
+  });
+
+  it("marks active requests cancelled, forwards cancellation upstream, and drops late results", async () => {
+    const upstream = new ControlledToolTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: upstream })],
+    });
+    await proxy.listen(new NotificationProbeExposure());
+
+    const result = proxy.callTool(
+      { name: "github__read" },
+      {},
+      undefined,
+      undefined,
+      "session-a",
+      "request-a",
+    );
+    await vi.waitFor(() => expect(upstream.callTool).toHaveBeenCalled());
+    await (proxy as unknown as { cancelDownstreamRequest(sessionId: string, requestId: string, reason: string, user: object): Promise<void> })
+      .cancelDownstreamRequest("session-a", "request-a", "no longer needed", {});
+    upstream.finish();
+
+    await expect(result).resolves.toMatchObject({
+      isError: true,
+      _meta: { error: { code: -32800 } },
+    });
+    expect(upstream.cancelRequest).toHaveBeenCalledWith("request-a", "no longer needed");
+
+    await proxy.close();
+  });
+
+  it("returns timeout errors and cleans active request progress state", async () => {
+    const upstream = new ControlledToolTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: upstream })],
+      requestTimeoutMs: 1,
+    });
+    const handle = await proxy.listen(new NotificationProbeExposure());
+
+    const result = await proxy.callTool(
+      { name: "github__read", _meta: { progressToken: "progress-timeout" } } as never,
+      {},
+      undefined,
+      undefined,
+      "session-a",
+      "request-timeout",
+    );
+
+    expect(result).toMatchObject({
+      isError: true,
+      _meta: { error: { message: "MCP request timed out after 1ms" } },
+    });
+    await upstream.emitProgress("progress-timeout", 1);
+    expect(handle.sent.size).toBe(0);
 
     await proxy.close();
   });

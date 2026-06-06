@@ -175,6 +175,18 @@ export class SseMcpTransport implements PanterTransport {
     return client.complete(params);
   }
 
+  async ping(): Promise<{ _meta?: Record<string, unknown> }> {
+    return (await this.getClient()).ping();
+  }
+
+  async cancelRequest(requestId: string | number, reason?: string): Promise<void> {
+    const client = await this.getClient();
+    await client.notification({
+      method: "notifications/cancelled",
+      params: { requestId, reason },
+    });
+  }
+
   async close(): Promise<void> {
     await this.client?.close();
     await this.transport?.close();

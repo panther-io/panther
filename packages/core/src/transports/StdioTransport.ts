@@ -183,6 +183,18 @@ export class StdioTransport implements PanterTransport {
     return client.complete(params);
   }
 
+  async ping(): Promise<{ _meta?: Record<string, unknown> }> {
+    return (await this.getClient()).ping();
+  }
+
+  async cancelRequest(requestId: string | number, reason?: string): Promise<void> {
+    const client = await this.getClient();
+    await client.notification({
+      method: "notifications/cancelled",
+      params: { requestId, reason },
+    });
+  }
+
   /**
    * Close the underlying client connection.
    * @pk
