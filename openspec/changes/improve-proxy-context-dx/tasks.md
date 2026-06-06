@@ -21,12 +21,12 @@
 
 ## 4. Tests
 
-- [ ] 4.1 Add tests for authenticated `ctx.subject.id`, `email`, `metadata`, `tenant`, `groups`, and `hasGroup`
-- [ ] 4.2 Add tests for unauthenticated context behavior and `ctx.auth.authenticated`
-- [ ] 4.3 Add tests for `ctx.policy.allowed`, `reason`, `matchedGroups`, and `matchedPermissions` on allowed and denied tool calls
-- [ ] 4.4 Add tests for `ctx.policy.can(server, tool)` with group policy allow, explicit deny override, missing allow, global policy, and no-policy cases
-- [ ] 4.5 Add regression tests proving raw credential values are not exposed through `ctx.subject`, `ctx.auth`, `ctx.policy`, or `ctx.credentials`
-- [ ] 4.6 Add compatibility tests for `ctx.user`, `ctx.policyDecision`, and `ctx.res`
+- [x] 4.1 Add tests for authenticated `ctx.subject.id`, `email`, `metadata`, `tenant`, `groups`, and `hasGroup`
+- [x] 4.2 Add tests for unauthenticated context behavior and `ctx.auth.authenticated`
+- [x] 4.3 Add tests for `ctx.policy.allowed`, `reason`, `matchedGroups`, and `matchedPermissions` on allowed and denied tool calls
+- [x] 4.4 Add tests for `ctx.policy.can(server, tool)` with group policy allow, explicit deny override, missing allow, global policy, and no-policy cases
+- [x] 4.5 Add regression tests proving raw credential values are not exposed through `ctx.subject`, `ctx.auth`, `ctx.policy`, or `ctx.credentials`
+- [x] 4.6 Add compatibility tests for `ctx.user`, `ctx.policyDecision`, and `ctx.res`
 
 ## 5. Documentation
 
