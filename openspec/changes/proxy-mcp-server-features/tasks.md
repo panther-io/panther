@@ -8,13 +8,13 @@
 
 ## 2. Upstream Transport Support
 
-- [ ] 2.1 Implement resource list/read/template-list methods in `StdioTransport`
-- [ ] 2.2 Implement prompt list/get methods in `StdioTransport`
-- [ ] 2.3 Implement completion forwarding in `StdioTransport`
-- [ ] 2.4 Implement the same feature methods in `StreamableHttpMcpTransport`
-- [ ] 2.5 Implement the same feature methods in `SseMcpTransport`
-- [ ] 2.6 Add capability checks so unsupported upstream capabilities return empty list responses or unsupported errors as appropriate
-- [ ] 2.7 Add native MCP transport tests for resource, prompt, and completion forwarding
+- [x] 2.1 Implement resource list/read/template-list methods in `StdioTransport`
+- [x] 2.2 Implement prompt list/get methods in `StdioTransport`
+- [x] 2.3 Implement completion forwarding in `StdioTransport`
+- [x] 2.4 Implement the same feature methods in `StreamableHttpMcpTransport`
+- [x] 2.5 Implement the same feature methods in `SseMcpTransport`
+- [x] 2.6 Add capability checks so unsupported upstream capabilities return empty list responses or unsupported errors as appropriate
+- [x] 2.7 Add native MCP transport tests for resource, prompt, and completion forwarding
 
 ## 3. Server Wrapper
 
