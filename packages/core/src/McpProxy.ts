@@ -34,6 +34,7 @@ import {
   type UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
+import { createClientCapabilities } from "./clientFeatures.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import {
@@ -62,6 +63,7 @@ import {
   type CapabilityOperationRequest,
   type CapabilityPermission,
   type ClientFeatureConfig,
+  type ClientFeaturesConfig,
   type CredentialSourceMetadata,
   type ErrorMapper,
   type ListToolsHook,
@@ -440,6 +442,8 @@ export class McpProxy {
     user: UserContext = {},
     identity?: IdentityMetadata,
     subject?: ResolvedSubject,
+    sessionId?: string,
+    downstreamRequestId?: string | number,
   ): Promise<ListToolsResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -447,7 +451,15 @@ export class McpProxy {
     const results = await Promise.all(
       this.servers.map(async (server) => {
         const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-        const result = await server.listTools(params, userForServer);
+        const upstreamUser = await this.withUpstreamClientCapabilities(
+          server.name,
+          userForServer,
+          resolvedSubject,
+          identity,
+          sessionId,
+          downstreamRequestId,
+        );
+        const result = await server.listTools(params, upstreamUser);
         const tools = this.groups.length > 0
           ? filterToolsByGroupPolicies(result.tools, server.name, userGroups)
           : this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
@@ -568,7 +580,14 @@ export class McpProxy {
       let upstreamUser = resolvedUser;
       if (!context.policyDecision || context.policyDecision.allowed) {
         const upstream = this.applyUpstreamAuth(serverName, resolvedUser, resolvedSubject);
-        upstreamUser = upstream.user;
+        upstreamUser = await this.withUpstreamClientCapabilities(
+          serverName,
+          upstream.user,
+          resolvedSubject,
+          identity,
+          sessionId,
+          downstreamRequestId,
+        );
         context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
         context.credentials.sources = context.credentialSources ?? [];
       }
@@ -1044,7 +1063,8 @@ export class McpProxy {
       },
     );
 
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
+    server.setRequestHandler(ListToolsRequestSchema, async (request, extra) =>
+      this.listTools(request.params, user, identity, subject, extra.sessionId, extra.requestId));
     server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
       this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId));
     server.setRequestHandler(PingRequestSchema, async () => ({}));
@@ -2127,6 +2147,52 @@ export class McpProxy {
         groupId: credential.groupId,
       },
     };
+  }
+
+  private async withUpstreamClientCapabilities(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+    sessionId: string | undefined,
+    requestId: string | number | undefined,
+  ): Promise<UserContext> {
+    const featureConfig = await this.resolveClientFeatureConfig(serverName, user, subject, identity, sessionId, requestId);
+    return {
+      ...user,
+      __pantherClientCapabilities: createClientCapabilities(featureConfig),
+    };
+  }
+
+  private async resolveClientFeatureConfig(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+    sessionId: string | undefined,
+    requestId: string | number | undefined,
+  ): Promise<ClientFeaturesConfig | undefined> {
+    const config = this.clientFeatures[serverName];
+    if (typeof config !== "function") {
+      return config;
+    }
+
+    return config({
+      serverName,
+      user,
+      subject,
+      identity,
+      sessionId,
+      requestId,
+      log: this.createContextualLogger({
+        operation: "tools:list",
+        user,
+        subject,
+        identity,
+        serverName,
+        sessionId,
+      }),
+    });
   }
 
   private writeAutoLog(

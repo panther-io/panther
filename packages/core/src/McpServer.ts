@@ -1,6 +1,7 @@
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -46,6 +47,10 @@ type EnvAwareTransport = PanterTransport & {
 
 type UserAwareTransport = PanterTransport & {
   withUser(user: UserContext): PanterTransport;
+};
+
+type ClientCapabilityAwareTransport = PanterTransport & {
+  withClientCapabilities(capabilities: ClientCapabilities): PanterTransport;
 };
 
 /**
@@ -267,8 +272,10 @@ export class McpServer {
 
   private transportFor(user: UserContext): PanterTransport {
     const upstreamEnv = isStringRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : undefined;
+    const clientCapabilities = isClientCapabilities(user.__pantherClientCapabilities) ? user.__pantherClientCapabilities : undefined;
     const supportsUserContext = isUserAwareTransport(this.transport);
-    if (!this.env && !upstreamEnv && !supportsUserContext) {
+    const supportsClientCapabilities = isClientCapabilityAwareTransport(this.transport);
+    if (!this.env && !upstreamEnv && !clientCapabilities && !supportsUserContext) {
       return this.transport;
     }
 
@@ -277,7 +284,7 @@ export class McpServer {
       ...(configuredEnv ?? {}),
       ...(upstreamEnv ?? {}),
     };
-    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}`;
+    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}:${JSON.stringify(clientCapabilities ?? {})}`;
     const existing = this.userTransports.get(key);
     if (existing) {
       this.attachNotificationHandlers(existing);
@@ -295,6 +302,13 @@ export class McpServer {
 
     if (isUserAwareTransport(transport)) {
       transport = transport.withUser(user);
+    }
+
+    if (clientCapabilities) {
+      if (!isClientCapabilityAwareTransport(transport)) {
+        throw new Error(`Transport for server "${this.name}" does not support client capability injection`);
+      }
+      transport = transport.withClientCapabilities(clientCapabilities);
     }
 
     this.userTransports.set(key, transport);
@@ -324,7 +338,15 @@ function isUserAwareTransport(transport: PanterTransport): transport is UserAwar
   return "withUser" in transport && typeof transport.withUser === "function";
 }
 
+function isClientCapabilityAwareTransport(transport: PanterTransport): transport is ClientCapabilityAwareTransport {
+  return "withClientCapabilities" in transport && typeof transport.withClientCapabilities === "function";
+}
+
 function isStringRecord(value: unknown): value is Record<string, string> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isClientCapabilities(value: unknown): value is ClientCapabilities {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 

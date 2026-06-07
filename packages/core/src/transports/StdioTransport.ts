@@ -4,6 +4,7 @@ import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -42,6 +43,7 @@ export type StdioTransportOptions = {
   stderr?: "inherit" | "pipe" | "overlapped" | "ignore";
   clientName?: string;
   clientVersion?: string;
+  clientCapabilities?: ClientCapabilities;
 };
 
 /**
@@ -77,6 +79,17 @@ export class StdioTransport implements PanterTransport {
         ...this.options.env,
         ...env,
       },
+    });
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  withClientCapabilities(capabilities: ClientCapabilities): StdioTransport {
+    const transport = new StdioTransport({
+      ...this.options,
+      clientCapabilities: capabilities,
     });
     for (const handler of this.notificationHandlers) {
       transport.onNotification(handler);
@@ -230,7 +243,7 @@ export class StdioTransport implements PanterTransport {
         name: this.options.clientName ?? "panther-core",
         version: this.options.clientVersion ?? "0.1.0",
       },
-      { capabilities: {} },
+      { capabilities: this.options.clientCapabilities ?? {} },
     );
 
     this.registerNotificationHandlers(client);

@@ -1,6 +1,7 @@
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   CreateMessageRequest,
@@ -835,6 +836,7 @@ export type PanterTransport = {
   ping?(): Promise<{ _meta?: Record<string, unknown> }>;
   cancelRequest?(requestId: string | number, reason?: string): Promise<void>;
   onNotification?(handler: McpUpstreamNotificationHandler): () => void;
+  withClientCapabilities?(capabilities: ClientCapabilities): PanterTransport;
   close(): Promise<void>;
 };
 

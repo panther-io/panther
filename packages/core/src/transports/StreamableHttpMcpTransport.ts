@@ -4,6 +4,7 @@ import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -44,6 +45,7 @@ export type StreamableHttpMcpTransportOptions = {
   sessionId?: string;
   clientName?: string;
   clientVersion?: string;
+  clientCapabilities?: ClientCapabilities;
 };
 
 /**
@@ -78,6 +80,14 @@ export class StreamableHttpMcpTransport implements PanterTransport {
    */
   withUser(user: UserContext): StreamableHttpMcpTransport {
     const transport = new StreamableHttpMcpTransport(this.options, user);
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  withClientCapabilities(capabilities: ClientCapabilities): StreamableHttpMcpTransport {
+    const transport = new StreamableHttpMcpTransport({ ...this.options, clientCapabilities: capabilities }, this.user);
     for (const handler of this.notificationHandlers) {
       transport.onNotification(handler);
     }
@@ -221,7 +231,7 @@ export class StreamableHttpMcpTransport implements PanterTransport {
         name: this.options.clientName ?? "panther-core",
         version: this.options.clientVersion ?? "0.1.0",
       },
-      { capabilities: {} },
+      { capabilities: this.options.clientCapabilities ?? {} },
     );
     const transport = new StreamableHTTPClientTransport(new URL(this.options.url), {
       fetch: this.options.fetch,
