@@ -23,11 +23,11 @@
 
 ## 4. Sampling
 
-- [ ] 4.1 Implement policy and approval checks for upstream sampling requests
-- [ ] 4.2 Implement `sampling/createMessage` downstream pass-through
-- [ ] 4.3 Implement `sampling/createMessage` through a Panther sampling resolver
-- [ ] 4.4 Ensure denied sampling requests do not reach downstream clients or resolvers
-- [ ] 4.5 Add tests for allowed, denied, timed-out, and resolver-based sampling
+- [x] 4.1 Implement policy and approval checks for upstream sampling requests
+- [x] 4.2 Implement `sampling/createMessage` downstream pass-through
+- [x] 4.3 Implement `sampling/createMessage` through a Panther sampling resolver
+- [x] 4.4 Ensure denied sampling requests do not reach downstream clients or resolvers
+- [x] 4.5 Add tests for allowed, denied, timed-out, and resolver-based sampling
 
 ## 5. Elicitation
 

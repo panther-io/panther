@@ -2243,16 +2243,28 @@ export class McpProxy {
 
     if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && bridge.createMessage) {
       configured.createMessage = (params) =>
-        this.withClientFeatureTimeout(
-          () => bridge.createMessage?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
-          featureConfig.sampling?.timeoutMs,
-          "sampling/createMessage",
+        this.executeSamplingRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => bridge.createMessage?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+            featureConfig.sampling?.timeoutMs,
+            "sampling/createMessage",
+          ),
         );
     }
     if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && !bridge.createMessage) {
       configured.createMessage = async () => {
         throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy sampling/createMessage");
       };
+    }
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "resolver" && featureConfig.sampling.resolver) {
+      configured.createMessage = (params) =>
+        this.executeSamplingRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => featureConfig.sampling?.resolver?.(params, context) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+            featureConfig.sampling?.timeoutMs,
+            "sampling/createMessage",
+          ),
+        );
     }
 
     if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && bridge.elicit) {
@@ -2298,6 +2310,38 @@ export class McpProxy {
         clearTimeout(timeout);
       }
     }
+  }
+
+  private async executeSamplingRequest<T>(
+    params: Parameters<NonNullable<ClientFeatureBridge["createMessage"]>>[0],
+    featureConfig: ClientFeaturesConfig,
+    context: ClientFeatureResolverContext,
+    terminal: () => Promise<T> | T,
+  ): Promise<T> {
+    try {
+      await this.enforceCapabilityPolicy(
+        {
+          serverName: context.serverName,
+          operation: "sampling:createMessage",
+          target: "sampling/createMessage",
+          targetKind: "clientFeature",
+          raw: params,
+        },
+        context.user,
+        context.subject,
+        context.identity,
+      );
+    } catch (error) {
+      await this.emitDeniedCapabilityError(error);
+      throw toMcpError(error);
+    }
+
+    const approved = featureConfig.sampling?.approval ? await featureConfig.sampling.approval(params, context) : true;
+    if (!approved) {
+      throw new McpError(PantherErrorCode.PolicyDenied, "sampling/createMessage denied by approval");
+    }
+
+    return terminal();
   }
 
   private async resolveClientFeatureConfig(
@@ -2786,6 +2830,15 @@ function toStructuredError(error: unknown): { code?: number; message?: string } 
   const code = "code" in error && typeof error.code === "number" ? error.code : undefined;
   const message = "message" in error && typeof error.message === "string" ? error.message : undefined;
   return { code, message };
+}
+
+function toMcpError(error: unknown): McpError {
+  if (error instanceof McpError) {
+    return error;
+  }
+
+  const structured = toStructuredError(error);
+  return new McpError(structured?.code ?? PantherErrorCode.InternalError, structured?.message ?? "MCP client feature request failed");
 }
 
 function isLikelyLegacyTwoArgMiddlewareError(error: unknown): boolean {

@@ -453,6 +453,134 @@ describe("McpProxy", () => {
     });
   });
 
+  it("implements sampling/createMessage through downstream pass-through after policy and approval", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn(async () => ({
+      role: "assistant" as const,
+      content: { type: "text" as const, text: "sampled" },
+      model: "test-model",
+    }));
+    const approval = vi.fn(async () => true);
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "sampling" })
+        .server("github")
+        .allowCapability({ operation: "sampling:createMessage", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through", approval },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      createMessage: downstream,
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).resolves.toMatchObject({
+      content: { text: "sampled" },
+    });
+    expect(approval).toHaveBeenCalledWith(expect.objectContaining({ messages: [] }), expect.objectContaining({ serverName: "github" }));
+    expect(downstream).toHaveBeenCalledWith({ messages: [] });
+  });
+
+  it("implements sampling/createMessage through a configured resolver", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const resolver = vi.fn(async () => ({
+      role: "assistant" as const,
+      content: { type: "text" as const, text: "resolver sampled" },
+      model: "resolver-model",
+    }));
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "resolver", resolver },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      createMessage: async () => {
+        throw new Error("should not call downstream");
+      },
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).resolves.toMatchObject({
+      content: { text: "resolver sampled" },
+    });
+    expect(resolver).toHaveBeenCalledWith(expect.objectContaining({ messages: [] }), expect.objectContaining({ serverName: "github" }));
+  });
+
+  it("does not call downstream sampling when policy denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "blocked" })
+        .server("github")
+        .denyCapability({ operation: "sampling:createMessage", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      createMessage: downstream,
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("does not call downstream sampling when approval denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through", approval: async () => false },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      createMessage: downstream,
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: expect.stringContaining("denied by approval"),
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("times out sampling/createMessage requests", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through", timeoutMs: 1 },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      createMessage: () => new Promise(() => undefined),
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).rejects.toMatchObject({
+      code: -32001,
+      message: expect.stringMatching(/sampling\/createMessage.*timed out after 1ms/),
+    });
+  });
+
   it("routes namespaced tool calls to the original upstream tool name", async () => {
     const transport = new MockTransport();
     const proxy = new McpProxy({

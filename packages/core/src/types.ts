@@ -429,7 +429,10 @@ export type McpOperationName =
   | "resource-templates:list"
   | "prompts:list"
   | "prompt:get"
-  | "completion:complete";
+  | "completion:complete"
+  | "roots:list"
+  | "sampling:createMessage"
+  | "elicitation:create";
 
 /**
  * Safe downstream transport metadata attached to a proxy operation.
@@ -958,7 +961,7 @@ export type ToolPermission = {
  * Capability target selector kind for policy permissions.
  * @pk
  */
-export type CapabilityTargetKind = "tool" | "resource" | "resourceTemplate" | "prompt" | "completion";
+export type CapabilityTargetKind = "tool" | "resource" | "resourceTemplate" | "prompt" | "completion" | "clientFeature";
 
 /**
  * Operation-based permission model for governed MCP capabilities.
