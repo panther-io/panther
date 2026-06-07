@@ -106,7 +106,10 @@ export type PolicyMetadata = {
     policyName: string;
     groupId?: string;
     serverName: string;
-    toolName: string;
+    operation: McpOperationName;
+    target?: string;
+    targetKind?: CapabilityTargetKind;
+    toolName?: string;
     effect: "allow" | "deny";
     metadata?: Record<string, unknown>;
   }>;
@@ -234,7 +237,31 @@ export type ListToolsContext = {
  * Operation names handled by the unified proxy context.
  * @pk
  */
-export type ProxyOperation = "tool:call" | "tools:list" | "session:start" | "session:end";
+export type ProxyOperation =
+  | "tool:call"
+  | "tools:list"
+  | "resources:list"
+  | "resource:read"
+  | "resource-templates:list"
+  | "prompts:list"
+  | "prompt:get"
+  | "completion:complete"
+  | "session:start"
+  | "session:end";
+
+/**
+ * Governed MCP operation names used by capability permissions.
+ * @pk
+ */
+export type McpOperationName =
+  | "tools:list"
+  | "tool:call"
+  | "resources:list"
+  | "resource:read"
+  | "resource-templates:list"
+  | "prompts:list"
+  | "prompt:get"
+  | "completion:complete";
 
 /**
  * Safe downstream transport metadata attached to a proxy operation.
@@ -288,6 +315,37 @@ export type ProxyServerContext = {
 export type ProxyToolContext = {
   name: string;
   proxyName: string;
+};
+
+/**
+ * Selected resource metadata.
+ * @pk
+ */
+export type ProxyResourceContext = {
+  uri?: string;
+  proxyUri?: string;
+  uriTemplate?: string;
+  proxyUriTemplate?: string;
+};
+
+/**
+ * Selected prompt metadata.
+ * @pk
+ */
+export type ProxyPromptContext = {
+  name: string;
+  proxyName: string;
+};
+
+/**
+ * Selected completion metadata.
+ * @pk
+ */
+export type ProxyCompletionContext = {
+  refType: "ref/prompt" | "ref/resource";
+  target: string;
+  proxyTarget?: string;
+  argumentName: string;
 };
 
 /**
@@ -442,8 +500,19 @@ export type ProxyContext = MiddlewareContext & {
   };
   server?: ProxyServerContext;
   tool?: ProxyToolContext;
+  resource?: ProxyResourceContext;
+  prompt?: ProxyPromptContext;
+  completion?: ProxyCompletionContext;
   args?: CallToolRequest["params"]["arguments"];
-  raw?: CallToolRequest["params"] | ListToolsRequest["params"];
+  raw?:
+    | CallToolRequest["params"]
+    | CompleteRequest["params"]
+    | GetPromptRequest["params"]
+    | ListPromptsRequest["params"]
+    | ListResourcesRequest["params"]
+    | ListResourceTemplatesRequest["params"]
+    | ListToolsRequest["params"]
+    | ReadResourceRequest["params"];
   state: Record<string, unknown>;
   response: ResponseController;
   deny(message: string): CallToolResult;
@@ -452,6 +521,20 @@ export type ProxyContext = MiddlewareContext & {
   inject(message: string): void;
   error(code: number, message: string): CallToolResult;
 };
+
+/**
+ * Result shapes returned by governed proxy operation handlers.
+ * @pk
+ */
+export type ProxyOperationResult =
+  | CallToolResult
+  | CompleteResult
+  | GetPromptResult
+  | ListPromptsResult
+  | ListResourcesResult
+  | ListResourceTemplatesResult
+  | ListToolsResult
+  | ReadResourceResult;
 
 /**
  * Next middleware handler.
@@ -463,7 +546,7 @@ export type Next = () => Promise<CallToolResult>;
  * Next handler for unified proxy middleware.
  * @pk
  */
-export type ProxyNext = () => Promise<CallToolResult>;
+export type ProxyNext = () => Promise<ProxyOperationResult>;
 
 /**
  * Legacy middleware function signature.
@@ -482,7 +565,7 @@ export type LegacyMiddleware = (
 export type ProxyMiddleware = (
   context: ProxyContext,
   next: ProxyNext,
-) => MaybePromise<CallToolResult | void>;
+) => MaybePromise<ProxyOperationResult | void>;
 
 /**
  * Middleware function signature.
@@ -495,6 +578,12 @@ export type Middleware = LegacyMiddleware | ProxyMiddleware;
  * @pk
  */
 export type ProxyToolHandler = ProxyMiddleware;
+
+/**
+ * Express-like handler for a governed MCP operation route.
+ * @pk
+ */
+export type ProxyOperationHandler = ProxyMiddleware;
 
 /**
  * Public tool pattern using `server.tool` dot notation and `*` wildcards.
@@ -513,7 +602,19 @@ export type ProxyEventName =
   | "tool:start"
   | "tool:success"
   | "tool:error"
-  | "tool:after";
+  | "tool:after"
+  | "resource:start"
+  | "resource:success"
+  | "resource:error"
+  | "resource:after"
+  | "prompt:start"
+  | "prompt:success"
+  | "prompt:error"
+  | "prompt:after"
+  | "completion:start"
+  | "completion:success"
+  | "completion:error"
+  | "completion:after";
 
 /**
  * Filter for unified proxy events.
@@ -532,7 +633,7 @@ export type ProxyEventFilter = {
 export type ProxyEventPayload = {
   ctx: ProxyContext;
   tools?: ListToolsResult["tools"];
-  result?: CallToolResult;
+  result?: ProxyOperationResult;
   error?: Error;
   durationMs?: number;
   success?: boolean;
@@ -554,6 +655,7 @@ export type ProxyServerHandle = {
   readonly name: string;
   use(handler: Middleware): ProxyServerHandle;
   tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): ProxyServerHandle;
+  operation(operation: ProxyOperation, handler: ProxyOperationHandler): ProxyServerHandle;
   on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyServerHandle;
   on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyServerHandle;
 };
@@ -617,6 +719,39 @@ export type ToolPermission = {
 };
 
 /**
+ * Capability target selector kind for policy permissions.
+ * @pk
+ */
+export type CapabilityTargetKind = "tool" | "resource" | "resourceTemplate" | "prompt" | "completion";
+
+/**
+ * Operation-based permission model for governed MCP capabilities.
+ * @pk
+ */
+export type CapabilityPermission = {
+  server?: string;
+  operation: McpOperationName | "*";
+  target?: string;
+  targetKind?: CapabilityTargetKind;
+  effect?: "allow" | "deny";
+  limiter?: RateLimiter;
+  approval?: (request: CapabilityOperationRequest, context: MiddlewareContext) => MaybePromise<boolean>;
+  metadata?: Record<string, unknown>;
+};
+
+/**
+ * Normalized request used for operation-based policy evaluation.
+ * @pk
+ */
+export type CapabilityOperationRequest = {
+  serverName: string;
+  operation: McpOperationName;
+  target?: string;
+  targetKind?: CapabilityTargetKind;
+  raw?: unknown;
+};
+
+/**
  * Policy evaluation result.
  * @pk
  */
@@ -634,8 +769,9 @@ export interface Policy {
   name: string;
   description?: string;
   getPermissions(serverName: string): ToolPermission[];
+  getCapabilityPermissions?(serverName: string): CapabilityPermission[];
   evaluate(
-    request: ToolCallRequest,
+    request: ToolCallRequest | CapabilityOperationRequest,
     user: UserContext,
     context?: MiddlewareContext,
   ): MaybePromise<PolicyDecision>;

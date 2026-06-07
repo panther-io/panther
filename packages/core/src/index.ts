@@ -127,6 +127,10 @@ export type {
   Policy as PolicyContract,
   PolicyDecision,
   PolicyMetadata,
+  CapabilityOperationRequest,
+  CapabilityPermission,
+  CapabilityTargetKind,
+  McpOperationName,
   ProxyAuthContext,
   ProxyContext,
   ProxyEventFilter,
@@ -139,7 +143,12 @@ export type {
   ProxyMiddleware,
   ProxyNext,
   ProxyOperation,
+  ProxyOperationHandler,
+  ProxyOperationResult,
   ProxyPolicyContext,
+  ProxyCompletionContext,
+  ProxyPromptContext,
+  ProxyResourceContext,
   ProxyServerContext,
   ProxyServerHandle,
   ProxyToolHandler,
@@ -179,17 +188,19 @@ export {
   PolicyServerBuilder,
   User,
   allow,
+  allowCapability,
   allowAll,
   approval,
   buildSubjectIndex,
   deny,
+  denyCapability,
   group,
   limit,
   policy,
   sensitive,
   user,
 } from "./governance.js";
-export type { SubjectIndex, ToolPermissionOptions } from "./governance.js";
+export type { CapabilityPermissionOptions, SubjectIndex, ToolPermissionOptions } from "./governance.js";
 /**
  * Local auth and API-key identity APIs.
  * @pk
@@ -205,7 +216,16 @@ export { InProcessIsolation } from "./isolation.js";
  * Policy engine and evaluation.
  * @pk
  */
-export { SimplePolicy, filterToolsByPolicy, getToolPermission, isToolAllowedByPermissions } from "./policy.js";
+export {
+  SimplePolicy,
+  filterToolsByPolicy,
+  getCapabilityPermission,
+  getToolPermission,
+  isCapabilityAllowedByPermissions,
+  isToolAllowedByPermissions,
+  toCapabilityPermissions,
+  toCapabilityRequest,
+} from "./policy.js";
 /**
  * Registry implementations.
  * @pk
