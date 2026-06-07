@@ -2,15 +2,23 @@ import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServ
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
+  CancelledNotificationSchema,
   CompleteRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
+  PingRequestSchema,
   ReadResourceRequestSchema,
+  RootsListChangedNotificationSchema,
+  SetLevelRequestSchema,
+  SubscribeRequestSchema,
+  UnsubscribeRequestSchema,
   type CallToolRequest,
   type CallToolResult,
+  ErrorCode,
+  McpError,
   type CompleteRequest,
   type CompleteResult,
   type GetPromptRequest,
@@ -25,8 +33,12 @@ import {
   type ListToolsResult,
   type ReadResourceRequest,
   type ReadResourceResult,
+  type Root,
+  type SubscribeRequest,
+  type UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
+import { createClientCapabilities } from "./clientFeatures.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import {
@@ -54,6 +66,10 @@ import {
   ResponseController,
   type CapabilityOperationRequest,
   type CapabilityPermission,
+  type ClientFeatureBridge,
+  type ClientFeatureConfig,
+  type ClientFeatureResolverContext,
+  type ClientFeaturesConfig,
   type CredentialSourceMetadata,
   type ErrorMapper,
   type ListToolsHook,
@@ -64,6 +80,7 @@ import {
   type LegacyMiddleware,
   type LifecycleHook,
   type LifecycleHookEvent,
+  type ListRootsResponse,
   type Policy,
   type ProxyContext,
   type ProxyEventFilter,
@@ -85,6 +102,11 @@ import {
   type ToolCallRequest,
   type UserContext,
   type ResolvedSubject,
+  type McpDownstreamNotification,
+  type McpUpstreamNotification,
+  type SessionActiveRequest,
+  type SessionUtilityRegistry,
+  type SessionUtilityState,
 } from "./types.js";
 
 class PolicyDeniedError extends Error {
@@ -116,6 +138,8 @@ export type McpProxyOptions = {
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
   errorMapper?: ErrorMapper;
+  clientFeatures?: ClientFeatureConfig;
+  requestTimeoutMs?: number;
   name?: string;
   version?: string;
 };
@@ -193,12 +217,17 @@ export class McpProxy {
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly errorMapper: ErrorMapper;
+  private readonly clientFeatures: ClientFeatureConfig;
+  private readonly requestTimeoutMs?: number;
   private readonly name: string;
   private readonly version: string;
   private readonly defaultPort?: number;
   private readonly defaultPath: string;
   private httpServer: HttpServer | null = null;
   private readonly exposureHandles = new Set<ProxyExposureHandle>();
+  private readonly sessionUtilities = new Map<string, SessionUtilityState>();
+  private readonly sessionNotificationSenders = new Map<string, (notification: McpDownstreamNotification) => Promise<void>>();
+  private readonly resourceSubscriptions = new Map<string, { serverName: string; uri: string; proxyUri: string; sessions: Set<string> }>();
 
   /**
    * Create a new MCP proxy instance.
@@ -216,6 +245,8 @@ export class McpProxy {
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
+    this.clientFeatures = options.clientFeatures ?? {};
+    this.requestTimeoutMs = options.requestTimeoutMs;
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
@@ -226,6 +257,7 @@ export class McpProxy {
         throw new Error(`Duplicate MCP server name "${server.name}"`);
       }
       this.serverByName.set(server.name, server);
+      server.onNotification((notification) => this.handleUpstreamNotification(notification));
     }
   }
 
@@ -403,6 +435,8 @@ export class McpProxy {
     await Promise.all([...this.exposureHandles].map((handle) => handle.close()));
     this.exposureHandles.clear();
     this.httpServer = null;
+    this.sessionUtilities.clear();
+    this.sessionNotificationSenders.clear();
     await Promise.all(this.servers.map((server) => server.close()));
   }
 
@@ -415,6 +449,9 @@ export class McpProxy {
     user: UserContext = {},
     identity?: IdentityMetadata,
     subject?: ResolvedSubject,
+    sessionId?: string,
+    downstreamRequestId?: string | number,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<ListToolsResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -422,7 +459,16 @@ export class McpProxy {
     const results = await Promise.all(
       this.servers.map(async (server) => {
         const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-        const result = await server.listTools(params, userForServer);
+        const upstreamUser = await this.withUpstreamClientCapabilities(
+          server.name,
+          userForServer,
+          resolvedSubject,
+          identity,
+          sessionId,
+          downstreamRequestId,
+          clientFeatureBridge,
+        );
+        const result = await server.listTools(params, upstreamUser);
         const tools = this.groups.length > 0
           ? filterToolsByGroupPolicies(result.tools, server.name, userGroups)
           : this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
@@ -487,6 +533,9 @@ export class McpProxy {
     user: UserContext = {},
     identity?: IdentityMetadata,
     subject?: ResolvedSubject,
+    sessionId?: string,
+    downstreamRequestId?: string | number,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<CallToolResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -535,12 +584,21 @@ export class McpProxy {
     };
 
     const startedAt = Date.now();
+    const activeRequest = this.trackActiveRequest(params, sessionId, downstreamRequestId, serverName);
     this.writeAutoLog("start", log, request, context, startedAt);
     try {
       let upstreamUser = resolvedUser;
       if (!context.policyDecision || context.policyDecision.allowed) {
         const upstream = this.applyUpstreamAuth(serverName, resolvedUser, resolvedSubject);
-        upstreamUser = upstream.user;
+        upstreamUser = await this.withUpstreamClientCapabilities(
+          serverName,
+          upstream.user,
+          resolvedSubject,
+          identity,
+          sessionId,
+          downstreamRequestId,
+          clientFeatureBridge,
+        );
         context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
         context.credentials.sources = context.credentialSources ?? [];
       }
@@ -561,8 +619,11 @@ export class McpProxy {
             );
           }
 
-          return this.forwardToolCall(params, upstreamUser);
+          return this.withRequestTimeout(() => this.forwardToolCall(params, upstreamUser), activeRequest);
         }));
+      if (sessionId && downstreamRequestId !== undefined && this.sessionUtilities.get(sessionId)?.cancellations.has(downstreamRequestId)) {
+        return context.res.fail(-32800, "Tool call cancelled");
+      }
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
       await this.emitProxyEvent("tool:success", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
@@ -590,6 +651,8 @@ export class McpProxy {
       const failed = context.res.fail(mappedError.code, mappedError.message);
       await this.emitProxyEvent("tool:after", { ctx: context, result: failed, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
       return failed;
+    } finally {
+      this.cleanupActiveRequest(sessionId, downstreamRequestId, activeRequest);
     }
   }
 
@@ -704,6 +767,86 @@ export class McpProxy {
         })),
       };
     }) as Promise<ReadResourceResult>;
+  }
+
+  async subscribeResource(
+    params: SubscribeRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+    sessionId?: string,
+  ): Promise<{ _meta?: Record<string, unknown> }> {
+    if (!sessionId) {
+      throw new Error("Resource subscriptions require an active downstream session");
+    }
+
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const { serverName, uri } = fromProxyResourceUri(params.uri);
+    const server = this.requireServer(serverName);
+    const key = resourceSubscriptionKey(serverName, uri);
+    let subscription = this.resourceSubscriptions.get(key);
+    if (!subscription) {
+      const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      await server.subscribeResource({ ...params, uri }, userForServer);
+      subscription = { serverName, uri, proxyUri: params.uri, sessions: new Set() };
+      this.resourceSubscriptions.set(key, subscription);
+    }
+
+    subscription.sessions.add(sessionId);
+    this.ensureSessionUtilityState(sessionId).resourceSubscriptions.add(params.uri);
+    return {};
+  }
+
+  async unsubscribeResource(
+    params: UnsubscribeRequest["params"],
+    user: UserContext = {},
+    _identity?: IdentityMetadata,
+    subject?: ResolvedSubject,
+    sessionId?: string,
+  ): Promise<{ _meta?: Record<string, unknown> }> {
+    if (!sessionId) {
+      throw new Error("Resource subscriptions require an active downstream session");
+    }
+
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    const { serverName, uri } = fromProxyResourceUri(params.uri);
+    const key = resourceSubscriptionKey(serverName, uri);
+    const subscription = this.resourceSubscriptions.get(key);
+    if (!subscription) {
+      this.sessionUtilities.get(sessionId)?.resourceSubscriptions.delete(params.uri);
+      return {};
+    }
+
+    subscription.sessions.delete(sessionId);
+    this.sessionUtilities.get(sessionId)?.resourceSubscriptions.delete(params.uri);
+    if (subscription.sessions.size === 0) {
+      const server = this.requireServer(serverName);
+      const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      await server.unsubscribeResource({ ...params, uri }, userForServer);
+      this.resourceSubscriptions.delete(key);
+    }
+
+    return {};
+  }
+
+  async emitLogMessage(level: SessionUtilityState["logLevel"], data: unknown, logger?: string): Promise<void> {
+    await Promise.all(
+      [...this.sessionUtilities].map(([sessionId, state]) => {
+        if (!isLogLevelEnabled(level, state.logLevel)) {
+          return undefined;
+        }
+        return this.sendSessionNotification(sessionId, {
+          method: "notifications/message",
+          params: {
+            level,
+            logger,
+            data: redactLogData(data),
+          },
+        });
+      }),
+    );
   }
 
   /**
@@ -930,9 +1073,27 @@ export class McpProxy {
           "Panther MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use panther:// proxy URIs.",
       },
     );
+    const clientFeatureBridge = this.createDownstreamClientFeatureBridge(server);
 
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity, subject));
+    server.setRequestHandler(ListToolsRequestSchema, async (request, extra) =>
+      this.listTools(request.params, user, identity, subject, extra.sessionId, extra.requestId, clientFeatureBridge));
+    server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
+      this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId, clientFeatureBridge));
+    server.setRequestHandler(PingRequestSchema, async () => ({}));
+    server.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
+      if (extra.sessionId) {
+        this.ensureSessionUtilityState(extra.sessionId).logLevel = request.params.level;
+      }
+      return {};
+    });
+    server.setNotificationHandler(CancelledNotificationSchema, async (notification) => {
+      if (notification.params.requestId !== undefined) {
+        await this.cancelDownstreamRequest(undefined, notification.params.requestId, notification.params.reason, user);
+      }
+    });
+    server.setNotificationHandler(RootsListChangedNotificationSchema, (async (_notification: unknown, extra?: { sessionId?: string }) => {
+      await this.forwardRootsListChangedNotification(user, identity, subject, extra?.sessionId, clientFeatureBridge);
+    }) as Parameters<typeof server.setNotificationHandler>[1]);
     if (capabilities.resources) {
       server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
         this.listResources(request.params, user, identity, subject));
@@ -940,6 +1101,10 @@ export class McpProxy {
         this.readResource(request.params, user, identity, subject));
       server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) =>
         this.listResourceTemplates(request.params, user, identity, subject));
+      server.setRequestHandler(SubscribeRequestSchema, async (request, extra) =>
+        this.subscribeResource(request.params, user, identity, subject, extra.sessionId));
+      server.setRequestHandler(UnsubscribeRequestSchema, async (request, extra) =>
+        this.unsubscribeResource(request.params, user, identity, subject, extra.sessionId));
     }
     if (capabilities.prompts) {
       server.setRequestHandler(ListPromptsRequestSchema, async (request) =>
@@ -1002,6 +1167,9 @@ export class McpProxy {
    * @pk
    */
   async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
+    if (context.sessionId) {
+      this.cleanupSessionSubscriptions(context.sessionId);
+    }
     await this.emitLifecycle("sessionEnd", context);
     const proxyContext = this.createProxyContext({
       operation: "session:end",
@@ -1052,9 +1220,255 @@ export class McpProxy {
       resolveStdioUser: () => this.resolveStdioUser(),
       emitSessionStart: (context) => this.emitSessionStart(context),
       emitSessionEnd: (context) => this.emitSessionEnd(context),
+      sendSessionNotification: (sessionId, notification) => this.sendSessionNotification(sessionId, notification),
+      registerSessionNotificationSender: (sessionId, sender) => this.registerSessionNotificationSender(sessionId, sender),
+      sessionUtilities: this.createSessionUtilityRegistry(),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
     };
+  }
+
+  private createDownstreamClientFeatureBridge(server: McpSdkServer): ClientFeatureBridge {
+    return {
+      listRoots: (params) => server.listRoots(params),
+      createMessage: (params) => server.createMessage(params),
+      elicit: (params) => server.elicitInput(params),
+    };
+  }
+
+  private async sendSessionNotification(
+    sessionId: string,
+    notification: McpDownstreamNotification,
+  ): Promise<boolean> {
+    const sender = this.sessionNotificationSenders.get(sessionId);
+    if (!sender) {
+      return false;
+    }
+
+    await sender(notification);
+    return true;
+  }
+
+  private async handleUpstreamNotification(notification: McpUpstreamNotification): Promise<void> {
+    if (notification.type === "tools:list-changed") {
+      await this.broadcastNotification({ method: "notifications/tools/list_changed" });
+      return;
+    }
+
+    if (notification.type === "resources:list-changed") {
+      await this.broadcastNotification({ method: "notifications/resources/list_changed" });
+      return;
+    }
+
+    if (notification.type === "prompts:list-changed") {
+      await this.broadcastNotification({ method: "notifications/prompts/list_changed" });
+      return;
+    }
+
+    if (notification.type === "logging:message") {
+      await this.emitLogMessage(notification.level, notification.data, notification.logger ?? notification.serverName);
+      return;
+    }
+
+    if (notification.type !== "resources:updated") {
+      if (notification.type === "progress") {
+        await this.forwardProgressNotification(notification);
+      }
+      return;
+    }
+
+    const serverName = notification.serverName;
+    if (!serverName) {
+      return;
+    }
+
+    const subscription = this.resourceSubscriptions.get(resourceSubscriptionKey(serverName, notification.uri));
+    if (!subscription) {
+      return;
+    }
+
+    await Promise.all(
+      [...subscription.sessions].map((sessionId) =>
+        this.sendSessionNotification(sessionId, {
+          method: "notifications/resources/updated",
+          params: { uri: subscription.proxyUri },
+        }),
+      ),
+    );
+  }
+
+  private async forwardProgressNotification(notification: Extract<McpUpstreamNotification, { type: "progress" }>): Promise<void> {
+    for (const [sessionId, state] of this.sessionUtilities) {
+      const downstreamToken = state.progressTokens.get(notification.progressToken);
+      if (downstreamToken === undefined) {
+        continue;
+      }
+
+      await this.sendSessionNotification(sessionId, {
+        method: "notifications/progress",
+        params: {
+          progressToken: downstreamToken,
+          progress: notification.progress,
+          total: notification.total,
+          message: notification.message,
+        },
+      });
+      return;
+    }
+  }
+
+  private trackActiveRequest(
+    params: { _meta?: { progressToken?: string | number } },
+    sessionId: string | undefined,
+    downstreamRequestId: string | number | undefined,
+    serverName: string,
+  ): SessionActiveRequest | undefined {
+    if (!sessionId || downstreamRequestId === undefined) {
+      return undefined;
+    }
+
+    const state = this.ensureSessionUtilityState(sessionId);
+    const request: SessionActiveRequest = {
+      downstreamRequestId,
+      upstreamRequestId: downstreamRequestId,
+      serverName,
+      progressToken: params._meta?.progressToken,
+      cancelled: false,
+      startedAt: Date.now(),
+    };
+    state.activeRequests.set(downstreamRequestId, request);
+    if (params._meta?.progressToken !== undefined) {
+      state.progressTokens.set(params._meta.progressToken, params._meta.progressToken);
+    }
+    return request;
+  }
+
+  private cleanupActiveRequest(
+    sessionId: string | undefined,
+    downstreamRequestId: string | number | undefined,
+    request: SessionActiveRequest | undefined,
+  ): void {
+    if (request?.timeout) {
+      clearTimeout(request.timeout);
+    }
+    if (!sessionId || downstreamRequestId === undefined) {
+      return;
+    }
+
+    const state = this.sessionUtilities.get(sessionId);
+    state?.activeRequests.delete(downstreamRequestId);
+    if (request?.progressToken !== undefined) {
+      state?.progressTokens.delete(request.progressToken);
+    }
+    state?.cancellations.delete(downstreamRequestId);
+  }
+
+  private async withRequestTimeout<T>(
+    operation: () => Promise<T>,
+    request: SessionActiveRequest | undefined,
+  ): Promise<T> {
+    if (!this.requestTimeoutMs || this.requestTimeoutMs <= 0) {
+      return operation();
+    }
+
+    return Promise.race([
+      operation(),
+      new Promise<T>((_, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error(`MCP request timed out after ${this.requestTimeoutMs}ms`));
+        }, this.requestTimeoutMs);
+        if (request) {
+          request.timeout = timeout;
+        }
+      }),
+    ]);
+  }
+
+  private async cancelDownstreamRequest(
+    sessionId: string | undefined,
+    requestId: string | number,
+    reason: string | undefined,
+    user: UserContext,
+  ): Promise<void> {
+    if (!sessionId) {
+      for (const [candidateSessionId, state] of this.sessionUtilities) {
+        if (state.activeRequests.has(requestId)) {
+          await this.cancelDownstreamRequest(candidateSessionId, requestId, reason, user);
+          return;
+        }
+      }
+      return;
+    }
+
+    const state = this.sessionUtilities.get(sessionId);
+    const request = state?.activeRequests.get(requestId);
+    if (!state || !request) {
+      return;
+    }
+
+    request.cancelled = true;
+    state.cancellations.add(requestId);
+    const serverName = request.serverName;
+    if (serverName && this.serverByName.has(serverName)) {
+      await this.serverByName.get(serverName)?.cancelRequest(request.upstreamRequestId ?? requestId, reason, user);
+    }
+  }
+
+  private async broadcastNotification(notification: McpDownstreamNotification): Promise<void> {
+    await Promise.all([...this.sessionUtilities.keys()].map((sessionId) => this.sendSessionNotification(sessionId, notification)));
+  }
+
+  private cleanupSessionSubscriptions(sessionId: string): void {
+    for (const [key, subscription] of this.resourceSubscriptions) {
+      subscription.sessions.delete(sessionId);
+      if (subscription.sessions.size === 0) {
+        this.resourceSubscriptions.delete(key);
+      }
+    }
+  }
+
+  private registerSessionNotificationSender(
+    sessionId: string,
+    sender: (notification: McpDownstreamNotification) => Promise<void> | void,
+  ): () => void {
+    this.sessionNotificationSenders.set(sessionId, async (notification) => {
+      await sender(notification);
+    });
+    return () => {
+      if (this.sessionNotificationSenders.get(sessionId) === sender) {
+        this.sessionNotificationSenders.delete(sessionId);
+      } else {
+        this.sessionNotificationSenders.delete(sessionId);
+      }
+    };
+  }
+
+  private createSessionUtilityRegistry(): SessionUtilityRegistry {
+    return {
+      ensure: (sessionId) => this.ensureSessionUtilityState(sessionId),
+      get: (sessionId) => this.sessionUtilities.get(sessionId),
+      delete: (sessionId) => {
+        const state = this.sessionUtilities.get(sessionId);
+        if (state) {
+          for (const request of state.activeRequests.values()) {
+            if (request.timeout) {
+              clearTimeout(request.timeout);
+            }
+          }
+        }
+        this.sessionUtilities.delete(sessionId);
+      },
+      size: () => this.sessionUtilities.size,
+    };
+  }
+
+  private ensureSessionUtilityState(sessionId: string): SessionUtilityState {
+    let state = this.sessionUtilities.get(sessionId);
+    if (!state) {
+      state = createSessionUtilityState();
+      this.sessionUtilities.set(sessionId, state);
+    }
+    return state;
   }
 
   private createServerCapabilities(): {
@@ -1065,10 +1479,10 @@ export class McpProxy {
     completions?: object;
   } {
     return {
-      tools: {},
+      tools: { listChanged: true },
       logging: {},
-      ...(this.servers.some((server) => server.supportsResources()) ? { resources: {} } : {}),
-      ...(this.servers.some((server) => server.supportsPrompts()) ? { prompts: {} } : {}),
+      ...(this.servers.some((server) => server.supportsResources()) ? { resources: { subscribe: true, listChanged: true } } : {}),
+      ...(this.servers.some((server) => server.supportsPrompts()) ? { prompts: { listChanged: true } } : {}),
       ...(this.servers.some((server) => server.supportsCompletions()) ? { completions: {} } : {}),
     };
   }
@@ -1758,6 +2172,400 @@ export class McpProxy {
     };
   }
 
+  private async withUpstreamClientCapabilities(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+    sessionId: string | undefined,
+    requestId: string | number | undefined,
+    clientFeatureBridge?: ClientFeatureBridge,
+  ): Promise<UserContext> {
+    const featureConfig = await this.resolveClientFeatureConfig(serverName, user, subject, identity, sessionId, requestId);
+    const bridge = clientFeatureBridge
+      ? this.createConfiguredClientFeatureBridge(clientFeatureBridge, featureConfig, {
+          serverName,
+          user,
+          subject,
+          identity,
+          sessionId,
+          requestId,
+          log: this.createContextualLogger({
+            operation: "tools:list",
+            user,
+            subject,
+            identity,
+            serverName,
+            sessionId,
+          }),
+        })
+      : undefined;
+    return {
+      ...user,
+      __pantherClientCapabilities: createClientCapabilities(featureConfig),
+      ...(bridge
+        ? {
+            __pantherClientFeatureBridge: bridge,
+            __pantherClientFeatureBridgeSessionId: sessionId ?? "default",
+          }
+        : {}),
+    };
+  }
+
+  private createConfiguredClientFeatureBridge(
+    bridge: ClientFeatureBridge,
+    featureConfig: ClientFeaturesConfig | undefined,
+    context: ClientFeatureResolverContext,
+  ): ClientFeatureBridge | undefined {
+    const configured: ClientFeatureBridge = {};
+
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && bridge.listRoots) {
+      configured.listRoots = (params) =>
+        this.withClientFeatureAudit(
+          "roots",
+          "roots/list",
+          "pass-through",
+          context,
+          undefined,
+          undefined,
+          () =>
+            this.withClientFeatureTimeout(
+              async () => this.validateRootsResponse(await bridge.listRoots?.(params), featureConfig.roots?.validateFileUris),
+              featureConfig.roots?.timeoutMs,
+              "roots/list",
+            ),
+          (result) => ({ rootsCount: result.roots.length }),
+        );
+    }
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && !bridge.listRoots) {
+      configured.listRoots = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy roots/list");
+      };
+    }
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "resolver" && featureConfig.roots.resolver) {
+      configured.listRoots = () =>
+        this.withClientFeatureAudit(
+          "roots",
+          "roots/list",
+          "resolver",
+          context,
+          undefined,
+          undefined,
+          () =>
+            this.withClientFeatureTimeout(
+              async () => this.validateRootsResponse(await featureConfig.roots?.resolver?.(context), featureConfig.roots?.validateFileUris),
+              featureConfig.roots?.timeoutMs,
+              "roots/list",
+            ),
+          (result) => ({ rootsCount: result.roots.length }),
+        );
+    }
+
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && bridge.createMessage) {
+      configured.createMessage = (params) =>
+        this.executeSamplingRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => bridge.createMessage?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+            featureConfig.sampling?.timeoutMs,
+            "sampling/createMessage",
+          ),
+        );
+    }
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && !bridge.createMessage) {
+      configured.createMessage = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy sampling/createMessage");
+      };
+    }
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "resolver" && featureConfig.sampling.resolver) {
+      configured.createMessage = (params) =>
+        this.executeSamplingRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => featureConfig.sampling?.resolver?.(params, context) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+            featureConfig.sampling?.timeoutMs,
+            "sampling/createMessage",
+          ),
+        );
+    }
+
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && bridge.elicit) {
+      configured.elicit = (params) =>
+        this.executeElicitationRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => bridge.elicit?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+            featureConfig.elicitation?.timeoutMs,
+            "elicitation/create",
+          ),
+        );
+    }
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && !bridge.elicit) {
+      configured.elicit = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy elicitation/create");
+      };
+    }
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "resolver" && featureConfig.elicitation.resolver) {
+      configured.elicit = (params) =>
+        this.executeElicitationRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => featureConfig.elicitation?.resolver?.(params, context) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+            featureConfig.elicitation?.timeoutMs,
+            "elicitation/create",
+          ),
+        );
+    }
+
+    return Object.keys(configured).length > 0 ? configured : undefined;
+  }
+
+  private async withClientFeatureTimeout<T>(
+    operation: () => Promise<T> | T,
+    timeoutMs: number | undefined,
+    method: string,
+  ): Promise<T> {
+    const effectiveTimeoutMs = timeoutMs ?? this.requestTimeoutMs;
+    if (!effectiveTimeoutMs || effectiveTimeoutMs <= 0) {
+      return operation();
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(operation),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new McpError(ErrorCode.RequestTimeout, `MCP client feature request "${method}" timed out after ${effectiveTimeoutMs}ms`)),
+            effectiveTimeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  private async executeSamplingRequest<T>(
+    params: Parameters<NonNullable<ClientFeatureBridge["createMessage"]>>[0],
+    featureConfig: ClientFeaturesConfig,
+    context: ClientFeatureResolverContext,
+    terminal: () => Promise<T> | T,
+  ): Promise<T> {
+    let policyAllowed: boolean | undefined;
+    let approvalAllowed: boolean | undefined;
+    try {
+      const policyContext = await this.enforceCapabilityPolicy(
+        {
+          serverName: context.serverName,
+          operation: "sampling:createMessage",
+          target: "sampling/createMessage",
+          targetKind: "clientFeature",
+          raw: params,
+        },
+        context.user,
+        context.subject,
+        context.identity,
+      );
+      policyAllowed = policyContext.policy.allowed;
+    } catch (error) {
+      await this.emitDeniedCapabilityError(error);
+      await this.withClientFeatureAudit("sampling", "sampling/createMessage", featureConfig.sampling?.mode, context, false, undefined, () => {
+        throw toMcpError(error);
+      });
+      throw toMcpError(error);
+    }
+
+    approvalAllowed = featureConfig.sampling?.approval ? await featureConfig.sampling.approval(params, context) : true;
+    if (!approvalAllowed) {
+      return this.withClientFeatureAudit("sampling", "sampling/createMessage", featureConfig.sampling?.mode, context, policyAllowed, false, () => {
+        throw new McpError(PantherErrorCode.PolicyDenied, "sampling/createMessage denied by approval");
+      });
+    }
+
+    return this.withClientFeatureAudit(
+      "sampling",
+      "sampling/createMessage",
+      featureConfig.sampling?.mode,
+      context,
+      policyAllowed,
+      approvalAllowed,
+      terminal,
+    );
+  }
+
+  private async executeElicitationRequest<T>(
+    params: Parameters<NonNullable<ClientFeatureBridge["elicit"]>>[0],
+    featureConfig: ClientFeaturesConfig,
+    context: ClientFeatureResolverContext,
+    terminal: () => Promise<T> | T,
+  ): Promise<T> {
+    validateElicitationParams(params);
+    let policyAllowed: boolean | undefined;
+    let approvalAllowed: boolean | undefined;
+    try {
+      const policyContext = await this.enforceCapabilityPolicy(
+        {
+          serverName: context.serverName,
+          operation: "elicitation:create",
+          target: "elicitation/create",
+          targetKind: "clientFeature",
+          raw: params,
+        },
+        context.user,
+        context.subject,
+        context.identity,
+      );
+      policyAllowed = policyContext.policy.allowed;
+    } catch (error) {
+      await this.emitDeniedCapabilityError(error);
+      await this.withClientFeatureAudit("elicitation", "elicitation/create", featureConfig.elicitation?.mode, context, false, undefined, () => {
+        throw toMcpError(error);
+      });
+      throw toMcpError(error);
+    }
+
+    approvalAllowed = featureConfig.elicitation?.approval ? await featureConfig.elicitation.approval(params, context) : true;
+    if (!approvalAllowed) {
+      return this.withClientFeatureAudit("elicitation", "elicitation/create", featureConfig.elicitation?.mode, context, policyAllowed, false, () => {
+        throw new McpError(PantherErrorCode.PolicyDenied, "elicitation/create denied by approval");
+      });
+    }
+
+    return this.withClientFeatureAudit(
+      "elicitation",
+      "elicitation/create",
+      featureConfig.elicitation?.mode,
+      context,
+      policyAllowed,
+      approvalAllowed,
+      terminal,
+    );
+  }
+
+  private async withClientFeatureAudit<T>(
+    feature: "roots" | "sampling" | "elicitation",
+    method: string,
+    fulfillmentMode: "pass-through" | "resolver" | undefined,
+    context: ClientFeatureResolverContext,
+    policyAllowed: boolean | undefined,
+    approvalAllowed: boolean | undefined,
+    terminal: () => Promise<T> | T,
+    resultMetadata?: (result: T) => Record<string, unknown>,
+  ): Promise<T> {
+    const startedAt = Date.now();
+    this.writeClientFeatureAuditLog("start", feature, method, fulfillmentMode, context, startedAt, policyAllowed, approvalAllowed);
+    try {
+      const result = await terminal();
+      this.writeClientFeatureAuditLog(
+        "success",
+        feature,
+        method,
+        fulfillmentMode,
+        context,
+        startedAt,
+        policyAllowed,
+        approvalAllowed,
+        undefined,
+        resultMetadata?.(result),
+      );
+      return result;
+    } catch (error) {
+      this.writeClientFeatureAuditLog(
+        "failure",
+        feature,
+        method,
+        fulfillmentMode,
+        context,
+        startedAt,
+        policyAllowed,
+        approvalAllowed,
+        normalizeError(error),
+      );
+      throw error;
+    }
+  }
+
+  private async resolveClientFeatureConfig(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+    sessionId: string | undefined,
+    requestId: string | number | undefined,
+  ): Promise<ClientFeaturesConfig | undefined> {
+    const config = this.clientFeatures[serverName];
+    if (typeof config !== "function") {
+      return config;
+    }
+
+    return config({
+      serverName,
+      user,
+      subject,
+      identity,
+      sessionId,
+      requestId,
+      log: this.createContextualLogger({
+        operation: "tools:list",
+        user,
+        subject,
+        identity,
+        serverName,
+        sessionId,
+      }),
+    });
+  }
+
+  private validateRootsResponse(
+    response: ListRootsResponse | Root[] | undefined,
+    validationMode: "reject" | "filter" | undefined,
+  ): ListRootsResponse {
+    const roots = Array.isArray(response) ? response : response?.roots ?? [];
+    const invalid = roots.filter((root) => !isFileRoot(root));
+    const mode = validationMode ?? "reject";
+    if (invalid.length > 0 && mode === "reject") {
+      throw new McpError(
+        PantherErrorCode.ClientFeatureUnsupported,
+        `roots/list response contains non-file root URI "${invalid[0]?.uri ?? ""}"`,
+      );
+    }
+
+    return {
+      ...(Array.isArray(response) ? {} : response),
+      roots: mode === "filter" ? roots.filter(isFileRoot) : roots,
+    };
+  }
+
+  private async forwardRootsListChangedNotification(
+    user: UserContext,
+    identity: IdentityMetadata | undefined,
+    subject: ResolvedSubject | undefined,
+    sessionId: string | undefined,
+    clientFeatureBridge: ClientFeatureBridge,
+  ): Promise<void> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    await Promise.all(
+      this.servers.map(async (server) => {
+        const config = await this.resolveClientFeatureConfig(server.name, resolvedUser, resolvedSubject, identity, sessionId, undefined);
+        if (!config?.roots?.enabled || config.roots.mode !== "pass-through" || !config.roots.listChanged) {
+          return;
+        }
+
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const upstreamUser = await this.withUpstreamClientCapabilities(
+          server.name,
+          userForServer,
+          resolvedSubject,
+          identity,
+          sessionId,
+          undefined,
+          clientFeatureBridge,
+        );
+        await server.notifyRootsListChanged(upstreamUser);
+      }),
+    );
+  }
+
   private writeAutoLog(
     event: "start" | "success" | "failure",
     log: Logger,
@@ -1820,6 +2628,44 @@ export class McpProxy {
       context.log.warn("MCP capability operation failed", metadata);
     } else {
       context.log.info("MCP capability operation", metadata);
+    }
+  }
+
+  private writeClientFeatureAuditLog(
+    event: "start" | "success" | "failure",
+    feature: "roots" | "sampling" | "elicitation",
+    method: string,
+    fulfillmentMode: "pass-through" | "resolver" | undefined,
+    context: ClientFeatureResolverContext,
+    startedAt: number,
+    policyAllowed: boolean | undefined,
+    approvalAllowed: boolean | undefined,
+    error?: Error,
+    extra?: Record<string, unknown>,
+  ): void {
+    const metadata = {
+      event: `clientFeature.${feature}.${event}`,
+      operation: method,
+      feature,
+      method,
+      fulfillmentMode,
+      durationMs: event === "start" ? undefined : Date.now() - startedAt,
+      subjectId: context.subject?.id,
+      userId: context.user.id,
+      serverName: context.serverName,
+      sessionId: context.sessionId,
+      requestId: context.requestId,
+      policy: policyAllowed,
+      approval: approvalAllowed,
+      success: event === "success" ? true : undefined,
+      error: error?.message,
+      ...extra,
+    };
+
+    if (event === "failure") {
+      context.log.warn("MCP client feature request failed", metadata);
+    } else {
+      context.log.info("MCP client feature request", metadata);
     }
   }
 
@@ -1976,6 +2822,51 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
   };
 }
 
+function createSessionUtilityState(): SessionUtilityState {
+  return {
+    resourceSubscriptions: new Set(),
+    activeRequests: new Map(),
+    progressTokens: new Map(),
+    cancellations: new Set(),
+    logLevel: "info",
+  };
+}
+
+function resourceSubscriptionKey(serverName: string, uri: string): string {
+  return `${serverName}\0${uri}`;
+}
+
+const mcpLogLevelWeight: Record<SessionUtilityState["logLevel"], number> = {
+  debug: 10,
+  info: 20,
+  notice: 25,
+  warning: 30,
+  error: 40,
+  critical: 50,
+  alert: 60,
+  emergency: 70,
+};
+
+function isLogLevelEnabled(level: SessionUtilityState["logLevel"], sessionLevel: SessionUtilityState["logLevel"]): boolean {
+  return mcpLogLevelWeight[level] >= mcpLogLevelWeight[sessionLevel];
+}
+
+function redactLogData(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactLogData(item));
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [
+      key,
+      /(token|secret|password|authorization|api[-_]?key|credential)/i.test(key) ? "[REDACTED]" : redactLogData(nested),
+    ]),
+  );
+}
+
 function routeCompletion(params: CompleteRequest["params"]): {
   serverName: string;
   params: CompleteRequest["params"];
@@ -2119,6 +3010,15 @@ function toStructuredError(error: unknown): { code?: number; message?: string } 
   return { code, message };
 }
 
+function toMcpError(error: unknown): McpError {
+  if (error instanceof McpError) {
+    return error;
+  }
+
+  const structured = toStructuredError(error);
+  return new McpError(structured?.code ?? PantherErrorCode.InternalError, structured?.message ?? "MCP client feature request failed");
+}
+
 function isLikelyLegacyTwoArgMiddlewareError(error: unknown): boolean {
   if (!(error instanceof TypeError)) {
     return false;
@@ -2170,6 +3070,50 @@ function validatePatternSegment(segment: string | undefined, label: string, patt
   if (!segment) {
     throw new Error(`Invalid ${label} segment in tool pattern "${pattern}"`);
   }
+}
+
+function isFileRoot(root: Root): boolean {
+  return root.uri.startsWith("file://");
+}
+
+function validateElicitationParams(params: Parameters<NonNullable<ClientFeatureBridge["elicit"]>>[0]): void {
+  if (!isObjectRecord(params) || typeof params.message !== "string" || !params.message.trim()) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requires a non-empty message");
+  }
+
+  if (params.mode === "url") {
+    if (typeof params.elicitationId !== "string" || !params.elicitationId.trim()) {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires elicitationId");
+    }
+    if (typeof params.url !== "string") {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires url");
+    }
+    try {
+      new URL(params.url);
+    } catch {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires a valid url");
+    }
+    return;
+  }
+
+  const schema = params.requestedSchema;
+  if (!isObjectRecord(schema) || schema.type !== "object" || !isObjectRecord(schema.properties)) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create form mode requires an object requestedSchema");
+  }
+
+  if (schema.required !== undefined && !Array.isArray(schema.required)) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema.required must be an array");
+  }
+
+  for (const property of Object.values(schema.properties)) {
+    if (!isObjectRecord(property) || ("properties" in property && isObjectRecord(property.properties))) {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema only supports top-level primitive properties");
+    }
+  }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function matchesToolPattern(pattern: CompiledToolPattern, request: ToolCallRequest): boolean {

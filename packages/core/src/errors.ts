@@ -6,6 +6,7 @@ import type { ErrorMapper } from "./types.js";
  */
 export const PantherErrorCode = {
   PolicyDenied: -32030,
+  ClientFeatureUnsupported: -32031,
   Unauthorized: -32040,
   UpstreamError: -32050,
   InternalError: -32603,

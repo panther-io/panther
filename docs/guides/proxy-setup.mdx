@@ -82,6 +82,82 @@ panther://resource-templates/github/file%3A%2F%2F%2Fissues%2F%7Bid%7D.md
 
 Clients should pass these values back unchanged to `resources/read`, `prompts/get`, and `completion/complete`. Panther restores the upstream prompt name, resource URI, or resource template URI before forwarding the request.
 
+## Support long-lived MCP sessions
+
+For downstream Streamable HTTP and SSE sessions, Panther tracks MCP utilities per session:
+
+- resource subscriptions and `notifications/resources/updated` delivery
+- tools/resources/prompts list-change notifications
+- request progress tokens and `notifications/progress`
+- downstream cancellation notifications
+- ping responses
+- per-session `logging/setLevel` and `notifications/message`
+
+This state is session-scoped and is cleaned up when the downstream session closes. Resource subscriptions are coalesced upstream, so two downstream sessions subscribing to the same proxied resource only create one upstream subscription.
+
+Native MCP upstream transports (`StdioTransport`, `StreamableHttpMcpTransport`, and `SseMcpTransport`) can observe upstream list-change, resource update, progress, and log notifications through the MCP SDK. Transports or compatibility adapters that cannot observe a notification type still support request/response operations, but related notifications are best-effort and may not be emitted.
+
+Use `requestTimeoutMs` when you need local timeout behavior across upstream transports:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  requestTimeoutMs: 30_000,
+});
+```
+
+## Enable upstream client features deliberately
+
+Roots, sampling, and elicitation let upstream servers ask their client for filesystem boundaries, model sampling, or user input. Panther keeps these features disabled by default. Enable them per upstream server only when you have a clear fulfillment path and policy.
+
+Use pass-through when the downstream MCP client owns the user consent flow:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  clientFeatures: {
+    filesystem: {
+      roots: {
+        enabled: true,
+        mode: "pass-through",
+        listChanged: true,
+        validateFileUris: "reject",
+      },
+      sampling: {
+        enabled: true,
+        mode: "pass-through",
+        approval: async (_params, ctx) => ctx.user.role === "developer",
+      },
+    },
+  },
+});
+```
+
+Use resolvers when Panther should answer locally:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [assistantServer],
+  clientFeatures: {
+    assistantServer: {
+      roots: {
+        enabled: true,
+        mode: "resolver",
+        resolver: () => ({ roots: [{ uri: "file:///srv/workspace", name: "Workspace" }] }),
+      },
+      elicitation: {
+        enabled: true,
+        mode: "resolver",
+        approval: async (_params, ctx) => ctx.subject?.id === "operator",
+        resolver: async () => ({ action: "accept", content: { approved: true } }),
+      },
+    },
+  },
+});
+```
+
+For sampling and elicitation, combine `Policy.allowCapability` or `Policy.denyCapability` with the feature `approval` hook. Panther evaluates policy first, then approval, and denied requests do not reach downstream clients or resolvers. Audit logs include request metadata and outcomes, but not sampling prompts or elicitation payloads by default.
+
 ## Add environment-aware tool lists
 
 If you need stricter tool lists in production, filter at discovery time. This prevents tools from even showing up in the client UI.

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -29,7 +30,7 @@ import {
   toProxyToolName,
 } from "./nameMapping.js";
 import type { LogEntry, LoggerDriver } from "./logger.js";
-import type { PanterTransport } from "./types.js";
+import type { ClientFeatureBridge, PanterTransport } from "./types.js";
 
 class MemoryLogDriver implements LoggerDriver {
   readonly entries: LogEntry[] = [];
@@ -59,6 +60,25 @@ class MockTransport implements PanterTransport {
   });
 
   readonly close = vi.fn(async (): Promise<void> => {});
+}
+
+class CapabilityRecordingTransport extends MockTransport {
+  constructor(
+    private readonly records: ClientCapabilities[] = [],
+    private readonly bridges: ClientFeatureBridge[] = [],
+  ) {
+    super();
+  }
+
+  withClientCapabilities(capabilities: ClientCapabilities): PanterTransport {
+    this.records.push(capabilities);
+    return new CapabilityRecordingTransport(this.records, this.bridges);
+  }
+
+  withClientFeatureBridge(bridge: ClientFeatureBridge): PanterTransport {
+    this.bridges.push(bridge);
+    return new CapabilityRecordingTransport(this.records, this.bridges);
+  }
 }
 
 class FeatureTransport extends MockTransport {
@@ -240,6 +260,567 @@ describe("McpProxy", () => {
     expect(result.tools.map((tool) => tool.name)).toEqual(["github__create_issue", "notion__create_issue"]);
     expect(result.tools[1]?.title).toBe("Notion API: create_issue");
     expect(result.tools[1]?.description).toBe("[Notion API] Create an issue");
+  });
+
+  it("does not advertise disabled client features upstream", async () => {
+    const advertised: ClientCapabilities[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport(advertised) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: false, mode: "pass-through" },
+          sampling: { enabled: false, mode: "pass-through" },
+          elicitation: { enabled: false, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
+
+    expect(advertised).toEqual([{}]);
+  });
+
+  it("does not advertise resolver client features without a resolver", async () => {
+    const advertised: ClientCapabilities[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport(advertised) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "resolver" },
+          sampling: { enabled: true, mode: "resolver" },
+          elicitation: { enabled: true, mode: "resolver" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
+
+    expect(advertised).toEqual([{}]);
+  });
+
+  it("advertises enabled client features only when they have fulfillment", async () => {
+    const advertised: ClientCapabilities[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport(advertised) })],
+      clientFeatures: {
+        github: {
+          roots: {
+            enabled: true,
+            mode: "resolver",
+            resolver: () => ({ roots: [{ uri: "file:///repo" }] }),
+          },
+          sampling: { enabled: true, mode: "resolver" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
+
+    expect(advertised).toEqual([{ roots: { listChanged: undefined } }]);
+  });
+
+  it("times out bridged downstream client feature requests", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through", timeoutMs: 1 },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: () => new Promise(() => undefined),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).rejects.toMatchObject({
+      code: -32001,
+      message: expect.stringMatching(/roots\/list.*timed out after 1ms/),
+    });
+  });
+
+  it("returns structured errors when downstream cannot satisfy advertised client features", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {});
+
+    await expect(bridges[0]?.listRoots?.()).rejects.toMatchObject({
+      code: PantherErrorCode.ClientFeatureUnsupported,
+      message: expect.stringContaining("Downstream client cannot satisfy roots/list"),
+    });
+  });
+
+  it("implements roots/list through downstream pass-through", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "file:///repo", name: "Repo" }] }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).resolves.toEqual({
+      roots: [{ uri: "file:///repo", name: "Repo" }],
+    });
+  });
+
+  it("implements roots/list through a configured resolver", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const resolver = vi.fn(() => [{ uri: "file:///resolver", name: "Resolver root" }]);
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "resolver", resolver },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "file:///downstream" }] }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).resolves.toEqual({
+      roots: [{ uri: "file:///resolver", name: "Resolver root" }],
+    });
+    expect(resolver).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverName: "github",
+        user: expect.objectContaining({ id: "user-a" }),
+        sessionId: "session-a",
+        requestId: "request-a",
+      }),
+    );
+  });
+
+  it("rejects non-file roots by default", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "https://example.com/root" }] }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).rejects.toMatchObject({
+      code: PantherErrorCode.ClientFeatureUnsupported,
+      message: expect.stringContaining("non-file root URI"),
+    });
+  });
+
+  it("filters non-file roots when configured", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through", validateFileUris: "filter" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({
+        roots: [{ uri: "file:///repo" }, { uri: "https://example.com/root" }],
+        _meta: { source: "downstream" },
+      }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).resolves.toEqual({
+      roots: [{ uri: "file:///repo" }],
+      _meta: { source: "downstream" },
+    });
+  });
+
+  it("implements sampling/createMessage through downstream pass-through after policy and approval", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn(async () => ({
+      role: "assistant" as const,
+      content: { type: "text" as const, text: "sampled" },
+      model: "test-model",
+    }));
+    const approval = vi.fn(async () => true);
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "sampling" })
+        .server("github")
+        .allowCapability({ operation: "sampling:createMessage", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through", approval },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      createMessage: downstream,
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).resolves.toMatchObject({
+      content: { text: "sampled" },
+    });
+    expect(approval).toHaveBeenCalledWith(expect.objectContaining({ messages: [] }), expect.objectContaining({ serverName: "github" }));
+    expect(downstream).toHaveBeenCalledWith({ messages: [] });
+  });
+
+  it("implements sampling/createMessage through a configured resolver", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const resolver = vi.fn(async () => ({
+      role: "assistant" as const,
+      content: { type: "text" as const, text: "resolver sampled" },
+      model: "resolver-model",
+    }));
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "resolver", resolver },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      createMessage: async () => {
+        throw new Error("should not call downstream");
+      },
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).resolves.toMatchObject({
+      content: { text: "resolver sampled" },
+    });
+    expect(resolver).toHaveBeenCalledWith(expect.objectContaining({ messages: [] }), expect.objectContaining({ serverName: "github" }));
+  });
+
+  it("does not call downstream sampling when policy denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "blocked" })
+        .server("github")
+        .denyCapability({ operation: "sampling:createMessage", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      createMessage: downstream,
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("does not call downstream sampling when approval denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through", approval: async () => false },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      createMessage: downstream,
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: expect.stringContaining("denied by approval"),
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("times out sampling/createMessage requests", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          sampling: { enabled: true, mode: "pass-through", timeoutMs: 1 },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      createMessage: () => new Promise(() => undefined),
+    });
+
+    await expect(bridges[0]?.createMessage?.({ messages: [] })).rejects.toMatchObject({
+      code: -32001,
+      message: expect.stringMatching(/sampling\/createMessage.*timed out after 1ms/),
+    });
+  });
+
+  it("implements elicitation/create through downstream pass-through after policy and approval", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn(async () => ({ action: "accept" as const, content: { answer: "yes" } }));
+    const approval = vi.fn(async () => true);
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "elicitation" })
+        .server("github")
+        .allowCapability({ operation: "elicitation:create", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through", approval },
+        },
+      },
+    });
+    const params = {
+      message: "Continue?",
+      requestedSchema: { type: "object" as const, properties: { answer: { type: "string" as const } } },
+    };
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(bridges[0]?.elicit?.(params)).resolves.toEqual({ action: "accept", content: { answer: "yes" } });
+    expect(approval).toHaveBeenCalledWith(params, expect.objectContaining({ serverName: "github" }));
+    expect(downstream).toHaveBeenCalledWith(params);
+  });
+
+  it("implements elicitation/create through a configured resolver", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const resolver = vi.fn(async () => ({ action: "accept" as const, content: { code: "1234" } }));
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "resolver", resolver },
+        },
+      },
+    });
+    const params = {
+      message: "Open approval page",
+      mode: "url" as const,
+      elicitationId: "approval-1",
+      url: "https://example.com/approve",
+    };
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      elicit: async () => {
+        throw new Error("should not call downstream");
+      },
+    });
+
+    await expect(bridges[0]?.elicit?.(params)).resolves.toEqual({ action: "accept", content: { code: "1234" } });
+    expect(resolver).toHaveBeenCalledWith(params, expect.objectContaining({ serverName: "github" }));
+  });
+
+  it("does not call downstream elicitation when policy denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "blocked" })
+        .server("github")
+        .denyCapability({ operation: "elicitation:create", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: { type: "object", properties: { answer: { type: "string" } } },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("does not call downstream elicitation when approval denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through", approval: async () => false },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: { type: "object", properties: { answer: { type: "string" } } },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: expect.stringContaining("denied by approval"),
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("validates elicitation request schemas before forwarding", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: {
+          type: "object",
+          properties: { nested: { type: "object", properties: { answer: { type: "string" } } } },
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.ClientFeatureUnsupported,
+      message: expect.stringContaining("top-level primitive properties"),
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("times out elicitation/create requests", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through", timeoutMs: 1 },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: () => new Promise(() => undefined),
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: { type: "object", properties: { answer: { type: "string" } } },
+      }),
+    ).rejects.toMatchObject({
+      code: -32001,
+      message: expect.stringMatching(/elicitation\/create.*timed out after 1ms/),
+    });
+  });
+
+  it("audits client feature metadata without logging sensitive payloads", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const driver = new MemoryLogDriver();
+    const proxy = new McpProxy({
+      logger: new Logger({ driver }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+          sampling: { enabled: true, mode: "pass-through", approval: async () => true },
+          elicitation: { enabled: true, mode: "resolver", resolver: async () => ({ action: "accept", content: { token: "secret-token" } }) },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, { id: "subject-a", groups: [] }, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "file:///repo" }] }),
+      createMessage: async () => ({
+        role: "assistant",
+        content: { type: "text", text: "sampled" },
+        model: "test-model",
+      }),
+    });
+    await bridges[0]?.listRoots?.();
+    await bridges[0]?.createMessage?.({
+      messages: [{ role: "user", content: { type: "text", text: "sensitive prompt" } }],
+    });
+    await bridges[0]?.elicit?.({
+      message: "sensitive elicitation",
+      requestedSchema: { type: "object", properties: { token: { type: "string" } } },
+    });
+
+    expect(driver.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "MCP client feature request",
+          metadata: expect.objectContaining({
+            event: "clientFeature.roots.success",
+            serverName: "github",
+            subjectId: "subject-a",
+            userId: "user-a",
+            feature: "roots",
+            fulfillmentMode: "pass-through",
+            rootsCount: 1,
+          }),
+        }),
+        expect.objectContaining({
+          message: "MCP client feature request",
+          metadata: expect.objectContaining({
+            event: "clientFeature.sampling.success",
+            policy: undefined,
+            approval: true,
+            fulfillmentMode: "pass-through",
+          }),
+        }),
+        expect.objectContaining({
+          message: "MCP client feature request",
+          metadata: expect.objectContaining({
+            event: "clientFeature.elicitation.success",
+            fulfillmentMode: "resolver",
+          }),
+        }),
+      ]),
+    );
+    const serializedLogs = JSON.stringify(driver.entries);
+    expect(serializedLogs).not.toContain("sensitive prompt");
+    expect(serializedLogs).not.toContain("sensitive elicitation");
+    expect(serializedLogs).not.toContain("secret-token");
   });
 
   it("routes namespaced tool calls to the original upstream tool name", async () => {

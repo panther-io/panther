@@ -1,6 +1,7 @@
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -15,9 +16,11 @@ import type {
   ListToolsResult,
   ReadResourceRequest,
   ReadResourceResult,
+  SubscribeRequest,
+  UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
-import type { Isolation, PanterTransport, UserContext } from "./types.js";
+import type { ClientFeatureBridge, Isolation, McpUpstreamNotificationHandler, PanterTransport, UserContext } from "./types.js";
 
 /**
  * Resolve environment variables per user.
@@ -46,6 +49,14 @@ type UserAwareTransport = PanterTransport & {
   withUser(user: UserContext): PanterTransport;
 };
 
+type ClientCapabilityAwareTransport = PanterTransport & {
+  withClientCapabilities(capabilities: ClientCapabilities): PanterTransport;
+};
+
+type ClientFeatureBridgeAwareTransport = PanterTransport & {
+  withClientFeatureBridge(bridge: ClientFeatureBridge): PanterTransport;
+};
+
 /**
  * MCP server wrapper with optional per-user env injection.
  * @pk
@@ -59,6 +70,8 @@ export class McpServer {
   private readonly isolation?: Isolation;
   private readonly isolationTimeout?: number;
   private readonly userTransports = new Map<string, PanterTransport>();
+  private readonly notificationHandlers = new Set<McpUpstreamNotificationHandler>();
+  private readonly notificationUnsubscribers = new WeakMap<PanterTransport, Array<() => void>>();
 
   /**
    * Create a new MCP server wrapper.
@@ -125,6 +138,24 @@ export class McpServer {
     return transport.readResource(params);
   }
 
+  async subscribeResource(params: SubscribeRequest["params"], user: UserContext = {}): Promise<{ _meta?: Record<string, unknown> }> {
+    const transport = this.transportFor(user);
+    if (!transport.subscribeResource) {
+      throw unsupportedCapability(this.name, "resource subscriptions");
+    }
+
+    return transport.subscribeResource(params);
+  }
+
+  async unsubscribeResource(params: UnsubscribeRequest["params"], user: UserContext = {}): Promise<{ _meta?: Record<string, unknown> }> {
+    const transport = this.transportFor(user);
+    if (!transport.unsubscribeResource) {
+      throw unsupportedCapability(this.name, "resource subscriptions");
+    }
+
+    return transport.unsubscribeResource(params);
+  }
+
   /**
    * List resource templates for a given user.
    * @pk
@@ -180,6 +211,30 @@ export class McpServer {
     return transport.complete(params);
   }
 
+  async ping(user: UserContext = {}): Promise<{ _meta?: Record<string, unknown> }> {
+    const transport = this.transportFor(user);
+    if (!transport.ping) {
+      return {};
+    }
+
+    return transport.ping();
+  }
+
+  async cancelRequest(requestId: string | number, reason: string | undefined, user: UserContext = {}): Promise<void> {
+    const transport = this.transportFor(user);
+    await transport.cancelRequest?.(requestId, reason);
+  }
+
+  async notifyRootsListChanged(user: UserContext = {}): Promise<boolean> {
+    const transport = this.transportFor(user);
+    if (!transport.notifyRootsListChanged) {
+      return false;
+    }
+
+    await transport.notifyRootsListChanged();
+    return true;
+  }
+
   /**
    * Whether the configured transport exposes resource operations.
    * @pk
@@ -204,6 +259,20 @@ export class McpServer {
     return Boolean(this.transport.complete);
   }
 
+  onNotification(handler: McpUpstreamNotificationHandler): () => void {
+    const scopedHandler: McpUpstreamNotificationHandler = (notification) =>
+      handler({ ...notification, serverName: notification.serverName ?? this.name });
+    this.notificationHandlers.add(scopedHandler);
+    this.attachNotificationHandlers(this.transport);
+    for (const transport of this.userTransports.values()) {
+      this.attachNotificationHandlers(transport);
+    }
+
+    return () => {
+      this.notificationHandlers.delete(scopedHandler);
+    };
+  }
+
   /**
    * Close all transports.
    * @pk
@@ -217,8 +286,12 @@ export class McpServer {
 
   private transportFor(user: UserContext): PanterTransport {
     const upstreamEnv = isStringRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : undefined;
+    const clientCapabilities = isClientCapabilities(user.__pantherClientCapabilities) ? user.__pantherClientCapabilities : undefined;
+    const clientFeatureBridge = isClientFeatureBridge(user.__pantherClientFeatureBridge) ? user.__pantherClientFeatureBridge : undefined;
+    const clientFeatureBridgeSessionId = typeof user.__pantherClientFeatureBridgeSessionId === "string" ? user.__pantherClientFeatureBridgeSessionId : "";
     const supportsUserContext = isUserAwareTransport(this.transport);
-    if (!this.env && !upstreamEnv && !supportsUserContext) {
+    const supportsClientCapabilities = isClientCapabilityAwareTransport(this.transport);
+    if (!this.env && !upstreamEnv && !clientCapabilities && !clientFeatureBridge && !supportsUserContext) {
       return this.transport;
     }
 
@@ -227,9 +300,10 @@ export class McpServer {
       ...(configuredEnv ?? {}),
       ...(upstreamEnv ?? {}),
     };
-    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}`;
+    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}:${JSON.stringify(clientCapabilities ?? {})}:${clientFeatureBridgeSessionId}`;
     const existing = this.userTransports.get(key);
     if (existing) {
+      this.attachNotificationHandlers(existing);
       return existing;
     }
 
@@ -246,8 +320,32 @@ export class McpServer {
       transport = transport.withUser(user);
     }
 
+    if (clientCapabilities && (supportsClientCapabilities || hasClientCapabilities(clientCapabilities))) {
+      if (!isClientCapabilityAwareTransport(transport)) {
+        throw new Error(`Transport for server "${this.name}" does not support client capability injection`);
+      }
+      transport = transport.withClientCapabilities(clientCapabilities);
+    }
+
+    if (clientFeatureBridge && (isClientFeatureBridgeAwareTransport(transport) || hasClientCapabilities(clientCapabilities ?? {}))) {
+      if (!isClientFeatureBridgeAwareTransport(transport)) {
+        throw new Error(`Transport for server "${this.name}" does not support client feature bridging`);
+      }
+      transport = transport.withClientFeatureBridge(clientFeatureBridge);
+    }
+
     this.userTransports.set(key, transport);
+    this.attachNotificationHandlers(transport);
     return transport;
+  }
+
+  private attachNotificationHandlers(transport: PanterTransport): void {
+    if (!transport.onNotification || this.notificationUnsubscribers.has(transport)) {
+      return;
+    }
+
+    const unsubscribers = [...this.notificationHandlers].map((handler) => transport.onNotification?.(handler)).filter(Boolean) as Array<() => void>;
+    this.notificationUnsubscribers.set(transport, unsubscribers);
   }
 }
 
@@ -263,10 +361,30 @@ function isUserAwareTransport(transport: PanterTransport): transport is UserAwar
   return "withUser" in transport && typeof transport.withUser === "function";
 }
 
+function isClientCapabilityAwareTransport(transport: PanterTransport): transport is ClientCapabilityAwareTransport {
+  return "withClientCapabilities" in transport && typeof transport.withClientCapabilities === "function";
+}
+
+function isClientFeatureBridgeAwareTransport(transport: PanterTransport): transport is ClientFeatureBridgeAwareTransport {
+  return "withClientFeatureBridge" in transport && typeof transport.withClientFeatureBridge === "function";
+}
+
 function isStringRecord(value: unknown): value is Record<string, string> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions"): Error {
+function isClientCapabilities(value: unknown): value is ClientCapabilities {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isClientFeatureBridge(value: unknown): value is ClientFeatureBridge {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasClientCapabilities(capabilities: ClientCapabilities): boolean {
+  return Object.keys(capabilities).length > 0;
+}
+
+function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions" | "resource subscriptions"): Error {
   return new Error(`Transport for server "${serverName}" does not support ${capability}`);
 }
