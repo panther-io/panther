@@ -210,6 +210,16 @@ export type ClientFeatureServerConfig =
 export type ClientFeatureConfig = Record<string, ClientFeatureServerConfig>;
 
 /**
+ * Runtime bridge used by upstream transports when an upstream server invokes MCP client features.
+ * @pk
+ */
+export type ClientFeatureBridge = {
+  listRoots?(params?: ListRootsParams): MaybePromise<ListRootsResponse>;
+  createMessage?(params: CreateMessageParams): MaybePromise<CreateMessageResponse>;
+  elicit?(params: ElicitParams): MaybePromise<ElicitResponse>;
+};
+
+/**
  * User context passed through requests.
  * @pk
  */
@@ -837,6 +847,7 @@ export type PanterTransport = {
   cancelRequest?(requestId: string | number, reason?: string): Promise<void>;
   onNotification?(handler: McpUpstreamNotificationHandler): () => void;
   withClientCapabilities?(capabilities: ClientCapabilities): PanterTransport;
+  withClientFeatureBridge?(bridge: ClientFeatureBridge): PanterTransport;
   close(): Promise<void>;
 };
 

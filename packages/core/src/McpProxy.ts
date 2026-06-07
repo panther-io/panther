@@ -62,6 +62,7 @@ import {
   ResponseController,
   type CapabilityOperationRequest,
   type CapabilityPermission,
+  type ClientFeatureBridge,
   type ClientFeatureConfig,
   type ClientFeaturesConfig,
   type CredentialSourceMetadata,
@@ -444,6 +445,7 @@ export class McpProxy {
     subject?: ResolvedSubject,
     sessionId?: string,
     downstreamRequestId?: string | number,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<ListToolsResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -458,6 +460,7 @@ export class McpProxy {
           identity,
           sessionId,
           downstreamRequestId,
+          clientFeatureBridge,
         );
         const result = await server.listTools(params, upstreamUser);
         const tools = this.groups.length > 0
@@ -526,6 +529,7 @@ export class McpProxy {
     subject?: ResolvedSubject,
     sessionId?: string,
     downstreamRequestId?: string | number,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<CallToolResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -587,6 +591,7 @@ export class McpProxy {
           identity,
           sessionId,
           downstreamRequestId,
+          clientFeatureBridge,
         );
         context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
         context.credentials.sources = context.credentialSources ?? [];
@@ -1062,11 +1067,12 @@ export class McpProxy {
           "Panther MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use panther:// proxy URIs.",
       },
     );
+    const clientFeatureBridge = this.createDownstreamClientFeatureBridge(server);
 
     server.setRequestHandler(ListToolsRequestSchema, async (request, extra) =>
-      this.listTools(request.params, user, identity, subject, extra.sessionId, extra.requestId));
+      this.listTools(request.params, user, identity, subject, extra.sessionId, extra.requestId, clientFeatureBridge));
     server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
-      this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId));
+      this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId, clientFeatureBridge));
     server.setRequestHandler(PingRequestSchema, async () => ({}));
     server.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
       if (extra.sessionId) {
@@ -1210,6 +1216,14 @@ export class McpProxy {
       sessionUtilities: this.createSessionUtilityRegistry(),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
+    };
+  }
+
+  private createDownstreamClientFeatureBridge(server: McpSdkServer): ClientFeatureBridge {
+    return {
+      listRoots: (params) => server.listRoots(params),
+      createMessage: (params) => server.createMessage(params),
+      elicit: (params) => server.elicitInput(params),
     };
   }
 
@@ -2156,11 +2170,18 @@ export class McpProxy {
     identity: IdentityMetadata | undefined,
     sessionId: string | undefined,
     requestId: string | number | undefined,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<UserContext> {
     const featureConfig = await this.resolveClientFeatureConfig(serverName, user, subject, identity, sessionId, requestId);
     return {
       ...user,
       __pantherClientCapabilities: createClientCapabilities(featureConfig),
+      ...(clientFeatureBridge
+        ? {
+            __pantherClientFeatureBridge: clientFeatureBridge,
+            __pantherClientFeatureBridgeSessionId: sessionId ?? "default",
+          }
+        : {}),
     };
   }
 

@@ -22,6 +22,7 @@ const fakes = vi.hoisted(() => {
     readonly connect = vi.fn(async (transport: unknown) => {
       this.transport = transport;
     });
+    readonly requestHandlers = new Map<string, (request: { params?: unknown }) => Promise<unknown> | unknown>();
     transport: unknown;
 
     constructor(
@@ -33,6 +34,14 @@ const fakes = vi.hoisted(() => {
 
     getServerCapabilities(): Record<string, object> {
       return serverCapabilities;
+    }
+
+    setRequestHandler(schema: { shape?: { method?: { value?: string } } }, handler: (request: { params?: unknown }) => Promise<unknown> | unknown): void {
+      const method = schema.shape?.method?.value;
+      if (!method) {
+        throw new Error("Missing fake request schema method");
+      }
+      this.requestHandlers.set(method, handler);
     }
 
     async listTools(params: unknown): Promise<unknown> {
@@ -230,6 +239,32 @@ describe("native MCP upstream transports", () => {
     });
 
     expect(fakes.stdioTransports[0]?.options).toMatchObject({ command: "node", args: ["server.js"] });
+  });
+
+  it("registers upstream-to-downstream client feature bridge handlers", async () => {
+    const transport = new StdioTransport({ command: "node" }).withClientFeatureBridge({
+      listRoots: async () => ({ roots: [{ uri: "file:///repo" }] }),
+      createMessage: async () => ({
+        role: "assistant",
+        content: { type: "text", text: "sampled" },
+        model: "test-model",
+      }),
+      elicit: async () => ({ action: "accept", content: { answer: "yes" } }),
+    });
+
+    await transport.listTools();
+
+    const client = fakes.clientInstances[0];
+    await expect(client?.requestHandlers.get("roots/list")?.({})).resolves.toEqual({
+      roots: [{ uri: "file:///repo" }],
+    });
+    await expect(client?.requestHandlers.get("sampling/createMessage")?.({ params: { messages: [] } })).resolves.toMatchObject({
+      content: { text: "sampled" },
+    });
+    await expect(client?.requestHandlers.get("elicitation/create")?.({ params: { message: "Continue?" } })).resolves.toEqual({
+      action: "accept",
+      content: { answer: "yes" },
+    });
   });
 
   it("returns empty list responses and rejects single-item operations for unsupported capabilities", async () => {

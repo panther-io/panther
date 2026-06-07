@@ -20,7 +20,7 @@ import type {
   UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
-import type { Isolation, McpUpstreamNotificationHandler, PanterTransport, UserContext } from "./types.js";
+import type { ClientFeatureBridge, Isolation, McpUpstreamNotificationHandler, PanterTransport, UserContext } from "./types.js";
 
 /**
  * Resolve environment variables per user.
@@ -51,6 +51,10 @@ type UserAwareTransport = PanterTransport & {
 
 type ClientCapabilityAwareTransport = PanterTransport & {
   withClientCapabilities(capabilities: ClientCapabilities): PanterTransport;
+};
+
+type ClientFeatureBridgeAwareTransport = PanterTransport & {
+  withClientFeatureBridge(bridge: ClientFeatureBridge): PanterTransport;
 };
 
 /**
@@ -273,9 +277,11 @@ export class McpServer {
   private transportFor(user: UserContext): PanterTransport {
     const upstreamEnv = isStringRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : undefined;
     const clientCapabilities = isClientCapabilities(user.__pantherClientCapabilities) ? user.__pantherClientCapabilities : undefined;
+    const clientFeatureBridge = isClientFeatureBridge(user.__pantherClientFeatureBridge) ? user.__pantherClientFeatureBridge : undefined;
+    const clientFeatureBridgeSessionId = typeof user.__pantherClientFeatureBridgeSessionId === "string" ? user.__pantherClientFeatureBridgeSessionId : "";
     const supportsUserContext = isUserAwareTransport(this.transport);
     const supportsClientCapabilities = isClientCapabilityAwareTransport(this.transport);
-    if (!this.env && !upstreamEnv && !clientCapabilities && !supportsUserContext) {
+    if (!this.env && !upstreamEnv && !clientCapabilities && !clientFeatureBridge && !supportsUserContext) {
       return this.transport;
     }
 
@@ -284,7 +290,7 @@ export class McpServer {
       ...(configuredEnv ?? {}),
       ...(upstreamEnv ?? {}),
     };
-    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}:${JSON.stringify(clientCapabilities ?? {})}`;
+    const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}:${JSON.stringify(clientCapabilities ?? {})}:${clientFeatureBridgeSessionId}`;
     const existing = this.userTransports.get(key);
     if (existing) {
       this.attachNotificationHandlers(existing);
@@ -309,6 +315,13 @@ export class McpServer {
         throw new Error(`Transport for server "${this.name}" does not support client capability injection`);
       }
       transport = transport.withClientCapabilities(clientCapabilities);
+    }
+
+    if (clientFeatureBridge && (isClientFeatureBridgeAwareTransport(transport) || hasClientCapabilities(clientCapabilities ?? {}))) {
+      if (!isClientFeatureBridgeAwareTransport(transport)) {
+        throw new Error(`Transport for server "${this.name}" does not support client feature bridging`);
+      }
+      transport = transport.withClientFeatureBridge(clientFeatureBridge);
     }
 
     this.userTransports.set(key, transport);
@@ -342,11 +355,19 @@ function isClientCapabilityAwareTransport(transport: PanterTransport): transport
   return "withClientCapabilities" in transport && typeof transport.withClientCapabilities === "function";
 }
 
+function isClientFeatureBridgeAwareTransport(transport: PanterTransport): transport is ClientFeatureBridgeAwareTransport {
+  return "withClientFeatureBridge" in transport && typeof transport.withClientFeatureBridge === "function";
+}
+
 function isStringRecord(value: unknown): value is Record<string, string> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function isClientCapabilities(value: unknown): value is ClientCapabilities {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isClientFeatureBridge(value: unknown): value is ClientFeatureBridge {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 

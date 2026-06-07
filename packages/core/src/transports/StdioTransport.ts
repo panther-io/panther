@@ -23,6 +23,9 @@ import type {
   UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
+  CreateMessageRequestSchema,
+  ElicitRequestSchema,
+  ListRootsRequestSchema,
   ProgressNotificationSchema,
   LoggingMessageNotificationSchema,
   PromptListChangedNotificationSchema,
@@ -30,7 +33,7 @@ import {
   ResourceUpdatedNotificationSchema,
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { McpUpstreamNotificationHandler, PanterTransport } from "../types.js";
+import type { ClientFeatureBridge, McpUpstreamNotificationHandler, PanterTransport } from "../types.js";
 
 /**
  * Options for the stdio transport.
@@ -44,6 +47,7 @@ export type StdioTransportOptions = {
   clientName?: string;
   clientVersion?: string;
   clientCapabilities?: ClientCapabilities;
+  clientFeatureBridge?: ClientFeatureBridge;
 };
 
 /**
@@ -90,6 +94,17 @@ export class StdioTransport implements PanterTransport {
     const transport = new StdioTransport({
       ...this.options,
       clientCapabilities: capabilities,
+    });
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  withClientFeatureBridge(bridge: ClientFeatureBridge): StdioTransport {
+    const transport = new StdioTransport({
+      ...this.options,
+      clientFeatureBridge: bridge,
     });
     for (const handler of this.notificationHandlers) {
       transport.onNotification(handler);
@@ -247,6 +262,7 @@ export class StdioTransport implements PanterTransport {
     );
 
     this.registerNotificationHandlers(client);
+    this.registerClientFeatureHandlers(client);
     await client.connect(
       new StdioClientTransport({
         command: this.options.command,
@@ -293,6 +309,26 @@ export class StdioTransport implements PanterTransport {
         data: notification.params.data,
       });
     });
+  }
+
+  private registerClientFeatureHandlers(client: Client): void {
+    const bridge = this.options.clientFeatureBridge;
+    if (!bridge || typeof client.setRequestHandler !== "function") {
+      return;
+    }
+
+    const listRoots = bridge.listRoots;
+    if (listRoots) {
+      client.setRequestHandler(ListRootsRequestSchema, async (request) => listRoots(request.params));
+    }
+    const createMessage = bridge.createMessage;
+    if (createMessage) {
+      client.setRequestHandler(CreateMessageRequestSchema, async (request) => createMessage(request.params));
+    }
+    const elicit = bridge.elicit;
+    if (elicit) {
+      client.setRequestHandler(ElicitRequestSchema, async (request) => elicit(request.params));
+    }
   }
 
   private async emitNotification(notification: Parameters<McpUpstreamNotificationHandler>[0]): Promise<void> {

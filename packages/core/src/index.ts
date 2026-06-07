@@ -133,6 +133,7 @@ export type {
   ClientElicitationFeatureConfig,
   ClientElicitationResolver,
   ClientFeatureConfig,
+  ClientFeatureBridge,
   ClientFeatureFulfillmentMode,
   ClientFeatureResolverContext,
   ClientFeatureServerConfig,
