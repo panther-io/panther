@@ -753,6 +753,76 @@ describe("McpProxy", () => {
     });
   });
 
+  it("audits client feature metadata without logging sensitive payloads", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const driver = new MemoryLogDriver();
+    const proxy = new McpProxy({
+      logger: new Logger({ driver }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+          sampling: { enabled: true, mode: "pass-through", approval: async () => true },
+          elicitation: { enabled: true, mode: "resolver", resolver: async () => ({ action: "accept", content: { token: "secret-token" } }) },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, { id: "subject-a", groups: [] }, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "file:///repo" }] }),
+      createMessage: async () => ({
+        role: "assistant",
+        content: { type: "text", text: "sampled" },
+        model: "test-model",
+      }),
+    });
+    await bridges[0]?.listRoots?.();
+    await bridges[0]?.createMessage?.({
+      messages: [{ role: "user", content: { type: "text", text: "sensitive prompt" } }],
+    });
+    await bridges[0]?.elicit?.({
+      message: "sensitive elicitation",
+      requestedSchema: { type: "object", properties: { token: { type: "string" } } },
+    });
+
+    expect(driver.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "MCP client feature request",
+          metadata: expect.objectContaining({
+            event: "clientFeature.roots.success",
+            serverName: "github",
+            subjectId: "subject-a",
+            userId: "user-a",
+            feature: "roots",
+            fulfillmentMode: "pass-through",
+            rootsCount: 1,
+          }),
+        }),
+        expect.objectContaining({
+          message: "MCP client feature request",
+          metadata: expect.objectContaining({
+            event: "clientFeature.sampling.success",
+            policy: undefined,
+            approval: true,
+            fulfillmentMode: "pass-through",
+          }),
+        }),
+        expect.objectContaining({
+          message: "MCP client feature request",
+          metadata: expect.objectContaining({
+            event: "clientFeature.elicitation.success",
+            fulfillmentMode: "resolver",
+          }),
+        }),
+      ]),
+    );
+    const serializedLogs = JSON.stringify(driver.entries);
+    expect(serializedLogs).not.toContain("sensitive prompt");
+    expect(serializedLogs).not.toContain("sensitive elicitation");
+    expect(serializedLogs).not.toContain("secret-token");
+  });
+
   it("routes namespaced tool calls to the original upstream tool name", async () => {
     const transport = new MockTransport();
     const proxy = new McpProxy({

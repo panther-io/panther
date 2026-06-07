@@ -2221,10 +2221,20 @@ export class McpProxy {
 
     if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && bridge.listRoots) {
       configured.listRoots = (params) =>
-        this.withClientFeatureTimeout(
-          async () => this.validateRootsResponse(await bridge.listRoots?.(params), featureConfig.roots?.validateFileUris),
-          featureConfig.roots?.timeoutMs,
+        this.withClientFeatureAudit(
+          "roots",
           "roots/list",
+          "pass-through",
+          context,
+          undefined,
+          undefined,
+          () =>
+            this.withClientFeatureTimeout(
+              async () => this.validateRootsResponse(await bridge.listRoots?.(params), featureConfig.roots?.validateFileUris),
+              featureConfig.roots?.timeoutMs,
+              "roots/list",
+            ),
+          (result) => ({ rootsCount: result.roots.length }),
         );
     }
     if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && !bridge.listRoots) {
@@ -2234,10 +2244,20 @@ export class McpProxy {
     }
     if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "resolver" && featureConfig.roots.resolver) {
       configured.listRoots = () =>
-        this.withClientFeatureTimeout(
-          async () => this.validateRootsResponse(await featureConfig.roots?.resolver?.(context), featureConfig.roots?.validateFileUris),
-          featureConfig.roots?.timeoutMs,
+        this.withClientFeatureAudit(
+          "roots",
           "roots/list",
+          "resolver",
+          context,
+          undefined,
+          undefined,
+          () =>
+            this.withClientFeatureTimeout(
+              async () => this.validateRootsResponse(await featureConfig.roots?.resolver?.(context), featureConfig.roots?.validateFileUris),
+              featureConfig.roots?.timeoutMs,
+              "roots/list",
+            ),
+          (result) => ({ rootsCount: result.roots.length }),
         );
     }
 
@@ -2330,8 +2350,10 @@ export class McpProxy {
     context: ClientFeatureResolverContext,
     terminal: () => Promise<T> | T,
   ): Promise<T> {
+    let policyAllowed: boolean | undefined;
+    let approvalAllowed: boolean | undefined;
     try {
-      await this.enforceCapabilityPolicy(
+      const policyContext = await this.enforceCapabilityPolicy(
         {
           serverName: context.serverName,
           operation: "sampling:createMessage",
@@ -2343,17 +2365,31 @@ export class McpProxy {
         context.subject,
         context.identity,
       );
+      policyAllowed = policyContext.policy.allowed;
     } catch (error) {
       await this.emitDeniedCapabilityError(error);
+      await this.withClientFeatureAudit("sampling", "sampling/createMessage", featureConfig.sampling?.mode, context, false, undefined, () => {
+        throw toMcpError(error);
+      });
       throw toMcpError(error);
     }
 
-    const approved = featureConfig.sampling?.approval ? await featureConfig.sampling.approval(params, context) : true;
-    if (!approved) {
-      throw new McpError(PantherErrorCode.PolicyDenied, "sampling/createMessage denied by approval");
+    approvalAllowed = featureConfig.sampling?.approval ? await featureConfig.sampling.approval(params, context) : true;
+    if (!approvalAllowed) {
+      return this.withClientFeatureAudit("sampling", "sampling/createMessage", featureConfig.sampling?.mode, context, policyAllowed, false, () => {
+        throw new McpError(PantherErrorCode.PolicyDenied, "sampling/createMessage denied by approval");
+      });
     }
 
-    return terminal();
+    return this.withClientFeatureAudit(
+      "sampling",
+      "sampling/createMessage",
+      featureConfig.sampling?.mode,
+      context,
+      policyAllowed,
+      approvalAllowed,
+      terminal,
+    );
   }
 
   private async executeElicitationRequest<T>(
@@ -2363,8 +2399,10 @@ export class McpProxy {
     terminal: () => Promise<T> | T,
   ): Promise<T> {
     validateElicitationParams(params);
+    let policyAllowed: boolean | undefined;
+    let approvalAllowed: boolean | undefined;
     try {
-      await this.enforceCapabilityPolicy(
+      const policyContext = await this.enforceCapabilityPolicy(
         {
           serverName: context.serverName,
           operation: "elicitation:create",
@@ -2376,17 +2414,74 @@ export class McpProxy {
         context.subject,
         context.identity,
       );
+      policyAllowed = policyContext.policy.allowed;
     } catch (error) {
       await this.emitDeniedCapabilityError(error);
+      await this.withClientFeatureAudit("elicitation", "elicitation/create", featureConfig.elicitation?.mode, context, false, undefined, () => {
+        throw toMcpError(error);
+      });
       throw toMcpError(error);
     }
 
-    const approved = featureConfig.elicitation?.approval ? await featureConfig.elicitation.approval(params, context) : true;
-    if (!approved) {
-      throw new McpError(PantherErrorCode.PolicyDenied, "elicitation/create denied by approval");
+    approvalAllowed = featureConfig.elicitation?.approval ? await featureConfig.elicitation.approval(params, context) : true;
+    if (!approvalAllowed) {
+      return this.withClientFeatureAudit("elicitation", "elicitation/create", featureConfig.elicitation?.mode, context, policyAllowed, false, () => {
+        throw new McpError(PantherErrorCode.PolicyDenied, "elicitation/create denied by approval");
+      });
     }
 
-    return terminal();
+    return this.withClientFeatureAudit(
+      "elicitation",
+      "elicitation/create",
+      featureConfig.elicitation?.mode,
+      context,
+      policyAllowed,
+      approvalAllowed,
+      terminal,
+    );
+  }
+
+  private async withClientFeatureAudit<T>(
+    feature: "roots" | "sampling" | "elicitation",
+    method: string,
+    fulfillmentMode: "pass-through" | "resolver" | undefined,
+    context: ClientFeatureResolverContext,
+    policyAllowed: boolean | undefined,
+    approvalAllowed: boolean | undefined,
+    terminal: () => Promise<T> | T,
+    resultMetadata?: (result: T) => Record<string, unknown>,
+  ): Promise<T> {
+    const startedAt = Date.now();
+    this.writeClientFeatureAuditLog("start", feature, method, fulfillmentMode, context, startedAt, policyAllowed, approvalAllowed);
+    try {
+      const result = await terminal();
+      this.writeClientFeatureAuditLog(
+        "success",
+        feature,
+        method,
+        fulfillmentMode,
+        context,
+        startedAt,
+        policyAllowed,
+        approvalAllowed,
+        undefined,
+        resultMetadata?.(result),
+      );
+      return result;
+    } catch (error) {
+      this.writeClientFeatureAuditLog(
+        "failure",
+        feature,
+        method,
+        fulfillmentMode,
+        context,
+        startedAt,
+        policyAllowed,
+        approvalAllowed,
+        normalizeError(error),
+      );
+      throw error;
+    }
   }
 
   private async resolveClientFeatureConfig(
@@ -2533,6 +2628,44 @@ export class McpProxy {
       context.log.warn("MCP capability operation failed", metadata);
     } else {
       context.log.info("MCP capability operation", metadata);
+    }
+  }
+
+  private writeClientFeatureAuditLog(
+    event: "start" | "success" | "failure",
+    feature: "roots" | "sampling" | "elicitation",
+    method: string,
+    fulfillmentMode: "pass-through" | "resolver" | undefined,
+    context: ClientFeatureResolverContext,
+    startedAt: number,
+    policyAllowed: boolean | undefined,
+    approvalAllowed: boolean | undefined,
+    error?: Error,
+    extra?: Record<string, unknown>,
+  ): void {
+    const metadata = {
+      event: `clientFeature.${feature}.${event}`,
+      operation: method,
+      feature,
+      method,
+      fulfillmentMode,
+      durationMs: event === "start" ? undefined : Date.now() - startedAt,
+      subjectId: context.subject?.id,
+      userId: context.user.id,
+      serverName: context.serverName,
+      sessionId: context.sessionId,
+      requestId: context.requestId,
+      policy: policyAllowed,
+      approval: approvalAllowed,
+      success: event === "success" ? true : undefined,
+      error: error?.message,
+      ...extra,
+    };
+
+    if (event === "failure") {
+      context.log.warn("MCP client feature request failed", metadata);
+    } else {
+      context.log.info("MCP client feature request", metadata);
     }
   }
 

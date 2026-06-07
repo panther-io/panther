@@ -39,10 +39,10 @@
 
 ## 6. Audit And Security
 
-- [ ] 6.1 Add audit logging for roots, sampling, and elicitation requests
-- [ ] 6.2 Include server, subject, feature, policy, approval, fulfillment mode, and duration metadata in audit logs
-- [ ] 6.3 Ensure sampling prompts and elicitation payloads are not logged by default
-- [ ] 6.4 Add tests for audit metadata and sensitive payload redaction
+- [x] 6.1 Add audit logging for roots, sampling, and elicitation requests
+- [x] 6.2 Include server, subject, feature, policy, approval, fulfillment mode, and duration metadata in audit logs
+- [x] 6.3 Ensure sampling prompts and elicitation payloads are not logged by default
+- [x] 6.4 Add tests for audit metadata and sensitive payload redaction
 
 ## 7. Documentation And Verification
 
