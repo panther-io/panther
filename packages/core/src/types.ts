@@ -845,6 +845,7 @@ export type PanterTransport = {
   complete?(params: CompleteParams): Promise<CompleteResponse>;
   ping?(): Promise<{ _meta?: Record<string, unknown> }>;
   cancelRequest?(requestId: string | number, reason?: string): Promise<void>;
+  notifyRootsListChanged?(): Promise<void>;
   onNotification?(handler: McpUpstreamNotificationHandler): () => void;
   withClientCapabilities?(capabilities: ClientCapabilities): PanterTransport;
   withClientFeatureBridge?(bridge: ClientFeatureBridge): PanterTransport;

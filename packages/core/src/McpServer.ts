@@ -225,6 +225,16 @@ export class McpServer {
     await transport.cancelRequest?.(requestId, reason);
   }
 
+  async notifyRootsListChanged(user: UserContext = {}): Promise<boolean> {
+    const transport = this.transportFor(user);
+    if (!transport.notifyRootsListChanged) {
+      return false;
+    }
+
+    await transport.notifyRootsListChanged();
+    return true;
+  }
+
   /**
    * Whether the configured transport exposes resource operations.
    * @pk

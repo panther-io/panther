@@ -11,6 +11,7 @@ import {
   ListToolsRequestSchema,
   PingRequestSchema,
   ReadResourceRequestSchema,
+  RootsListChangedNotificationSchema,
   SetLevelRequestSchema,
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
@@ -28,10 +29,12 @@ import {
   type ListResourcesResult,
   type ListResourceTemplatesRequest,
   type ListResourceTemplatesResult,
+  type ListRootsResponse,
   type ListToolsRequest,
   type ListToolsResult,
   type ReadResourceRequest,
   type ReadResourceResult,
+  type Root,
   type SubscribeRequest,
   type UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
@@ -66,6 +69,7 @@ import {
   type CapabilityPermission,
   type ClientFeatureBridge,
   type ClientFeatureConfig,
+  type ClientFeatureResolverContext,
   type ClientFeaturesConfig,
   type CredentialSourceMetadata,
   type ErrorMapper,
@@ -1086,6 +1090,9 @@ export class McpProxy {
       if (notification.params.requestId !== undefined) {
         await this.cancelDownstreamRequest(undefined, notification.params.requestId, notification.params.reason, user);
       }
+    });
+    server.setNotificationHandler(RootsListChangedNotificationSchema, async (_notification, extra) => {
+      await this.forwardRootsListChangedNotification(user, identity, subject, extra.sessionId, clientFeatureBridge);
     });
     if (capabilities.resources) {
       server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
@@ -2176,7 +2183,22 @@ export class McpProxy {
   ): Promise<UserContext> {
     const featureConfig = await this.resolveClientFeatureConfig(serverName, user, subject, identity, sessionId, requestId);
     const bridge = clientFeatureBridge
-      ? this.createConfiguredClientFeatureBridge(clientFeatureBridge, featureConfig)
+      ? this.createConfiguredClientFeatureBridge(clientFeatureBridge, featureConfig, {
+          serverName,
+          user,
+          subject,
+          identity,
+          sessionId,
+          requestId,
+          log: this.createContextualLogger({
+            operation: "tools:list",
+            user,
+            subject,
+            identity,
+            serverName,
+            sessionId,
+          }),
+        })
       : undefined;
     return {
       ...user,
@@ -2193,13 +2215,14 @@ export class McpProxy {
   private createConfiguredClientFeatureBridge(
     bridge: ClientFeatureBridge,
     featureConfig: ClientFeaturesConfig | undefined,
+    context: ClientFeatureResolverContext,
   ): ClientFeatureBridge | undefined {
     const configured: ClientFeatureBridge = {};
 
     if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && bridge.listRoots) {
       configured.listRoots = (params) =>
         this.withClientFeatureTimeout(
-          () => bridge.listRoots?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["listRoots"]>>>>,
+          async () => this.validateRootsResponse(await bridge.listRoots?.(params), featureConfig.roots?.validateFileUris),
           featureConfig.roots?.timeoutMs,
           "roots/list",
         );
@@ -2208,6 +2231,14 @@ export class McpProxy {
       configured.listRoots = async () => {
         throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy roots/list");
       };
+    }
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "resolver" && featureConfig.roots.resolver) {
+      configured.listRoots = () =>
+        this.withClientFeatureTimeout(
+          async () => this.validateRootsResponse(await featureConfig.roots?.resolver?.(context), featureConfig.roots?.validateFileUris),
+          featureConfig.roots?.timeoutMs,
+          "roots/list",
+        );
     }
 
     if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && bridge.createMessage) {
@@ -2298,6 +2329,57 @@ export class McpProxy {
         sessionId,
       }),
     });
+  }
+
+  private validateRootsResponse(
+    response: ListRootsResponse | Root[] | undefined,
+    validationMode: "reject" | "filter" | undefined,
+  ): ListRootsResponse {
+    const roots = Array.isArray(response) ? response : response?.roots ?? [];
+    const invalid = roots.filter((root) => !isFileRoot(root));
+    const mode = validationMode ?? "reject";
+    if (invalid.length > 0 && mode === "reject") {
+      throw new McpError(
+        PantherErrorCode.ClientFeatureUnsupported,
+        `roots/list response contains non-file root URI "${invalid[0]?.uri ?? ""}"`,
+      );
+    }
+
+    return {
+      ...(Array.isArray(response) ? {} : response),
+      roots: mode === "filter" ? roots.filter(isFileRoot) : roots,
+    };
+  }
+
+  private async forwardRootsListChangedNotification(
+    user: UserContext,
+    identity: IdentityMetadata | undefined,
+    subject: ResolvedSubject | undefined,
+    sessionId: string | undefined,
+    clientFeatureBridge: ClientFeatureBridge,
+  ): Promise<void> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    await Promise.all(
+      this.servers.map(async (server) => {
+        const config = await this.resolveClientFeatureConfig(server.name, resolvedUser, resolvedSubject, identity, sessionId, undefined);
+        if (!config?.roots?.enabled || config.roots.mode !== "pass-through" || !config.roots.listChanged) {
+          return;
+        }
+
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const upstreamUser = await this.withUpstreamClientCapabilities(
+          server.name,
+          userForServer,
+          resolvedSubject,
+          identity,
+          sessionId,
+          undefined,
+          clientFeatureBridge,
+        );
+        await server.notifyRootsListChanged(upstreamUser);
+      }),
+    );
   }
 
   private writeAutoLog(
@@ -2757,6 +2839,10 @@ function validatePatternSegment(segment: string | undefined, label: string, patt
   if (!segment) {
     throw new Error(`Invalid ${label} segment in tool pattern "${pattern}"`);
   }
+}
+
+function isFileRoot(root: Root): boolean {
+  return root.uri.startsWith("file://");
 }
 
 function matchesToolPattern(pattern: CompiledToolPattern, request: ToolCallRequest): boolean {

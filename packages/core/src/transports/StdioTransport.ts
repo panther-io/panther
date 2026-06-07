@@ -234,6 +234,11 @@ export class StdioTransport implements PanterTransport {
     this.connectPromise = null;
   }
 
+  async notifyRootsListChanged(): Promise<void> {
+    const client = await this.getClient();
+    await client.sendRootsListChanged();
+  }
+
   private async getClient(): Promise<Client> {
     if (this.client) {
       return this.client;

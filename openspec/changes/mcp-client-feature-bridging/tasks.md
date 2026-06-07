@@ -15,11 +15,11 @@
 
 ## 3. Roots
 
-- [ ] 3.1 Implement `roots/list` through downstream pass-through
-- [ ] 3.2 Implement `roots/list` through a configured Panther roots resolver
-- [ ] 3.3 Validate root responses and reject or filter non-`file://` roots according to configuration
-- [ ] 3.4 Support root list changed notifications when downstream pass-through supports them
-- [ ] 3.5 Add tests for roots pass-through, resolver mode, disabled mode, and invalid roots
+- [x] 3.1 Implement `roots/list` through downstream pass-through
+- [x] 3.2 Implement `roots/list` through a configured Panther roots resolver
+- [x] 3.3 Validate root responses and reject or filter non-`file://` roots according to configuration
+- [x] 3.4 Support root list changed notifications when downstream pass-through supports them
+- [x] 3.5 Add tests for roots pass-through, resolver mode, disabled mode, and invalid roots
 
 ## 4. Sampling
 

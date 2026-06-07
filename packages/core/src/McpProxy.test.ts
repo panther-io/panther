@@ -359,6 +359,100 @@ describe("McpProxy", () => {
     });
   });
 
+  it("implements roots/list through downstream pass-through", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "file:///repo", name: "Repo" }] }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).resolves.toEqual({
+      roots: [{ uri: "file:///repo", name: "Repo" }],
+    });
+  });
+
+  it("implements roots/list through a configured resolver", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const resolver = vi.fn(() => [{ uri: "file:///resolver", name: "Resolver root" }]);
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "resolver", resolver },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "file:///downstream" }] }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).resolves.toEqual({
+      roots: [{ uri: "file:///resolver", name: "Resolver root" }],
+    });
+    expect(resolver).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serverName: "github",
+        user: expect.objectContaining({ id: "user-a" }),
+        sessionId: "session-a",
+        requestId: "request-a",
+      }),
+    );
+  });
+
+  it("rejects non-file roots by default", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({ roots: [{ uri: "https://example.com/root" }] }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).rejects.toMatchObject({
+      code: PantherErrorCode.ClientFeatureUnsupported,
+      message: expect.stringContaining("non-file root URI"),
+    });
+  });
+
+  it("filters non-file roots when configured", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through", validateFileUris: "filter" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: async () => ({
+        roots: [{ uri: "file:///repo" }, { uri: "https://example.com/root" }],
+        _meta: { source: "downstream" },
+      }),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).resolves.toEqual({
+      roots: [{ uri: "file:///repo" }],
+      _meta: { source: "downstream" },
+    });
+  });
+
   it("routes namespaced tool calls to the original upstream tool name", async () => {
     const transport = new MockTransport();
     const proxy = new McpProxy({
