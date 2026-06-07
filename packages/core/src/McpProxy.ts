@@ -61,6 +61,7 @@ import {
   ResponseController,
   type CapabilityOperationRequest,
   type CapabilityPermission,
+  type ClientFeatureConfig,
   type CredentialSourceMetadata,
   type ErrorMapper,
   type ListToolsHook,
@@ -128,6 +129,7 @@ export type McpProxyOptions = {
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
   errorMapper?: ErrorMapper;
+  clientFeatures?: ClientFeatureConfig;
   requestTimeoutMs?: number;
   name?: string;
   version?: string;
@@ -206,6 +208,7 @@ export class McpProxy {
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly errorMapper: ErrorMapper;
+  private readonly clientFeatures: ClientFeatureConfig;
   private readonly requestTimeoutMs?: number;
   private readonly name: string;
   private readonly version: string;
@@ -233,6 +236,7 @@ export class McpProxy {
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
+    this.clientFeatures = options.clientFeatures ?? {};
     this.requestTimeoutMs = options.requestTimeoutMs;
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
