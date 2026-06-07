@@ -304,7 +304,7 @@ export class McpServer {
       transport = transport.withUser(user);
     }
 
-    if (clientCapabilities) {
+    if (clientCapabilities && (supportsClientCapabilities || hasClientCapabilities(clientCapabilities))) {
       if (!isClientCapabilityAwareTransport(transport)) {
         throw new Error(`Transport for server "${this.name}" does not support client capability injection`);
       }
@@ -348,6 +348,10 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 
 function isClientCapabilities(value: unknown): value is ClientCapabilities {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasClientCapabilities(capabilities: ClientCapabilities): boolean {
+  return Object.keys(capabilities).length > 0;
 }
 
 function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions" | "resource subscriptions"): Error {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -59,6 +60,17 @@ class MockTransport implements PanterTransport {
   });
 
   readonly close = vi.fn(async (): Promise<void> => {});
+}
+
+class CapabilityRecordingTransport extends MockTransport {
+  constructor(private readonly records: ClientCapabilities[] = []) {
+    super();
+  }
+
+  withClientCapabilities(capabilities: ClientCapabilities): PanterTransport {
+    this.records.push(capabilities);
+    return new CapabilityRecordingTransport(this.records);
+  }
 }
 
 class FeatureTransport extends MockTransport {
@@ -240,6 +252,63 @@ describe("McpProxy", () => {
     expect(result.tools.map((tool) => tool.name)).toEqual(["github__create_issue", "notion__create_issue"]);
     expect(result.tools[1]?.title).toBe("Notion API: create_issue");
     expect(result.tools[1]?.description).toBe("[Notion API] Create an issue");
+  });
+
+  it("does not advertise disabled client features upstream", async () => {
+    const advertised: ClientCapabilities[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport(advertised) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: false, mode: "pass-through" },
+          sampling: { enabled: false, mode: "pass-through" },
+          elicitation: { enabled: false, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
+
+    expect(advertised).toEqual([{}]);
+  });
+
+  it("does not advertise resolver client features without a resolver", async () => {
+    const advertised: ClientCapabilities[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport(advertised) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "resolver" },
+          sampling: { enabled: true, mode: "resolver" },
+          elicitation: { enabled: true, mode: "resolver" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
+
+    expect(advertised).toEqual([{}]);
+  });
+
+  it("advertises enabled client features only when they have fulfillment", async () => {
+    const advertised: ClientCapabilities[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport(advertised) })],
+      clientFeatures: {
+        github: {
+          roots: {
+            enabled: true,
+            mode: "resolver",
+            resolver: () => ({ roots: [{ uri: "file:///repo" }] }),
+          },
+          sampling: { enabled: true, mode: "resolver" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
+
+    expect(advertised).toEqual([{ roots: { listChanged: undefined } }]);
   });
 
   it("routes namespaced tool calls to the original upstream tool name", async () => {
