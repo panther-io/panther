@@ -192,6 +192,12 @@ export type {
  */
 export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
 /**
+ * MCP client feature capability helpers.
+ * @pk
+ */
+export { createClientCapabilities, isClientFeatureEnabled } from "./clientFeatures.js";
+export type { ClientFeatureName } from "./clientFeatures.js";
+/**
  * Identity strategy helpers.
  * @pk
  */

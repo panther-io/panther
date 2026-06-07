@@ -2,7 +2,7 @@
 
 - [x] 1.1 Add configuration types for roots, sampling, and elicitation enablement per upstream server
 - [x] 1.2 Add fulfillment mode configuration for downstream pass-through and Panther-managed resolvers
-- [ ] 1.3 Add default-deny behavior for all client feature requests
+- [x] 1.3 Add default-deny behavior for all client feature requests
 - [ ] 1.4 Add session-aware upstream client capability calculation
 - [ ] 1.5 Add tests that disabled features are not advertised upstream
 
