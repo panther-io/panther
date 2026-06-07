@@ -2173,16 +2173,80 @@ export class McpProxy {
     clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<UserContext> {
     const featureConfig = await this.resolveClientFeatureConfig(serverName, user, subject, identity, sessionId, requestId);
+    const bridge = clientFeatureBridge
+      ? this.createConfiguredClientFeatureBridge(clientFeatureBridge, featureConfig)
+      : undefined;
     return {
       ...user,
       __pantherClientCapabilities: createClientCapabilities(featureConfig),
-      ...(clientFeatureBridge
+      ...(bridge
         ? {
-            __pantherClientFeatureBridge: clientFeatureBridge,
+            __pantherClientFeatureBridge: bridge,
             __pantherClientFeatureBridgeSessionId: sessionId ?? "default",
           }
         : {}),
     };
+  }
+
+  private createConfiguredClientFeatureBridge(
+    bridge: ClientFeatureBridge,
+    featureConfig: ClientFeaturesConfig | undefined,
+  ): ClientFeatureBridge | undefined {
+    const configured: ClientFeatureBridge = {};
+
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && bridge.listRoots) {
+      configured.listRoots = (params) =>
+        this.withClientFeatureTimeout(
+          () => bridge.listRoots?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["listRoots"]>>>>,
+          featureConfig.roots?.timeoutMs,
+          "roots/list",
+        );
+    }
+
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && bridge.createMessage) {
+      configured.createMessage = (params) =>
+        this.withClientFeatureTimeout(
+          () => bridge.createMessage?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+          featureConfig.sampling?.timeoutMs,
+          "sampling/createMessage",
+        );
+    }
+
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && bridge.elicit) {
+      configured.elicit = (params) =>
+        this.withClientFeatureTimeout(
+          () => bridge.elicit?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+          featureConfig.elicitation?.timeoutMs,
+          "elicitation/create",
+        );
+    }
+
+    return Object.keys(configured).length > 0 ? configured : undefined;
+  }
+
+  private async withClientFeatureTimeout<T>(
+    operation: () => Promise<T> | T,
+    timeoutMs: number | undefined,
+    method: string,
+  ): Promise<T> {
+    const effectiveTimeoutMs = timeoutMs ?? this.requestTimeoutMs;
+    if (!effectiveTimeoutMs || effectiveTimeoutMs <= 0) {
+      return operation();
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(operation),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error(`MCP client feature request "${method}" timed out after ${effectiveTimeoutMs}ms`)), effectiveTimeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
   }
 
   private async resolveClientFeatureConfig(

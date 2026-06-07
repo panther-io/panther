@@ -30,7 +30,7 @@ import {
   toProxyToolName,
 } from "./nameMapping.js";
 import type { LogEntry, LoggerDriver } from "./logger.js";
-import type { PanterTransport } from "./types.js";
+import type { ClientFeatureBridge, PanterTransport } from "./types.js";
 
 class MemoryLogDriver implements LoggerDriver {
   readonly entries: LogEntry[] = [];
@@ -63,13 +63,21 @@ class MockTransport implements PanterTransport {
 }
 
 class CapabilityRecordingTransport extends MockTransport {
-  constructor(private readonly records: ClientCapabilities[] = []) {
+  constructor(
+    private readonly records: ClientCapabilities[] = [],
+    private readonly bridges: ClientFeatureBridge[] = [],
+  ) {
     super();
   }
 
   withClientCapabilities(capabilities: ClientCapabilities): PanterTransport {
     this.records.push(capabilities);
-    return new CapabilityRecordingTransport(this.records);
+    return new CapabilityRecordingTransport(this.records, this.bridges);
+  }
+
+  withClientFeatureBridge(bridge: ClientFeatureBridge): PanterTransport {
+    this.bridges.push(bridge);
+    return new CapabilityRecordingTransport(this.records, this.bridges);
   }
 }
 
@@ -309,6 +317,24 @@ describe("McpProxy", () => {
     await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a");
 
     expect(advertised).toEqual([{ roots: { listChanged: undefined } }]);
+  });
+
+  it("times out bridged downstream client feature requests", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through", timeoutMs: 1 },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      listRoots: () => new Promise(() => undefined),
+    });
+
+    await expect(bridges[0]?.listRoots?.()).rejects.toThrow(/roots\/list.*timed out after 1ms/);
   });
 
   it("routes namespaced tool calls to the original upstream tool name", async () => {

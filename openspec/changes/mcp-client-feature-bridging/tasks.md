@@ -10,7 +10,7 @@
 
 - [x] 2.1 Add runtime support for upstream-to-downstream client feature requests
 - [x] 2.2 Correlate bridged requests with the originating upstream server and downstream session
-- [ ] 2.3 Enforce timeouts and cleanup for pending bridged requests
+- [x] 2.3 Enforce timeouts and cleanup for pending bridged requests
 - [ ] 2.4 Return structured MCP errors when a downstream client or resolver cannot satisfy a request
 
 ## 3. Roots
