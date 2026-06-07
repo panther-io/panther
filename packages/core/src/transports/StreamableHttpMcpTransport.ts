@@ -4,6 +4,7 @@ import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
   GetPromptRequest,
@@ -22,6 +23,9 @@ import type {
   UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import {
+  CreateMessageRequestSchema,
+  ElicitRequestSchema,
+  ListRootsRequestSchema,
   ProgressNotificationSchema,
   LoggingMessageNotificationSchema,
   PromptListChangedNotificationSchema,
@@ -30,7 +34,7 @@ import {
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../transportAuth.js";
-import type { McpUpstreamNotificationHandler, PanterTransport, UserContext } from "../types.js";
+import type { ClientFeatureBridge, McpUpstreamNotificationHandler, PanterTransport, UserContext } from "../types.js";
 
 /**
  * Options for native MCP Streamable HTTP upstream transport.
@@ -44,6 +48,8 @@ export type StreamableHttpMcpTransportOptions = {
   sessionId?: string;
   clientName?: string;
   clientVersion?: string;
+  clientCapabilities?: ClientCapabilities;
+  clientFeatureBridge?: ClientFeatureBridge;
 };
 
 /**
@@ -78,6 +84,22 @@ export class StreamableHttpMcpTransport implements PanterTransport {
    */
   withUser(user: UserContext): StreamableHttpMcpTransport {
     const transport = new StreamableHttpMcpTransport(this.options, user);
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  withClientCapabilities(capabilities: ClientCapabilities): StreamableHttpMcpTransport {
+    const transport = new StreamableHttpMcpTransport({ ...this.options, clientCapabilities: capabilities }, this.user);
+    for (const handler of this.notificationHandlers) {
+      transport.onNotification(handler);
+    }
+    return transport;
+  }
+
+  withClientFeatureBridge(bridge: ClientFeatureBridge): StreamableHttpMcpTransport {
+    const transport = new StreamableHttpMcpTransport({ ...this.options, clientFeatureBridge: bridge }, this.user);
     for (const handler of this.notificationHandlers) {
       transport.onNotification(handler);
     }
@@ -196,6 +218,11 @@ export class StreamableHttpMcpTransport implements PanterTransport {
     this.connectPromise = null;
   }
 
+  async notifyRootsListChanged(): Promise<void> {
+    const client = await this.getClient();
+    await client.sendRootsListChanged();
+  }
+
   private async getClient(): Promise<Client> {
     if (this.client) {
       return this.client;
@@ -221,7 +248,7 @@ export class StreamableHttpMcpTransport implements PanterTransport {
         name: this.options.clientName ?? "panther-core",
         version: this.options.clientVersion ?? "0.1.0",
       },
-      { capabilities: {} },
+      { capabilities: this.options.clientCapabilities ?? {} },
     );
     const transport = new StreamableHTTPClientTransport(new URL(this.options.url), {
       fetch: this.options.fetch,
@@ -236,6 +263,7 @@ export class StreamableHttpMcpTransport implements PanterTransport {
     });
 
     this.registerNotificationHandlers(client);
+    this.registerClientFeatureHandlers(client);
     await client.connect(transport);
     this.transport = transport;
     return client;
@@ -275,6 +303,26 @@ export class StreamableHttpMcpTransport implements PanterTransport {
         data: notification.params.data,
       });
     });
+  }
+
+  private registerClientFeatureHandlers(client: Client): void {
+    const bridge = this.options.clientFeatureBridge;
+    if (!bridge || typeof client.setRequestHandler !== "function") {
+      return;
+    }
+
+    const listRoots = bridge.listRoots;
+    if (listRoots) {
+      client.setRequestHandler(ListRootsRequestSchema, async (request) => listRoots(request.params));
+    }
+    const createMessage = bridge.createMessage;
+    if (createMessage) {
+      client.setRequestHandler(CreateMessageRequestSchema, async (request) => createMessage(request.params));
+    }
+    const elicit = bridge.elicit;
+    if (elicit) {
+      client.setRequestHandler(ElicitRequestSchema, async (request) => elicit(request.params));
+    }
   }
 
   private async emitNotification(notification: Parameters<McpUpstreamNotificationHandler>[0]): Promise<void> {

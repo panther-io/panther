@@ -130,6 +130,25 @@ export type {
   CapabilityOperationRequest,
   CapabilityPermission,
   CapabilityTargetKind,
+  ClientElicitationFeatureConfig,
+  ClientElicitationResolver,
+  ClientFeatureConfig,
+  ClientFeatureBridge,
+  ClientFeatureFulfillmentMode,
+  ClientFeatureResolverContext,
+  ClientFeatureServerConfig,
+  ClientFeaturesConfig,
+  ClientRootsFeatureConfig,
+  ClientRootsResolver,
+  ClientRootsValidationMode,
+  ClientSamplingFeatureConfig,
+  ClientSamplingResolver,
+  CreateMessageParams,
+  CreateMessageResponse,
+  ElicitParams,
+  ElicitResponse,
+  ListRootsParams,
+  ListRootsResponse,
   McpOperationName,
   ProxyAuthContext,
   ProxyContext,
@@ -173,6 +192,12 @@ export type {
  * @pk
  */
 export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+/**
+ * MCP client feature capability helpers.
+ * @pk
+ */
+export { createClientCapabilities, isClientFeatureEnabled } from "./clientFeatures.js";
+export type { ClientFeatureName } from "./clientFeatures.js";
 /**
  * Identity strategy helpers.
  * @pk

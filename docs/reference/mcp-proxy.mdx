@@ -14,6 +14,7 @@ new McpProxy({
   path,
   logger,
   user,
+  clientFeatures,
   requestTimeoutMs,
   name,
   version,
@@ -27,6 +28,7 @@ new McpProxy({
 - `path`: HTTP path for MCP requests (default `/mcp`).
 - `logger`: custom `Logger` instance.
 - `user`: static user context or resolver function.
+- `clientFeatures`: per-upstream-server roots, sampling, and elicitation configuration. Features are denied and not advertised by default.
 - `requestTimeoutMs`: optional timeout for proxied requests. Timed-out requests return a structured MCP error and clear session request state.
 - `name` and `version`: MCP server identity.
 
@@ -103,6 +105,49 @@ Requests with `_meta.progressToken` are tracked for their downstream session. Up
 Downstream `notifications/cancelled` messages mark active requests as cancelled, forward cancellation upstream when the transport supports it, and suppress late results. Downstream `ping` requests return an empty successful response.
 
 Downstream `logging/setLevel` stores a per-session MCP log level. Panther and upstream MCP log messages are delivered as `notifications/message` at or above that level, with known credential fields such as tokens, secrets, passwords, authorization headers, API keys, and credential values redacted.
+
+## Upstream client features
+
+MCP upstream servers can ask their client for roots, sampling, and elicitation. In Panther, these features are disabled by default and are advertised upstream only when `clientFeatures` says Panther can satisfy them for the current downstream session.
+
+Each upstream server can use downstream pass-through or a Panther-managed resolver:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  clientFeatures: {
+    filesystem: {
+      roots: {
+        enabled: true,
+        mode: "resolver",
+        resolver: () => ({ roots: [{ uri: "file:///workspace", name: "Workspace" }] }),
+      },
+      sampling: {
+        enabled: true,
+        mode: "pass-through",
+        approval: async (_params, ctx) => ctx.subject?.id === "alice",
+      },
+      elicitation: {
+        enabled: true,
+        mode: "resolver",
+        resolver: async (_params) => ({ action: "decline" }),
+      },
+    },
+  },
+});
+```
+
+### Roots
+
+`roots/list` can be passed through to the downstream MCP client or returned by `roots.resolver`. Panther validates roots as `file://` URIs by default. Set `validateFileUris: "filter"` to drop non-file roots instead of rejecting the response.
+
+When roots use pass-through and `listChanged: true`, downstream `notifications/roots/list_changed` notifications are forwarded upstream when the native transport supports client notifications.
+
+### Sampling and elicitation
+
+`sampling/createMessage` and `elicitation/create` require explicit enablement. Panther applies capability policy first, then the feature-level `approval` hook, before calling a downstream client or resolver. Denied requests return structured MCP policy errors and do not reach the downstream client or resolver.
+
+Sampling prompts and elicitation payloads are not logged by default. Client feature audit logs include server, subject/user, feature, policy outcome, approval outcome, fulfillment mode, duration, and root counts where applicable.
 
 ## Hooks
 

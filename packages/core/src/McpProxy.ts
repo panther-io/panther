@@ -11,11 +11,14 @@ import {
   ListToolsRequestSchema,
   PingRequestSchema,
   ReadResourceRequestSchema,
+  RootsListChangedNotificationSchema,
   SetLevelRequestSchema,
   SubscribeRequestSchema,
   UnsubscribeRequestSchema,
   type CallToolRequest,
   type CallToolResult,
+  ErrorCode,
+  McpError,
   type CompleteRequest,
   type CompleteResult,
   type GetPromptRequest,
@@ -30,10 +33,12 @@ import {
   type ListToolsResult,
   type ReadResourceRequest,
   type ReadResourceResult,
+  type Root,
   type SubscribeRequest,
   type UnsubscribeRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
+import { createClientCapabilities } from "./clientFeatures.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import {
@@ -61,6 +66,10 @@ import {
   ResponseController,
   type CapabilityOperationRequest,
   type CapabilityPermission,
+  type ClientFeatureBridge,
+  type ClientFeatureConfig,
+  type ClientFeatureResolverContext,
+  type ClientFeaturesConfig,
   type CredentialSourceMetadata,
   type ErrorMapper,
   type ListToolsHook,
@@ -71,6 +80,7 @@ import {
   type LegacyMiddleware,
   type LifecycleHook,
   type LifecycleHookEvent,
+  type ListRootsResponse,
   type Policy,
   type ProxyContext,
   type ProxyEventFilter,
@@ -128,6 +138,7 @@ export type McpProxyOptions = {
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
   errorMapper?: ErrorMapper;
+  clientFeatures?: ClientFeatureConfig;
   requestTimeoutMs?: number;
   name?: string;
   version?: string;
@@ -206,6 +217,7 @@ export class McpProxy {
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly errorMapper: ErrorMapper;
+  private readonly clientFeatures: ClientFeatureConfig;
   private readonly requestTimeoutMs?: number;
   private readonly name: string;
   private readonly version: string;
@@ -233,6 +245,7 @@ export class McpProxy {
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
+    this.clientFeatures = options.clientFeatures ?? {};
     this.requestTimeoutMs = options.requestTimeoutMs;
     this.name = options.name ?? "panther-core-proxy";
     this.version = options.version ?? "0.1.0";
@@ -436,6 +449,9 @@ export class McpProxy {
     user: UserContext = {},
     identity?: IdentityMetadata,
     subject?: ResolvedSubject,
+    sessionId?: string,
+    downstreamRequestId?: string | number,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<ListToolsResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -443,7 +459,16 @@ export class McpProxy {
     const results = await Promise.all(
       this.servers.map(async (server) => {
         const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
-        const result = await server.listTools(params, userForServer);
+        const upstreamUser = await this.withUpstreamClientCapabilities(
+          server.name,
+          userForServer,
+          resolvedSubject,
+          identity,
+          sessionId,
+          downstreamRequestId,
+          clientFeatureBridge,
+        );
+        const result = await server.listTools(params, upstreamUser);
         const tools = this.groups.length > 0
           ? filterToolsByGroupPolicies(result.tools, server.name, userGroups)
           : this.policy ? filterToolsByPolicy(result.tools, server.name, this.policy) : result.tools;
@@ -510,6 +535,7 @@ export class McpProxy {
     subject?: ResolvedSubject,
     sessionId?: string,
     downstreamRequestId?: string | number,
+    clientFeatureBridge?: ClientFeatureBridge,
   ): Promise<CallToolResult> {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
@@ -564,7 +590,15 @@ export class McpProxy {
       let upstreamUser = resolvedUser;
       if (!context.policyDecision || context.policyDecision.allowed) {
         const upstream = this.applyUpstreamAuth(serverName, resolvedUser, resolvedSubject);
-        upstreamUser = upstream.user;
+        upstreamUser = await this.withUpstreamClientCapabilities(
+          serverName,
+          upstream.user,
+          resolvedSubject,
+          identity,
+          sessionId,
+          downstreamRequestId,
+          clientFeatureBridge,
+        );
         context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
         context.credentials.sources = context.credentialSources ?? [];
       }
@@ -1039,10 +1073,12 @@ export class McpProxy {
           "Panther MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use panther:// proxy URIs.",
       },
     );
+    const clientFeatureBridge = this.createDownstreamClientFeatureBridge(server);
 
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
+    server.setRequestHandler(ListToolsRequestSchema, async (request, extra) =>
+      this.listTools(request.params, user, identity, subject, extra.sessionId, extra.requestId, clientFeatureBridge));
     server.setRequestHandler(CallToolRequestSchema, async (request, extra) =>
-      this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId));
+      this.callTool(request.params, user, identity, subject, extra.sessionId, extra.requestId, clientFeatureBridge));
     server.setRequestHandler(PingRequestSchema, async () => ({}));
     server.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
       if (extra.sessionId) {
@@ -1055,6 +1091,9 @@ export class McpProxy {
         await this.cancelDownstreamRequest(undefined, notification.params.requestId, notification.params.reason, user);
       }
     });
+    server.setNotificationHandler(RootsListChangedNotificationSchema, (async (_notification: unknown, extra?: { sessionId?: string }) => {
+      await this.forwardRootsListChangedNotification(user, identity, subject, extra?.sessionId, clientFeatureBridge);
+    }) as Parameters<typeof server.setNotificationHandler>[1]);
     if (capabilities.resources) {
       server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
         this.listResources(request.params, user, identity, subject));
@@ -1186,6 +1225,14 @@ export class McpProxy {
       sessionUtilities: this.createSessionUtilityRegistry(),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
+    };
+  }
+
+  private createDownstreamClientFeatureBridge(server: McpSdkServer): ClientFeatureBridge {
+    return {
+      listRoots: (params) => server.listRoots(params),
+      createMessage: (params) => server.createMessage(params),
+      elicit: (params) => server.elicitInput(params),
     };
   }
 
@@ -2125,6 +2172,400 @@ export class McpProxy {
     };
   }
 
+  private async withUpstreamClientCapabilities(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+    sessionId: string | undefined,
+    requestId: string | number | undefined,
+    clientFeatureBridge?: ClientFeatureBridge,
+  ): Promise<UserContext> {
+    const featureConfig = await this.resolveClientFeatureConfig(serverName, user, subject, identity, sessionId, requestId);
+    const bridge = clientFeatureBridge
+      ? this.createConfiguredClientFeatureBridge(clientFeatureBridge, featureConfig, {
+          serverName,
+          user,
+          subject,
+          identity,
+          sessionId,
+          requestId,
+          log: this.createContextualLogger({
+            operation: "tools:list",
+            user,
+            subject,
+            identity,
+            serverName,
+            sessionId,
+          }),
+        })
+      : undefined;
+    return {
+      ...user,
+      __pantherClientCapabilities: createClientCapabilities(featureConfig),
+      ...(bridge
+        ? {
+            __pantherClientFeatureBridge: bridge,
+            __pantherClientFeatureBridgeSessionId: sessionId ?? "default",
+          }
+        : {}),
+    };
+  }
+
+  private createConfiguredClientFeatureBridge(
+    bridge: ClientFeatureBridge,
+    featureConfig: ClientFeaturesConfig | undefined,
+    context: ClientFeatureResolverContext,
+  ): ClientFeatureBridge | undefined {
+    const configured: ClientFeatureBridge = {};
+
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && bridge.listRoots) {
+      configured.listRoots = (params) =>
+        this.withClientFeatureAudit(
+          "roots",
+          "roots/list",
+          "pass-through",
+          context,
+          undefined,
+          undefined,
+          () =>
+            this.withClientFeatureTimeout(
+              async () => this.validateRootsResponse(await bridge.listRoots?.(params), featureConfig.roots?.validateFileUris),
+              featureConfig.roots?.timeoutMs,
+              "roots/list",
+            ),
+          (result) => ({ rootsCount: result.roots.length }),
+        );
+    }
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && !bridge.listRoots) {
+      configured.listRoots = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy roots/list");
+      };
+    }
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "resolver" && featureConfig.roots.resolver) {
+      configured.listRoots = () =>
+        this.withClientFeatureAudit(
+          "roots",
+          "roots/list",
+          "resolver",
+          context,
+          undefined,
+          undefined,
+          () =>
+            this.withClientFeatureTimeout(
+              async () => this.validateRootsResponse(await featureConfig.roots?.resolver?.(context), featureConfig.roots?.validateFileUris),
+              featureConfig.roots?.timeoutMs,
+              "roots/list",
+            ),
+          (result) => ({ rootsCount: result.roots.length }),
+        );
+    }
+
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && bridge.createMessage) {
+      configured.createMessage = (params) =>
+        this.executeSamplingRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => bridge.createMessage?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+            featureConfig.sampling?.timeoutMs,
+            "sampling/createMessage",
+          ),
+        );
+    }
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && !bridge.createMessage) {
+      configured.createMessage = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy sampling/createMessage");
+      };
+    }
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "resolver" && featureConfig.sampling.resolver) {
+      configured.createMessage = (params) =>
+        this.executeSamplingRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => featureConfig.sampling?.resolver?.(params, context) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["createMessage"]>>>>,
+            featureConfig.sampling?.timeoutMs,
+            "sampling/createMessage",
+          ),
+        );
+    }
+
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && bridge.elicit) {
+      configured.elicit = (params) =>
+        this.executeElicitationRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => bridge.elicit?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+            featureConfig.elicitation?.timeoutMs,
+            "elicitation/create",
+          ),
+        );
+    }
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && !bridge.elicit) {
+      configured.elicit = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy elicitation/create");
+      };
+    }
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "resolver" && featureConfig.elicitation.resolver) {
+      configured.elicit = (params) =>
+        this.executeElicitationRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => featureConfig.elicitation?.resolver?.(params, context) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+            featureConfig.elicitation?.timeoutMs,
+            "elicitation/create",
+          ),
+        );
+    }
+
+    return Object.keys(configured).length > 0 ? configured : undefined;
+  }
+
+  private async withClientFeatureTimeout<T>(
+    operation: () => Promise<T> | T,
+    timeoutMs: number | undefined,
+    method: string,
+  ): Promise<T> {
+    const effectiveTimeoutMs = timeoutMs ?? this.requestTimeoutMs;
+    if (!effectiveTimeoutMs || effectiveTimeoutMs <= 0) {
+      return operation();
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        Promise.resolve().then(operation),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new McpError(ErrorCode.RequestTimeout, `MCP client feature request "${method}" timed out after ${effectiveTimeoutMs}ms`)),
+            effectiveTimeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  private async executeSamplingRequest<T>(
+    params: Parameters<NonNullable<ClientFeatureBridge["createMessage"]>>[0],
+    featureConfig: ClientFeaturesConfig,
+    context: ClientFeatureResolverContext,
+    terminal: () => Promise<T> | T,
+  ): Promise<T> {
+    let policyAllowed: boolean | undefined;
+    let approvalAllowed: boolean | undefined;
+    try {
+      const policyContext = await this.enforceCapabilityPolicy(
+        {
+          serverName: context.serverName,
+          operation: "sampling:createMessage",
+          target: "sampling/createMessage",
+          targetKind: "clientFeature",
+          raw: params,
+        },
+        context.user,
+        context.subject,
+        context.identity,
+      );
+      policyAllowed = policyContext.policy.allowed;
+    } catch (error) {
+      await this.emitDeniedCapabilityError(error);
+      await this.withClientFeatureAudit("sampling", "sampling/createMessage", featureConfig.sampling?.mode, context, false, undefined, () => {
+        throw toMcpError(error);
+      });
+      throw toMcpError(error);
+    }
+
+    approvalAllowed = featureConfig.sampling?.approval ? await featureConfig.sampling.approval(params, context) : true;
+    if (!approvalAllowed) {
+      return this.withClientFeatureAudit("sampling", "sampling/createMessage", featureConfig.sampling?.mode, context, policyAllowed, false, () => {
+        throw new McpError(PantherErrorCode.PolicyDenied, "sampling/createMessage denied by approval");
+      });
+    }
+
+    return this.withClientFeatureAudit(
+      "sampling",
+      "sampling/createMessage",
+      featureConfig.sampling?.mode,
+      context,
+      policyAllowed,
+      approvalAllowed,
+      terminal,
+    );
+  }
+
+  private async executeElicitationRequest<T>(
+    params: Parameters<NonNullable<ClientFeatureBridge["elicit"]>>[0],
+    featureConfig: ClientFeaturesConfig,
+    context: ClientFeatureResolverContext,
+    terminal: () => Promise<T> | T,
+  ): Promise<T> {
+    validateElicitationParams(params);
+    let policyAllowed: boolean | undefined;
+    let approvalAllowed: boolean | undefined;
+    try {
+      const policyContext = await this.enforceCapabilityPolicy(
+        {
+          serverName: context.serverName,
+          operation: "elicitation:create",
+          target: "elicitation/create",
+          targetKind: "clientFeature",
+          raw: params,
+        },
+        context.user,
+        context.subject,
+        context.identity,
+      );
+      policyAllowed = policyContext.policy.allowed;
+    } catch (error) {
+      await this.emitDeniedCapabilityError(error);
+      await this.withClientFeatureAudit("elicitation", "elicitation/create", featureConfig.elicitation?.mode, context, false, undefined, () => {
+        throw toMcpError(error);
+      });
+      throw toMcpError(error);
+    }
+
+    approvalAllowed = featureConfig.elicitation?.approval ? await featureConfig.elicitation.approval(params, context) : true;
+    if (!approvalAllowed) {
+      return this.withClientFeatureAudit("elicitation", "elicitation/create", featureConfig.elicitation?.mode, context, policyAllowed, false, () => {
+        throw new McpError(PantherErrorCode.PolicyDenied, "elicitation/create denied by approval");
+      });
+    }
+
+    return this.withClientFeatureAudit(
+      "elicitation",
+      "elicitation/create",
+      featureConfig.elicitation?.mode,
+      context,
+      policyAllowed,
+      approvalAllowed,
+      terminal,
+    );
+  }
+
+  private async withClientFeatureAudit<T>(
+    feature: "roots" | "sampling" | "elicitation",
+    method: string,
+    fulfillmentMode: "pass-through" | "resolver" | undefined,
+    context: ClientFeatureResolverContext,
+    policyAllowed: boolean | undefined,
+    approvalAllowed: boolean | undefined,
+    terminal: () => Promise<T> | T,
+    resultMetadata?: (result: T) => Record<string, unknown>,
+  ): Promise<T> {
+    const startedAt = Date.now();
+    this.writeClientFeatureAuditLog("start", feature, method, fulfillmentMode, context, startedAt, policyAllowed, approvalAllowed);
+    try {
+      const result = await terminal();
+      this.writeClientFeatureAuditLog(
+        "success",
+        feature,
+        method,
+        fulfillmentMode,
+        context,
+        startedAt,
+        policyAllowed,
+        approvalAllowed,
+        undefined,
+        resultMetadata?.(result),
+      );
+      return result;
+    } catch (error) {
+      this.writeClientFeatureAuditLog(
+        "failure",
+        feature,
+        method,
+        fulfillmentMode,
+        context,
+        startedAt,
+        policyAllowed,
+        approvalAllowed,
+        normalizeError(error),
+      );
+      throw error;
+    }
+  }
+
+  private async resolveClientFeatureConfig(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    identity: IdentityMetadata | undefined,
+    sessionId: string | undefined,
+    requestId: string | number | undefined,
+  ): Promise<ClientFeaturesConfig | undefined> {
+    const config = this.clientFeatures[serverName];
+    if (typeof config !== "function") {
+      return config;
+    }
+
+    return config({
+      serverName,
+      user,
+      subject,
+      identity,
+      sessionId,
+      requestId,
+      log: this.createContextualLogger({
+        operation: "tools:list",
+        user,
+        subject,
+        identity,
+        serverName,
+        sessionId,
+      }),
+    });
+  }
+
+  private validateRootsResponse(
+    response: ListRootsResponse | Root[] | undefined,
+    validationMode: "reject" | "filter" | undefined,
+  ): ListRootsResponse {
+    const roots = Array.isArray(response) ? response : response?.roots ?? [];
+    const invalid = roots.filter((root) => !isFileRoot(root));
+    const mode = validationMode ?? "reject";
+    if (invalid.length > 0 && mode === "reject") {
+      throw new McpError(
+        PantherErrorCode.ClientFeatureUnsupported,
+        `roots/list response contains non-file root URI "${invalid[0]?.uri ?? ""}"`,
+      );
+    }
+
+    return {
+      ...(Array.isArray(response) ? {} : response),
+      roots: mode === "filter" ? roots.filter(isFileRoot) : roots,
+    };
+  }
+
+  private async forwardRootsListChangedNotification(
+    user: UserContext,
+    identity: IdentityMetadata | undefined,
+    subject: ResolvedSubject | undefined,
+    sessionId: string | undefined,
+    clientFeatureBridge: ClientFeatureBridge,
+  ): Promise<void> {
+    const resolvedUser = await this.resolveRegistryUser(user);
+    const resolvedSubject = this.resolveSubject(resolvedUser, subject);
+    await Promise.all(
+      this.servers.map(async (server) => {
+        const config = await this.resolveClientFeatureConfig(server.name, resolvedUser, resolvedSubject, identity, sessionId, undefined);
+        if (!config?.roots?.enabled || config.roots.mode !== "pass-through" || !config.roots.listChanged) {
+          return;
+        }
+
+        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const upstreamUser = await this.withUpstreamClientCapabilities(
+          server.name,
+          userForServer,
+          resolvedSubject,
+          identity,
+          sessionId,
+          undefined,
+          clientFeatureBridge,
+        );
+        await server.notifyRootsListChanged(upstreamUser);
+      }),
+    );
+  }
+
   private writeAutoLog(
     event: "start" | "success" | "failure",
     log: Logger,
@@ -2187,6 +2628,44 @@ export class McpProxy {
       context.log.warn("MCP capability operation failed", metadata);
     } else {
       context.log.info("MCP capability operation", metadata);
+    }
+  }
+
+  private writeClientFeatureAuditLog(
+    event: "start" | "success" | "failure",
+    feature: "roots" | "sampling" | "elicitation",
+    method: string,
+    fulfillmentMode: "pass-through" | "resolver" | undefined,
+    context: ClientFeatureResolverContext,
+    startedAt: number,
+    policyAllowed: boolean | undefined,
+    approvalAllowed: boolean | undefined,
+    error?: Error,
+    extra?: Record<string, unknown>,
+  ): void {
+    const metadata = {
+      event: `clientFeature.${feature}.${event}`,
+      operation: method,
+      feature,
+      method,
+      fulfillmentMode,
+      durationMs: event === "start" ? undefined : Date.now() - startedAt,
+      subjectId: context.subject?.id,
+      userId: context.user.id,
+      serverName: context.serverName,
+      sessionId: context.sessionId,
+      requestId: context.requestId,
+      policy: policyAllowed,
+      approval: approvalAllowed,
+      success: event === "success" ? true : undefined,
+      error: error?.message,
+      ...extra,
+    };
+
+    if (event === "failure") {
+      context.log.warn("MCP client feature request failed", metadata);
+    } else {
+      context.log.info("MCP client feature request", metadata);
     }
   }
 
@@ -2531,6 +3010,15 @@ function toStructuredError(error: unknown): { code?: number; message?: string } 
   return { code, message };
 }
 
+function toMcpError(error: unknown): McpError {
+  if (error instanceof McpError) {
+    return error;
+  }
+
+  const structured = toStructuredError(error);
+  return new McpError(structured?.code ?? PantherErrorCode.InternalError, structured?.message ?? "MCP client feature request failed");
+}
+
 function isLikelyLegacyTwoArgMiddlewareError(error: unknown): boolean {
   if (!(error instanceof TypeError)) {
     return false;
@@ -2582,6 +3070,50 @@ function validatePatternSegment(segment: string | undefined, label: string, patt
   if (!segment) {
     throw new Error(`Invalid ${label} segment in tool pattern "${pattern}"`);
   }
+}
+
+function isFileRoot(root: Root): boolean {
+  return root.uri.startsWith("file://");
+}
+
+function validateElicitationParams(params: Parameters<NonNullable<ClientFeatureBridge["elicit"]>>[0]): void {
+  if (!isObjectRecord(params) || typeof params.message !== "string" || !params.message.trim()) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requires a non-empty message");
+  }
+
+  if (params.mode === "url") {
+    if (typeof params.elicitationId !== "string" || !params.elicitationId.trim()) {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires elicitationId");
+    }
+    if (typeof params.url !== "string") {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires url");
+    }
+    try {
+      new URL(params.url);
+    } catch {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires a valid url");
+    }
+    return;
+  }
+
+  const schema = params.requestedSchema;
+  if (!isObjectRecord(schema) || schema.type !== "object" || !isObjectRecord(schema.properties)) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create form mode requires an object requestedSchema");
+  }
+
+  if (schema.required !== undefined && !Array.isArray(schema.required)) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema.required must be an array");
+  }
+
+  for (const property of Object.values(schema.properties)) {
+    if (!isObjectRecord(property) || ("properties" in property && isObjectRecord(property.properties))) {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema only supports top-level primitive properties");
+    }
+  }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function matchesToolPattern(pattern: CompiledToolPattern, request: ToolCallRequest): boolean {

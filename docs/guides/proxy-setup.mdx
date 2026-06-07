@@ -106,6 +106,58 @@ const proxy = new McpProxy({
 });
 ```
 
+## Enable upstream client features deliberately
+
+Roots, sampling, and elicitation let upstream servers ask their client for filesystem boundaries, model sampling, or user input. Panther keeps these features disabled by default. Enable them per upstream server only when you have a clear fulfillment path and policy.
+
+Use pass-through when the downstream MCP client owns the user consent flow:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [filesystem],
+  clientFeatures: {
+    filesystem: {
+      roots: {
+        enabled: true,
+        mode: "pass-through",
+        listChanged: true,
+        validateFileUris: "reject",
+      },
+      sampling: {
+        enabled: true,
+        mode: "pass-through",
+        approval: async (_params, ctx) => ctx.user.role === "developer",
+      },
+    },
+  },
+});
+```
+
+Use resolvers when Panther should answer locally:
+
+```ts theme={null}
+const proxy = new McpProxy({
+  servers: [assistantServer],
+  clientFeatures: {
+    assistantServer: {
+      roots: {
+        enabled: true,
+        mode: "resolver",
+        resolver: () => ({ roots: [{ uri: "file:///srv/workspace", name: "Workspace" }] }),
+      },
+      elicitation: {
+        enabled: true,
+        mode: "resolver",
+        approval: async (_params, ctx) => ctx.subject?.id === "operator",
+        resolver: async () => ({ action: "accept", content: { approved: true } }),
+      },
+    },
+  },
+});
+```
+
+For sampling and elicitation, combine `Policy.allowCapability` or `Policy.denyCapability` with the feature `approval` hook. Panther evaluates policy first, then approval, and denied requests do not reach downstream clients or resolvers. Audit logs include request metadata and outcomes, but not sampling prompts or elicitation payloads by default.
+
 ## Add environment-aware tool lists
 
 If you need stricter tool lists in production, filter at discovery time. This prevents tools from even showing up in the client UI.

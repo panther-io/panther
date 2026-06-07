@@ -1,10 +1,18 @@
 import type {
   CallToolRequest,
   CallToolResult,
+  ClientCapabilities,
   CompleteRequest,
   CompleteResult,
+  CreateMessageRequest,
+  CreateMessageResult,
+  CreateMessageResultWithTools,
+  ElicitRequest,
+  ElicitResult,
   GetPromptRequest,
   GetPromptResult,
+  ListRootsRequest,
+  ListRootsResult,
   ListPromptsRequest,
   ListPromptsResult,
   ListResourcesRequest,
@@ -19,6 +27,8 @@ import type {
   PromptListChangedNotification,
   ReadResourceRequest,
   ReadResourceResult,
+  Root,
+  RootsListChangedNotification,
   ResourceListChangedNotification,
   ResourceUpdatedNotification,
   SubscribeRequest,
@@ -63,6 +73,151 @@ export type GetPromptResponse = GetPromptResult;
  */
 export type CompleteParams = CompleteRequest["params"];
 export type CompleteResponse = CompleteResult;
+
+/**
+ * Request/result aliases for MCP client roots operations.
+ * @pk
+ */
+export type ListRootsParams = ListRootsRequest["params"];
+export type ListRootsResponse = ListRootsResult;
+
+/**
+ * Request/result aliases for MCP client sampling operations.
+ * @pk
+ */
+export type CreateMessageParams = CreateMessageRequest["params"];
+export type CreateMessageResponse = CreateMessageResult | CreateMessageResultWithTools;
+
+/**
+ * Request/result aliases for MCP client elicitation operations.
+ * @pk
+ */
+export type ElicitParams = ElicitRequest["params"];
+export type ElicitResponse = ElicitResult;
+
+/**
+ * Client feature fulfillment mode.
+ * @pk
+ */
+export type ClientFeatureFulfillmentMode = "pass-through" | "resolver";
+
+/**
+ * Root URI validation behavior for client feature responses.
+ * @pk
+ */
+export type ClientRootsValidationMode = "reject" | "filter";
+
+/**
+ * Context passed to Panther-managed client feature resolvers.
+ * @pk
+ */
+export type ClientFeatureResolverContext = {
+  serverName: string;
+  user: UserContext;
+  subject?: ResolvedSubject;
+  identity?: IdentityMetadata;
+  sessionId?: string;
+  requestId?: string | number;
+  log: Logger;
+};
+
+/**
+ * Panther-managed roots resolver.
+ * @pk
+ */
+export type ClientRootsResolver = (context: ClientFeatureResolverContext) => MaybePromise<ListRootsResponse | Root[]>;
+
+/**
+ * Panther-managed sampling resolver.
+ * @pk
+ */
+export type ClientSamplingResolver = (
+  params: CreateMessageParams,
+  context: ClientFeatureResolverContext,
+) => MaybePromise<CreateMessageResponse>;
+
+/**
+ * Panther-managed elicitation resolver.
+ * @pk
+ */
+export type ClientElicitationResolver = (
+  params: ElicitParams,
+  context: ClientFeatureResolverContext,
+) => MaybePromise<ElicitResponse>;
+
+/**
+ * Roots client feature configuration.
+ * @pk
+ */
+export type ClientRootsFeatureConfig = {
+  enabled?: boolean;
+  mode?: ClientFeatureFulfillmentMode;
+  resolver?: ClientRootsResolver;
+  validateFileUris?: ClientRootsValidationMode;
+  listChanged?: boolean;
+  timeoutMs?: number;
+};
+
+/**
+ * Sampling client feature configuration.
+ * @pk
+ */
+export type ClientSamplingFeatureConfig = {
+  enabled?: boolean;
+  mode?: ClientFeatureFulfillmentMode;
+  resolver?: ClientSamplingResolver;
+  approval?: (params: CreateMessageParams, context: ClientFeatureResolverContext) => MaybePromise<boolean>;
+  timeoutMs?: number;
+};
+
+/**
+ * Elicitation client feature configuration.
+ * @pk
+ */
+export type ClientElicitationFeatureConfig = {
+  enabled?: boolean;
+  mode?: ClientFeatureFulfillmentMode;
+  resolver?: ClientElicitationResolver;
+  approval?: (params: ElicitParams, context: ClientFeatureResolverContext) => MaybePromise<boolean>;
+  timeoutMs?: number;
+};
+
+/**
+ * MCP client features Panther may expose to an upstream server for a downstream session.
+ * Features are disabled by default unless explicitly enabled.
+ * @pk
+ */
+export type ClientFeaturesConfig = {
+  roots?: ClientRootsFeatureConfig;
+  sampling?: ClientSamplingFeatureConfig;
+  elicitation?: ClientElicitationFeatureConfig;
+};
+
+/**
+ * Per-upstream server client feature configuration.
+ * @pk
+ */
+export type ClientFeatureServerConfig =
+  | ClientFeaturesConfig
+  | ((
+      context: Omit<ClientFeatureResolverContext, "log"> & { log?: Logger },
+    ) => MaybePromise<ClientFeaturesConfig | undefined>);
+
+/**
+ * Client feature configuration keyed by upstream MCP server name.
+ * @pk
+ */
+export type ClientFeatureConfig = Record<string, ClientFeatureServerConfig>;
+
+/**
+ * Runtime bridge used by upstream transports when an upstream server invokes MCP client features.
+ * @pk
+ */
+export type ClientFeatureBridge = {
+  listRoots?(params?: ListRootsParams): MaybePromise<ListRootsResponse>;
+  createMessage?(params: CreateMessageParams): MaybePromise<CreateMessageResponse>;
+  elicit?(params: ElicitParams): MaybePromise<ElicitResponse>;
+};
 
 /**
  * User context passed through requests.
@@ -259,6 +414,9 @@ export type ProxyOperation =
   | "prompts:list"
   | "prompt:get"
   | "completion:complete"
+  | "roots:list"
+  | "sampling:createMessage"
+  | "elicitation:create"
   | "session:start"
   | "session:end";
 
@@ -274,7 +432,10 @@ export type McpOperationName =
   | "resource-templates:list"
   | "prompts:list"
   | "prompt:get"
-  | "completion:complete";
+  | "completion:complete"
+  | "roots:list"
+  | "sampling:createMessage"
+  | "elicitation:create";
 
 /**
  * Safe downstream transport metadata attached to a proxy operation.
@@ -690,7 +851,10 @@ export type PanterTransport = {
   complete?(params: CompleteParams): Promise<CompleteResponse>;
   ping?(): Promise<{ _meta?: Record<string, unknown> }>;
   cancelRequest?(requestId: string | number, reason?: string): Promise<void>;
+  notifyRootsListChanged?(): Promise<void>;
   onNotification?(handler: McpUpstreamNotificationHandler): () => void;
+  withClientCapabilities?(capabilities: ClientCapabilities): PanterTransport;
+  withClientFeatureBridge?(bridge: ClientFeatureBridge): PanterTransport;
   close(): Promise<void>;
 };
 
@@ -725,6 +889,7 @@ export type McpDownstreamNotification =
   | ToolListChangedNotification
   | ResourceListChangedNotification
   | PromptListChangedNotification
+  | RootsListChangedNotification
   | ResourceUpdatedNotification
   | ProgressNotification
   | LoggingMessageNotification
@@ -799,7 +964,7 @@ export type ToolPermission = {
  * Capability target selector kind for policy permissions.
  * @pk
  */
-export type CapabilityTargetKind = "tool" | "resource" | "resourceTemplate" | "prompt" | "completion";
+export type CapabilityTargetKind = "tool" | "resource" | "resourceTemplate" | "prompt" | "completion" | "clientFeature";
 
 /**
  * Operation-based permission model for governed MCP capabilities.
