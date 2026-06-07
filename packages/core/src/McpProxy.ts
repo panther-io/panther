@@ -2269,16 +2269,28 @@ export class McpProxy {
 
     if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && bridge.elicit) {
       configured.elicit = (params) =>
-        this.withClientFeatureTimeout(
-          () => bridge.elicit?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
-          featureConfig.elicitation?.timeoutMs,
-          "elicitation/create",
+        this.executeElicitationRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => bridge.elicit?.(params) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+            featureConfig.elicitation?.timeoutMs,
+            "elicitation/create",
+          ),
         );
     }
     if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && !bridge.elicit) {
       configured.elicit = async () => {
         throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy elicitation/create");
       };
+    }
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "resolver" && featureConfig.elicitation.resolver) {
+      configured.elicit = (params) =>
+        this.executeElicitationRequest(params, featureConfig, context, () =>
+          this.withClientFeatureTimeout(
+            () => featureConfig.elicitation?.resolver?.(params, context) as Promise<Awaited<ReturnType<NonNullable<ClientFeatureBridge["elicit"]>>>>,
+            featureConfig.elicitation?.timeoutMs,
+            "elicitation/create",
+          ),
+        );
     }
 
     return Object.keys(configured).length > 0 ? configured : undefined;
@@ -2339,6 +2351,39 @@ export class McpProxy {
     const approved = featureConfig.sampling?.approval ? await featureConfig.sampling.approval(params, context) : true;
     if (!approved) {
       throw new McpError(PantherErrorCode.PolicyDenied, "sampling/createMessage denied by approval");
+    }
+
+    return terminal();
+  }
+
+  private async executeElicitationRequest<T>(
+    params: Parameters<NonNullable<ClientFeatureBridge["elicit"]>>[0],
+    featureConfig: ClientFeaturesConfig,
+    context: ClientFeatureResolverContext,
+    terminal: () => Promise<T> | T,
+  ): Promise<T> {
+    validateElicitationParams(params);
+    try {
+      await this.enforceCapabilityPolicy(
+        {
+          serverName: context.serverName,
+          operation: "elicitation:create",
+          target: "elicitation/create",
+          targetKind: "clientFeature",
+          raw: params,
+        },
+        context.user,
+        context.subject,
+        context.identity,
+      );
+    } catch (error) {
+      await this.emitDeniedCapabilityError(error);
+      throw toMcpError(error);
+    }
+
+    const approved = featureConfig.elicitation?.approval ? await featureConfig.elicitation.approval(params, context) : true;
+    if (!approved) {
+      throw new McpError(PantherErrorCode.PolicyDenied, "elicitation/create denied by approval");
     }
 
     return terminal();
@@ -2896,6 +2941,46 @@ function validatePatternSegment(segment: string | undefined, label: string, patt
 
 function isFileRoot(root: Root): boolean {
   return root.uri.startsWith("file://");
+}
+
+function validateElicitationParams(params: Parameters<NonNullable<ClientFeatureBridge["elicit"]>>[0]): void {
+  if (!isObjectRecord(params) || typeof params.message !== "string" || !params.message.trim()) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requires a non-empty message");
+  }
+
+  if (params.mode === "url") {
+    if (typeof params.elicitationId !== "string" || !params.elicitationId.trim()) {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires elicitationId");
+    }
+    if (typeof params.url !== "string") {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires url");
+    }
+    try {
+      new URL(params.url);
+    } catch {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create URL mode requires a valid url");
+    }
+    return;
+  }
+
+  const schema = params.requestedSchema;
+  if (!isObjectRecord(schema) || schema.type !== "object" || !isObjectRecord(schema.properties)) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create form mode requires an object requestedSchema");
+  }
+
+  if (schema.required !== undefined && !Array.isArray(schema.required)) {
+    throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema.required must be an array");
+  }
+
+  for (const property of Object.values(schema.properties)) {
+    if (!isObjectRecord(property) || isObjectRecord(property.properties)) {
+      throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema only supports top-level primitive properties");
+    }
+  }
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function matchesToolPattern(pattern: CompiledToolPattern, request: ToolCallRequest): boolean {

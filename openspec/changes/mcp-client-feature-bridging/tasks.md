@@ -31,11 +31,11 @@
 
 ## 5. Elicitation
 
-- [ ] 5.1 Implement policy and approval checks for upstream elicitation requests
-- [ ] 5.2 Implement `elicitation/create` downstream pass-through
-- [ ] 5.3 Implement `elicitation/create` through a Panther elicitation resolver
-- [ ] 5.4 Validate elicitation request schemas before forwarding or resolving
-- [ ] 5.5 Add tests for allowed, denied, timed-out, and resolver-based elicitation
+- [x] 5.1 Implement policy and approval checks for upstream elicitation requests
+- [x] 5.2 Implement `elicitation/create` downstream pass-through
+- [x] 5.3 Implement `elicitation/create` through a Panther elicitation resolver
+- [x] 5.4 Validate elicitation request schemas before forwarding or resolving
+- [x] 5.5 Add tests for allowed, denied, timed-out, and resolver-based elicitation
 
 ## 6. Audit And Security
 

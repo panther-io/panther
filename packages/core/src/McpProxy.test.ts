@@ -581,6 +581,178 @@ describe("McpProxy", () => {
     });
   });
 
+  it("implements elicitation/create through downstream pass-through after policy and approval", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn(async () => ({ action: "accept" as const, content: { answer: "yes" } }));
+    const approval = vi.fn(async () => true);
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "elicitation" })
+        .server("github")
+        .allowCapability({ operation: "elicitation:create", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through", approval },
+        },
+      },
+    });
+    const params = {
+      message: "Continue?",
+      requestedSchema: { type: "object" as const, properties: { answer: { type: "string" as const } } },
+    };
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(bridges[0]?.elicit?.(params)).resolves.toEqual({ action: "accept", content: { answer: "yes" } });
+    expect(approval).toHaveBeenCalledWith(params, expect.objectContaining({ serverName: "github" }));
+    expect(downstream).toHaveBeenCalledWith(params);
+  });
+
+  it("implements elicitation/create through a configured resolver", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const resolver = vi.fn(async () => ({ action: "accept" as const, content: { code: "1234" } }));
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "resolver", resolver },
+        },
+      },
+    });
+    const params = {
+      message: "Open approval page",
+      mode: "url" as const,
+      elicitationId: "approval-1",
+      url: "https://example.com/approve",
+    };
+
+    await proxy.listTools(undefined, { id: "user-a" }, undefined, undefined, "session-a", "request-a", {
+      elicit: async () => {
+        throw new Error("should not call downstream");
+      },
+    });
+
+    await expect(bridges[0]?.elicit?.(params)).resolves.toEqual({ action: "accept", content: { code: "1234" } });
+    expect(resolver).toHaveBeenCalledWith(params, expect.objectContaining({ serverName: "github" }));
+  });
+
+  it("does not call downstream elicitation when policy denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      policy: new Policy({ name: "blocked" })
+        .server("github")
+        .denyCapability({ operation: "elicitation:create", targetKind: "clientFeature" }),
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: { type: "object", properties: { answer: { type: "string" } } },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("does not call downstream elicitation when approval denies the request", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through", approval: async () => false },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: { type: "object", properties: { answer: { type: "string" } } },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.PolicyDenied,
+      message: expect.stringContaining("denied by approval"),
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("validates elicitation request schemas before forwarding", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const downstream = vi.fn();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: downstream,
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: {
+          type: "object",
+          properties: { nested: { type: "object", properties: { answer: { type: "string" } } } },
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: PantherErrorCode.ClientFeatureUnsupported,
+      message: expect.stringContaining("top-level primitive properties"),
+    });
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it("times out elicitation/create requests", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          elicitation: { enabled: true, mode: "pass-through", timeoutMs: 1 },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {
+      elicit: () => new Promise(() => undefined),
+    });
+
+    await expect(
+      bridges[0]?.elicit?.({
+        message: "Continue?",
+        requestedSchema: { type: "object", properties: { answer: { type: "string" } } },
+      }),
+    ).rejects.toMatchObject({
+      code: -32001,
+      message: expect.stringMatching(/elicitation\/create.*timed out after 1ms/),
+    });
+  });
+
   it("routes namespaced tool calls to the original upstream tool name", async () => {
     const transport = new MockTransport();
     const proxy = new McpProxy({
