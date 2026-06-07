@@ -8,7 +8,23 @@ description: "Install Panther and prepare your local environment."
 - Node.js 20+ (LTS recommended)
 - pnpm or npm
 
-## Install @panther/core
+## Install the CLI
+
+Use the CLI for the fastest project setup:
+
+<CodeGroup>
+  ```bash pnpm theme={null}
+  pnpm add -g @panther/cli
+  ```
+
+  ```bash npm theme={null}
+  npm i -g @panther/cli
+  ```
+</CodeGroup>
+
+## Install @panther/core directly
+
+Use the core package directly when embedding Panther in an existing TypeScript project:
 
 <CodeGroup>
   ```bash pnpm theme={null}

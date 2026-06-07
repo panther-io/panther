@@ -13,10 +13,15 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
+    "test": "vitest run src",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@panther/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "vitest": "^4.1.7"
   },
   "keywords": [],
   "author": "",

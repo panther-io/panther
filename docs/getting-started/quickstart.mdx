@@ -3,53 +3,50 @@ title: "Quickstart"
 description: "Stand up a Panther proxy in minutes."
 ---
 
-This quickstart creates a local MCP proxy that aggregates a filesystem server.
+This quickstart creates a ready-to-run Panther project with a local MCP proxy, demo auth, policy rules, rate limiting, one stdio upstream, and one remote HTTP MCP upstream.
 
 ## 1. Install Panther
 
 <CodeGroup>
   ```bash pnpm theme={null}
-  pnpm add @panther/core
+  pnpm add -g @panther/cli
   ```
 
   ```bash npm theme={null}
-  npm i @panther/core
+  npm i -g @panther/cli
   ```
 </CodeGroup>
 
-## 2. Create a proxy
+## 2. Create a project
 
-```ts theme={null}
-import { McpProxy, McpServer, StdioTransport } from "@panther/core";
-
-const filesystem = new McpServer({
-  name: "filesystem",
-  displayName: "Filesystem",
-  transport: new StdioTransport({
-    command: "npx",
-    args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-  }),
-});
-
-const proxy = new McpProxy({
-  servers: [filesystem],
-  port: 3000,
-  path: "/mcp",
-});
-
-await proxy.start();
+```bash theme={null}
+panther init my-proxy
 ```
 
-## 3. Connect a client
+The generated project includes:
 
-Point your MCP client to `http://localhost:3000/mcp`.
+- `src/index.ts` with the runnable proxy example.
+- `panther.config.json` for CLI project discovery.
+- Local encrypted auth files under `.panther/auth`.
+- `.env.example`, `.gitignore`, TypeScript config, and package scripts.
+
+## 3. Run locally
+
+```bash theme={null}
+cd my-proxy
+panther dev
+```
+
+## 4. Connect a client
+
+Point your MCP client to the endpoint printed by `panther dev`, usually `http://localhost:4000/mcp`, and send one of the generated demo API keys in the `x-panther-api-key` header.
 
 <Tip>
-  Tool names are prefixed as `server__tool` to prevent collisions.
+  Run `panther check --offline` before connecting a client when you want fast local validation without network checks.
 </Tip>
 
 ## Next step
 
 <Card title="Tutorial" icon="map" href="/getting-started/tutorial" horizontal>
-  Build a multi-server proxy with middleware and hooks.
+  Customize the generated proxy with middleware and hooks.
 </Card>
