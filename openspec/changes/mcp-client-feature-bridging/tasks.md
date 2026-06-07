@@ -46,8 +46,8 @@
 
 ## 7. Documentation And Verification
 
-- [ ] 7.1 Document secure defaults and explicit enablement requirements
-- [ ] 7.2 Document pass-through and resolver modes for each client feature
-- [ ] 7.3 Document examples for roots, sampling approval, and elicitation approval
-- [ ] 7.4 Run `pnpm --filter @panther/core test`
-- [ ] 7.5 Run `pnpm --filter @panther/core build`
+- [x] 7.1 Document secure defaults and explicit enablement requirements
+- [x] 7.2 Document pass-through and resolver modes for each client feature
+- [x] 7.3 Document examples for roots, sampling approval, and elicitation approval
+- [x] 7.4 Run `pnpm --filter @panther/core test`
+- [x] 7.5 Run `pnpm --filter @panther/core build`

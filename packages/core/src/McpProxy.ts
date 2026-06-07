@@ -29,7 +29,6 @@ import {
   type ListResourcesResult,
   type ListResourceTemplatesRequest,
   type ListResourceTemplatesResult,
-  type ListRootsResponse,
   type ListToolsRequest,
   type ListToolsResult,
   type ReadResourceRequest,
@@ -81,6 +80,7 @@ import {
   type LegacyMiddleware,
   type LifecycleHook,
   type LifecycleHookEvent,
+  type ListRootsResponse,
   type Policy,
   type ProxyContext,
   type ProxyEventFilter,
@@ -1091,9 +1091,9 @@ export class McpProxy {
         await this.cancelDownstreamRequest(undefined, notification.params.requestId, notification.params.reason, user);
       }
     });
-    server.setNotificationHandler(RootsListChangedNotificationSchema, async (_notification, extra) => {
-      await this.forwardRootsListChangedNotification(user, identity, subject, extra.sessionId, clientFeatureBridge);
-    });
+    server.setNotificationHandler(RootsListChangedNotificationSchema, (async (_notification: unknown, extra?: { sessionId?: string }) => {
+      await this.forwardRootsListChangedNotification(user, identity, subject, extra?.sessionId, clientFeatureBridge);
+    }) as Parameters<typeof server.setNotificationHandler>[1]);
     if (capabilities.resources) {
       server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
         this.listResources(request.params, user, identity, subject));
@@ -3106,7 +3106,7 @@ function validateElicitationParams(params: Parameters<NonNullable<ClientFeatureB
   }
 
   for (const property of Object.values(schema.properties)) {
-    if (!isObjectRecord(property) || isObjectRecord(property.properties)) {
+    if (!isObjectRecord(property) || ("properties" in property && isObjectRecord(property.properties))) {
       throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "elicitation/create requestedSchema only supports top-level primitive properties");
     }
   }

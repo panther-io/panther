@@ -414,6 +414,9 @@ export type ProxyOperation =
   | "prompts:list"
   | "prompt:get"
   | "completion:complete"
+  | "roots:list"
+  | "sampling:createMessage"
+  | "elicitation:create"
   | "session:start"
   | "session:end";
 
