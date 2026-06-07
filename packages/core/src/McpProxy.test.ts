@@ -334,7 +334,29 @@ describe("McpProxy", () => {
       listRoots: () => new Promise(() => undefined),
     });
 
-    await expect(bridges[0]?.listRoots?.()).rejects.toThrow(/roots\/list.*timed out after 1ms/);
+    await expect(bridges[0]?.listRoots?.()).rejects.toMatchObject({
+      code: -32001,
+      message: expect.stringMatching(/roots\/list.*timed out after 1ms/),
+    });
+  });
+
+  it("returns structured errors when downstream cannot satisfy advertised client features", async () => {
+    const bridges: ClientFeatureBridge[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new CapabilityRecordingTransport([], bridges) })],
+      clientFeatures: {
+        github: {
+          roots: { enabled: true, mode: "pass-through" },
+        },
+      },
+    });
+
+    await proxy.listTools(undefined, {}, undefined, undefined, "session-a", "request-a", {});
+
+    await expect(bridges[0]?.listRoots?.()).rejects.toMatchObject({
+      code: PantherErrorCode.ClientFeatureUnsupported,
+      message: expect.stringContaining("Downstream client cannot satisfy roots/list"),
+    });
   });
 
   it("routes namespaced tool calls to the original upstream tool name", async () => {

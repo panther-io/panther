@@ -16,6 +16,8 @@ import {
   UnsubscribeRequestSchema,
   type CallToolRequest,
   type CallToolResult,
+  ErrorCode,
+  McpError,
   type CompleteRequest,
   type CompleteResult,
   type GetPromptRequest,
@@ -2202,6 +2204,11 @@ export class McpProxy {
           "roots/list",
         );
     }
+    if (featureConfig?.roots?.enabled && featureConfig.roots.mode === "pass-through" && !bridge.listRoots) {
+      configured.listRoots = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy roots/list");
+      };
+    }
 
     if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && bridge.createMessage) {
       configured.createMessage = (params) =>
@@ -2211,6 +2218,11 @@ export class McpProxy {
           "sampling/createMessage",
         );
     }
+    if (featureConfig?.sampling?.enabled && featureConfig.sampling.mode === "pass-through" && !bridge.createMessage) {
+      configured.createMessage = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy sampling/createMessage");
+      };
+    }
 
     if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && bridge.elicit) {
       configured.elicit = (params) =>
@@ -2219,6 +2231,11 @@ export class McpProxy {
           featureConfig.elicitation?.timeoutMs,
           "elicitation/create",
         );
+    }
+    if (featureConfig?.elicitation?.enabled && featureConfig.elicitation.mode === "pass-through" && !bridge.elicit) {
+      configured.elicit = async () => {
+        throw new McpError(PantherErrorCode.ClientFeatureUnsupported, "Downstream client cannot satisfy elicitation/create");
+      };
     }
 
     return Object.keys(configured).length > 0 ? configured : undefined;
@@ -2239,7 +2256,10 @@ export class McpProxy {
       return await Promise.race([
         Promise.resolve().then(operation),
         new Promise<never>((_, reject) => {
-          timeout = setTimeout(() => reject(new Error(`MCP client feature request "${method}" timed out after ${effectiveTimeoutMs}ms`)), effectiveTimeoutMs);
+          timeout = setTimeout(
+            () => reject(new McpError(ErrorCode.RequestTimeout, `MCP client feature request "${method}" timed out after ${effectiveTimeoutMs}ms`)),
+            effectiveTimeoutMs,
+          );
         }),
       ]);
     } finally {
