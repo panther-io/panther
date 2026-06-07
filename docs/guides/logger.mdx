@@ -156,11 +156,22 @@ const proxy = new McpProxy({
 
 ## Logger in middleware and hooks
 
-The same logger instance is exposed as `ctx.log`. Panther enriches it with safe metadata such as operation, subject id, server name, tool name, proxied tool name, transport type, session id, and policy outcome where available.
+The same logger instance is exposed as `ctx.log`. Panther enriches it with safe metadata such as operation, subject id, server name, tool name, proxied tool name, resource URI, prompt name, completion target, transport type, session id, credential source, and policy outcome where available.
 
 ```ts theme={null}
 proxy.on("tool:success", async ({ ctx, durationMs }) => {
   ctx.log.info("tool.success", { durationMs });
+});
+```
+
+Resource, prompt, and completion operations also emit lifecycle events:
+
+```ts theme={null}
+proxy.on("resource:success", async ({ ctx, durationMs }) => {
+  ctx.log.info("resource.success", {
+    uri: ctx.resource?.uri,
+    durationMs,
+  });
 });
 ```
 

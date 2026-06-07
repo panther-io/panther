@@ -33,6 +33,34 @@ Lists tools for the given user.
 
 Calls a tool for the given user.
 
+### `listResources(params?, user?)`
+
+Lists resources for the given user. Returns an empty `resources` array when the underlying transport does not implement resource listing.
+
+### `readResource(params, user?)`
+
+Reads a resource for the given user. Throws when the underlying transport does not implement resource reading.
+
+### `listResourceTemplates(params?, user?)`
+
+Lists resource templates for the given user. Returns an empty `resourceTemplates` array when unsupported.
+
+### `listPrompts(params?, user?)`
+
+Lists prompts for the given user. Returns an empty `prompts` array when unsupported.
+
+### `getPrompt(params, user?)`
+
+Gets a prompt for the given user. Throws when unsupported.
+
+### `complete(params, user?)`
+
+Forwards MCP argument completion for prompt and resource references. Throws when unsupported.
+
+### `supportsResources()`, `supportsPrompts()`, `supportsCompletions()`
+
+Returns whether the configured transport exposes the corresponding optional methods. `McpProxy` uses these checks to advertise downstream capabilities.
+
 ### `close()`
 
 Closes all transports, including user-specific ones.

@@ -22,6 +22,26 @@ proxy.use(async (request, context, next) => {
 
 Make destructive policies explicit and keep them centralized. This avoids confusion when you audit production incidents.
 
+## Govern all MCP capabilities
+
+Resources, prompts, resource templates, and completion can expose data or shape model behavior. Treat them as governed capabilities, not passive metadata.
+
+```ts theme={null}
+const policy = new Policy({ name: "least-privilege" })
+  .server("filesystem")
+  .allow("read_file")
+  .server("filesystem")
+  .allowCapability({ operation: "resources:list", targetKind: "resource" })
+  .server("filesystem")
+  .denyCapability({
+    operation: "resource:read",
+    target: "file:///secrets.env",
+    targetKind: "resource",
+  });
+```
+
+Use list permissions to control discovery, and direct-operation permissions such as `resource:read`, `prompt:get`, and `completion:complete` to prevent use before Panther forwards the request upstream.
+
 ## Scope tools per environment
 
 ```ts theme={null}
@@ -46,7 +66,7 @@ Consider using a secrets manager (AWS Secrets Manager, GCP Secret Manager, Vault
 
 ## Audit and traceability
 
-- Tag all tool calls with `context.log.setTag("trace", ...)`.
+- Tag all governed operations with `context.log.setTag("trace", ...)`.
 - Export logs to a secure log store.
 - Review denied calls to detect abuse.
 

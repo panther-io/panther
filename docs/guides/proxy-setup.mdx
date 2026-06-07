@@ -59,6 +59,29 @@ proxy.on("tools:list:after", ({ tools }) => {
 
 **Tip:** Keep the allow/deny logic in one place. This makes it easier to audit which tools are visible in production versus staging.
 
+## Proxy resources, prompts, and completions
+
+Panther also proxies MCP resources, resource templates, prompts, and argument completion when at least one upstream transport supports those methods. Downstream capabilities are advertised dynamically:
+
+- `resources` is exposed when an upstream can list, read, or template resources.
+- `prompts` is exposed when an upstream can list or get prompts.
+- `completions` is exposed when an upstream can complete prompt or resource-template arguments.
+
+Prompts use the same namespace format as tools:
+
+```txt
+github__summarize_issue
+```
+
+Resources and resource templates use Panther-owned URIs:
+
+```txt
+panther://resources/github/file%3A%2F%2F%2Fissues%2F123.md
+panther://resource-templates/github/file%3A%2F%2F%2Fissues%2F%7Bid%7D.md
+```
+
+Clients should pass these values back unchanged to `resources/read`, `prompts/get`, and `completion/complete`. Panther restores the upstream prompt name, resource URI, or resource template URI before forwarding the request.
+
 ## Add environment-aware tool lists
 
 If you need stricter tool lists in production, filter at discovery time. This prevents tools from even showing up in the client UI.
@@ -100,6 +123,18 @@ proxy.tool("filesystem.delete", async (ctx, next) => {
 ```
 
 Consider layering policies: first deny destructive calls for non-admins, then enforce plan-based access, and finally enforce per-tenant limits.
+
+Use operation routes for proxied resources, prompts, and completion:
+
+```ts theme={null}
+proxy.server("filesystem").operation("resource:read", async (ctx, next) => {
+  if (ctx.resource?.uri?.includes("/private/")) {
+    return ctx.fail(-32030, "Private resources are not available.");
+  }
+
+  return next();
+});
+```
 
 ## Add graceful shutdowns
 

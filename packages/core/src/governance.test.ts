@@ -10,6 +10,7 @@ import {
   filterToolsByPolicy,
   headerIdentityStrategy,
   rateLimitMiddleware,
+  toCapabilityPermissions,
 } from "./index.js";
 import type { MiddlewareContext, PanterTransport } from "./types.js";
 
@@ -55,6 +56,37 @@ describe("governance primitives", () => {
 
     const filtered = filterToolsByPolicy([{ name: "allowed" }, { name: "denied" }], "github", policy);
     expect(filtered).toEqual([{ name: "allowed" }]);
+  });
+
+  it("adapts tool permissions to operation-based capability permissions", async () => {
+    const policy = new SimplePolicy({
+      name: "test",
+      permissions: {
+        github: [
+          { tool: "allowed", metadata: { scope: "issues" } },
+          { tool: "denied", effect: "deny" },
+        ],
+      },
+    });
+
+    expect(toCapabilityPermissions("github", policy.getPermissions("github"))).toMatchObject([
+      { server: "github", operation: "tool:call", target: "allowed", targetKind: "tool" },
+      { server: "github", operation: "tool:call", target: "denied", targetKind: "tool", effect: "deny" },
+    ]);
+
+    await expect(
+      policy.evaluate(
+        { serverName: "github", operation: "tool:call", target: "allowed", targetKind: "tool" },
+        { id: "user-1" },
+      ),
+    ).resolves.toMatchObject({
+      allowed: true,
+      metadata: {
+        operation: "tool:call",
+        target: "allowed",
+        toolName: "allowed",
+      },
+    });
   });
 
   it("enforces rate limits through middleware", async () => {

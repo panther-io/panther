@@ -51,6 +51,33 @@ type ListToolsHook = (
 type PanterTransport = {
   listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
   callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
+  listResources?(params?: ListResourcesParams): Promise<ListResourcesResponse>;
+  readResource?(params: ReadResourceParams): Promise<ReadResourceResponse>;
+  listResourceTemplates?(params?: ListResourceTemplatesParams): Promise<ListResourceTemplatesResponse>;
+  listPrompts?(params?: ListPromptsParams): Promise<ListPromptsResponse>;
+  getPrompt?(params: GetPromptParams): Promise<GetPromptResponse>;
+  complete?(params: CompleteParams): Promise<CompleteResponse>;
   close(): Promise<void>;
 };
+```
+
+The resource, prompt, template, and completion methods are optional. Tool-only transports remain valid; Panther returns empty list responses for unsupported list operations and errors for unsupported read/get/complete operations.
+
+## MCP server feature aliases
+
+Panther re-exports typed aliases for the new request and result shapes:
+
+```ts theme={null}
+type ListResourcesParams = ListResourcesRequest["params"];
+type ListResourcesResponse = ListResourcesResult;
+type ReadResourceParams = ReadResourceRequest["params"];
+type ReadResourceResponse = ReadResourceResult;
+type ListResourceTemplatesParams = ListResourceTemplatesRequest["params"];
+type ListResourceTemplatesResponse = ListResourceTemplatesResult;
+type ListPromptsParams = ListPromptsRequest["params"];
+type ListPromptsResponse = ListPromptsResult;
+type GetPromptParams = GetPromptRequest["params"];
+type GetPromptResponse = GetPromptResult;
+type CompleteParams = CompleteRequest["params"];
+type CompleteResponse = CompleteResult;
 ```

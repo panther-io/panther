@@ -1,13 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpTransport } from "./HttpTransport.js";
 import { SseMcpTransport } from "./SseMcpTransport.js";
+import { StdioTransport } from "./StdioTransport.js";
 import { StreamableHttpMcpTransport } from "./StreamableHttpMcpTransport.js";
 import { MissingHttpTransportCredentialError } from "../transportAuth.js";
 
 const fakes = vi.hoisted(() => {
   const clientInstances: FakeClient[] = [];
+  const stdioTransports: FakeStdioTransport[] = [];
   const streamableTransports: FakeStreamableTransport[] = [];
   const sseTransports: FakeSseTransport[] = [];
+  let serverCapabilities: Record<string, object> = {
+    completions: {},
+    prompts: {},
+    resources: {},
+    tools: {},
+  };
 
   class FakeClient {
     readonly close = vi.fn(async () => undefined);
@@ -23,8 +31,8 @@ const fakes = vi.hoisted(() => {
       clientInstances.push(this);
     }
 
-    getServerCapabilities(): { tools: object } {
-      return { tools: {} };
+    getServerCapabilities(): Record<string, object> {
+      return serverCapabilities;
     }
 
     async listTools(params: unknown): Promise<unknown> {
@@ -33,6 +41,43 @@ const fakes = vi.hoisted(() => {
 
     async callTool(params: unknown): Promise<unknown> {
       return { content: [{ type: "text", text: `called:${JSON.stringify(params)}` }] };
+    }
+
+    async listResources(params: unknown): Promise<unknown> {
+      return { resources: [{ uri: `resource:${JSON.stringify(params ?? {})}`, name: "resource" }] };
+    }
+
+    async readResource(params: unknown): Promise<unknown> {
+      return { contents: [{ uri: "file:///readme.md", text: `read:${JSON.stringify(params)}` }] };
+    }
+
+    async listResourceTemplates(params: unknown): Promise<unknown> {
+      return { resourceTemplates: [{ uriTemplate: `template:${JSON.stringify(params ?? {})}`, name: "template" }] };
+    }
+
+    async listPrompts(params: unknown): Promise<unknown> {
+      return { prompts: [{ name: `prompt:${JSON.stringify(params ?? {})}` }] };
+    }
+
+    async getPrompt(params: unknown): Promise<unknown> {
+      return {
+        messages: [
+          {
+            role: "user",
+            content: { type: "text", text: `prompt:${JSON.stringify(params)}` },
+          },
+        ],
+      };
+    }
+
+    async complete(params: unknown): Promise<unknown> {
+      return { completion: { values: [`complete:${JSON.stringify(params)}`] } };
+    }
+  }
+
+  class FakeStdioTransport {
+    constructor(readonly options: unknown) {
+      stdioTransports.push(this);
     }
   }
 
@@ -60,16 +105,25 @@ const fakes = vi.hoisted(() => {
 
   return {
     FakeClient,
+    FakeStdioTransport,
     FakeStreamableTransport,
     FakeSseTransport,
     clientInstances,
+    stdioTransports,
     streamableTransports,
     sseTransports,
+    setServerCapabilities(capabilities: Record<string, object>) {
+      serverCapabilities = capabilities;
+    },
   };
 });
 
 vi.mock("@modelcontextprotocol/sdk/client/index.js", () => ({
   Client: fakes.FakeClient,
+}));
+
+vi.mock("@modelcontextprotocol/sdk/client/stdio.js", () => ({
+  StdioClientTransport: fakes.FakeStdioTransport,
 }));
 
 vi.mock("@modelcontextprotocol/sdk/client/streamableHttp.js", () => ({
@@ -83,8 +137,15 @@ vi.mock("@modelcontextprotocol/sdk/client/sse.js", () => ({
 describe("native MCP upstream transports", () => {
   beforeEach(() => {
     fakes.clientInstances.length = 0;
+    fakes.stdioTransports.length = 0;
     fakes.streamableTransports.length = 0;
     fakes.sseTransports.length = 0;
+    fakes.setServerCapabilities({
+      completions: {},
+      prompts: {},
+      resources: {},
+      tools: {},
+    });
   });
 
   it("lists tools over native Streamable HTTP with resolved auth headers", async () => {
@@ -135,6 +196,57 @@ describe("native MCP upstream transports", () => {
 
     expect(fakes.sseTransports[0]?.options.requestInit?.headers).toEqual({ "x-api-key": "secret" });
     expect(fakes.sseTransports[0]?.close).toHaveBeenCalledOnce();
+  });
+
+  it("forwards resources, prompts, and completion over native stdio", async () => {
+    const transport = new StdioTransport({ command: "node", args: ["server.js"] });
+
+    await expect(transport.listResources({ cursor: "r1" })).resolves.toMatchObject({
+      resources: [{ uri: 'resource:{"cursor":"r1"}' }],
+    });
+    await expect(transport.readResource({ uri: "file:///readme.md" })).resolves.toMatchObject({
+      contents: [{ text: 'read:{"uri":"file:///readme.md"}' }],
+    });
+    await expect(transport.listResourceTemplates({ cursor: "t1" })).resolves.toMatchObject({
+      resourceTemplates: [{ uriTemplate: 'template:{"cursor":"t1"}' }],
+    });
+    await expect(transport.listPrompts({ cursor: "p1" })).resolves.toMatchObject({
+      prompts: [{ name: 'prompt:{"cursor":"p1"}' }],
+    });
+    await expect(transport.getPrompt({ name: "summarize", arguments: { topic: "mcp" } })).resolves.toMatchObject({
+      messages: [{ content: { text: 'prompt:{"name":"summarize","arguments":{"topic":"mcp"}}' } }],
+    });
+    await expect(
+      transport.complete({
+        ref: { type: "ref/prompt", name: "summarize" },
+        argument: { name: "topic", value: "m" },
+      }),
+    ).resolves.toMatchObject({
+      completion: {
+        values: [
+          'complete:{"ref":{"type":"ref/prompt","name":"summarize"},"argument":{"name":"topic","value":"m"}}',
+        ],
+      },
+    });
+
+    expect(fakes.stdioTransports[0]?.options).toMatchObject({ command: "node", args: ["server.js"] });
+  });
+
+  it("returns empty list responses and rejects single-item operations for unsupported capabilities", async () => {
+    fakes.setServerCapabilities({ tools: {} });
+    const transport = new StreamableHttpMcpTransport({ url: "https://mcp.example/mcp" });
+
+    await expect(transport.listResources()).resolves.toEqual({ resources: [] });
+    await expect(transport.listResourceTemplates()).resolves.toEqual({ resourceTemplates: [] });
+    await expect(transport.listPrompts()).resolves.toEqual({ prompts: [] });
+    await expect(transport.readResource({ uri: "file:///readme.md" })).rejects.toThrow(/does not support resources/);
+    await expect(transport.getPrompt({ name: "summarize" })).rejects.toThrow(/does not support prompts/);
+    await expect(
+      transport.complete({
+        ref: { type: "ref/prompt", name: "summarize" },
+        argument: { name: "topic", value: "m" },
+      }),
+    ).rejects.toThrow(/does not support completions/);
   });
 
   it("fails before upstream requests when required credentials are missing", async () => {

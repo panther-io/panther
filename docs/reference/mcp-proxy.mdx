@@ -50,6 +50,30 @@ Aggregates tool lists across all servers and applies naming rules.
 
 Calls a proxied tool. Internally dispatches hooks and middleware, then forwards to the server.
 
+### `listResources(params?, user?)`
+
+Aggregates resources across servers and rewrites each resource `uri` to a Panther proxy URI.
+
+### `readResource(params, user?)`
+
+Parses a Panther proxy resource URI, restores the upstream resource URI, and reads it from the owning server.
+
+### `listResourceTemplates(params?, user?)`
+
+Aggregates resource templates and rewrites each `uriTemplate` to a Panther proxy template URI.
+
+### `listPrompts(params?, user?)`
+
+Aggregates prompts and rewrites each prompt `name` to `<server>__<prompt>`.
+
+### `getPrompt(params, user?)`
+
+Parses a proxied prompt name and retrieves the upstream prompt with the original name and arguments.
+
+### `complete(params, user?)`
+
+Routes completion requests for proxied prompt references and proxied resource-template references to the owning upstream server.
+
 ## Hooks
 
 ```ts theme={null}

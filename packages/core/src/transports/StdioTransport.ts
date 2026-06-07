@@ -4,8 +4,20 @@ import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolRequest,
   CallToolResult,
+  CompleteRequest,
+  CompleteResult,
+  GetPromptRequest,
+  GetPromptResult,
+  ListPromptsRequest,
+  ListPromptsResult,
+  ListResourcesRequest,
+  ListResourcesResult,
+  ListResourceTemplatesRequest,
+  ListResourceTemplatesResult,
   ListToolsRequest,
   ListToolsResult,
+  ReadResourceRequest,
+  ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { PanterTransport } from "../types.js";
 
@@ -78,6 +90,60 @@ export class StdioTransport implements PanterTransport {
     return (await this.getClient()).callTool(params, CallToolResultSchema) as Promise<CallToolResult>;
   }
 
+  async listResources(params?: ListResourcesRequest["params"]): Promise<ListResourcesResult> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.resources) {
+      return { resources: [] };
+    }
+
+    return client.listResources(params);
+  }
+
+  async readResource(params: ReadResourceRequest["params"]): Promise<ReadResourceResult> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.resources) {
+      throw unsupportedCapability("resources");
+    }
+
+    return client.readResource(params);
+  }
+
+  async listResourceTemplates(params?: ListResourceTemplatesRequest["params"]): Promise<ListResourceTemplatesResult> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.resources) {
+      return { resourceTemplates: [] };
+    }
+
+    return client.listResourceTemplates(params);
+  }
+
+  async listPrompts(params?: ListPromptsRequest["params"]): Promise<ListPromptsResult> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.prompts) {
+      return { prompts: [] };
+    }
+
+    return client.listPrompts(params);
+  }
+
+  async getPrompt(params: GetPromptRequest["params"]): Promise<GetPromptResult> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.prompts) {
+      throw unsupportedCapability("prompts");
+    }
+
+    return client.getPrompt(params);
+  }
+
+  async complete(params: CompleteRequest["params"]): Promise<CompleteResult> {
+    const client = await this.getClient();
+    if (!client.getServerCapabilities()?.completions) {
+      throw unsupportedCapability("completions");
+    }
+
+    return client.complete(params);
+  }
+
   /**
    * Close the underlying client connection.
    * @pk
@@ -126,4 +192,8 @@ export class StdioTransport implements PanterTransport {
 
     return client;
   }
+}
+
+function unsupportedCapability(capability: "resources" | "prompts" | "completions"): Error {
+  return new Error(`Upstream MCP server does not support ${capability}`);
 }
