@@ -12,6 +12,7 @@ import {
   User,
   allow,
   apiKeyIdentityStrategy,
+  approval,
   group,
   policy,
   sensitive,
@@ -118,6 +119,34 @@ describe("governance auth DX", () => {
     const denied = await proxy.callTool({ name: "github__write" }, { id: "alice" });
     expect(denied.isError).toBe(true);
     expect(denied._meta?.error).toMatchObject({ message: expect.stringMatching(/denied/) });
+  });
+
+  it("returns structured metadata for manual approval workflows", async () => {
+    const proxy = new McpProxy({
+      groups: [
+        group({
+          id: "reviewed",
+          users: [user("alice")],
+          policy: policy("reviewed").server("github").allow(
+            "delete",
+            approval.manual({
+              requestId: (request, context) => `${context.user.id}:${request.serverName}:${request.toolName}`,
+              url: "https://approvals.example/pending/1",
+              reason: "Owner approval required",
+              metadata: { workflow: "owner-review" },
+            }),
+          ),
+        }),
+      ],
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+
+    const result = await proxy.callTool({ name: "github__delete" }, { id: "alice" });
+
+    expect(result.isError).toBe(true);
+    expect(result._meta?.error).toMatchObject({ message: "Owner approval required" });
+    expect(JSON.stringify(result._meta)).toContain("https://approvals.example/pending/1");
+    expect(JSON.stringify(result._meta)).toContain("alice:github:delete");
   });
 
   it("loads encrypted local auth, resolves API keys, and keeps raw keys out of context", async () => {

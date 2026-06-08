@@ -38,6 +38,19 @@ export type LoggerOptions = {
   driver?: LoggerDriver;
   context?: Record<string, unknown>;
   onWrite?: (entry: LogEntry) => void | Promise<void>;
+  redact?: boolean | LoggerRedactionOptions;
+};
+
+/**
+ * Logger redaction configuration.
+ * @pk
+ */
+export type LoggerRedactionOptions = {
+  enabled?: boolean;
+  replacement?: string;
+  keys?: Array<string | RegExp>;
+  paths?: string[];
+  redact?: (value: unknown, path: string[], key?: string) => unknown;
 };
 
 const levelWeight: Record<LogLevel, number> = {
@@ -47,6 +60,9 @@ const levelWeight: Record<LogLevel, number> = {
   error: 40,
   fatal: 50,
 };
+
+const defaultSensitiveKeys = [/token/i, /secret/i, /password/i, /authorization/i, /api[-_]?key/i, /credential/i];
+const defaultReplacement = "[REDACTED]";
 
 /**
  * Console-based logger driver.
@@ -116,6 +132,8 @@ export class Logger {
   private readonly context: Record<string, unknown>;
   private readonly annotations: Record<string, unknown>;
   private readonly onWrite?: (entry: LogEntry) => void | Promise<void>;
+  private readonly redaction: Required<Pick<LoggerRedactionOptions, "enabled" | "replacement">> &
+    Pick<LoggerRedactionOptions, "keys" | "paths" | "redact">;
 
   /**
    * Create a new logger instance.
@@ -127,6 +145,7 @@ export class Logger {
     this.context = options.context ?? {};
     this.annotations = {};
     this.onWrite = options.onWrite;
+    this.redaction = normalizeRedaction(options.redact);
   }
 
   /**
@@ -142,6 +161,7 @@ export class Logger {
         ...context,
       },
       onWrite: this.onWrite,
+      redact: this.redaction,
     });
     Object.assign(child.annotations, this.annotations);
     return child;
@@ -218,14 +238,95 @@ export class Logger {
       level,
       message,
       timestamp: new Date(),
-      context: this.context,
-      metadata: {
+      context: redactRecord(this.context, this.redaction),
+      metadata: redactRecord({
         ...this.annotations,
         ...metadata,
-      },
+      }, this.redaction),
     };
 
     await this.driver.write(entry);
     await this.onWrite?.(entry);
   }
+}
+
+function normalizeRedaction(
+  options: LoggerOptions["redact"],
+): Required<Pick<LoggerRedactionOptions, "enabled" | "replacement">> & Pick<LoggerRedactionOptions, "keys" | "paths" | "redact"> {
+  if (options === false) {
+    return { enabled: false, replacement: defaultReplacement };
+  }
+
+  if (options === true || options === undefined) {
+    return { enabled: true, replacement: defaultReplacement, keys: defaultSensitiveKeys };
+  }
+
+  return {
+    enabled: options.enabled ?? true,
+    replacement: options.replacement ?? defaultReplacement,
+    keys: options.keys ?? defaultSensitiveKeys,
+    paths: options.paths,
+    redact: options.redact,
+  };
+}
+
+function redactRecord(
+  value: Record<string, unknown>,
+  options: Required<Pick<LoggerRedactionOptions, "enabled" | "replacement">> & Pick<LoggerRedactionOptions, "keys" | "paths" | "redact">,
+): Record<string, unknown> {
+  if (!options.enabled) {
+    return value;
+  }
+
+  return redactValue(value, options, [], new WeakSet()) as Record<string, unknown>;
+}
+
+function redactValue(
+  value: unknown,
+  options: Required<Pick<LoggerRedactionOptions, "enabled" | "replacement">> & Pick<LoggerRedactionOptions, "keys" | "paths" | "redact">,
+  path: string[],
+  seen: WeakSet<object>,
+): unknown {
+  const key = path.at(-1);
+  const custom = options.redact?.(value, path, key);
+  if (custom !== undefined) {
+    return custom;
+  }
+
+  if ((key && shouldRedactKey(key, options.keys)) || shouldRedactPath(path, options.paths)) {
+    return options.replacement;
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (seen.has(value)) {
+    return "[Circular]";
+  }
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item, index) => redactValue(item, options, [...path, String(index)], seen));
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([nestedKey, nestedValue]) => [
+      nestedKey,
+      redactValue(nestedValue, options, [...path, nestedKey], seen),
+    ]),
+  );
+}
+
+function shouldRedactKey(key: string, keys: Array<string | RegExp> | undefined): boolean {
+  return (keys ?? defaultSensitiveKeys).some((pattern) => (typeof pattern === "string" ? pattern === key : pattern.test(key)));
+}
+
+function shouldRedactPath(path: string[], paths: string[] | undefined): boolean {
+  const dotted = path.join(".");
+  return Boolean(paths?.some((pattern) => pattern === dotted));
 }

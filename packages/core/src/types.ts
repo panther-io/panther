@@ -114,6 +114,7 @@ export type PolicyMetadata = {
     metadata?: Record<string, unknown>;
   }>;
   denialReason?: string;
+  approval?: ApprovalMetadata;
 };
 
 /**
@@ -158,6 +159,43 @@ export type ToolCallRequest = {
   arguments: CallToolRequest["params"]["arguments"];
   raw: CallToolRequest["params"];
 };
+
+/**
+ * Structured result for permission approval callbacks.
+ * @pk
+ */
+export type ApprovalResult =
+  | boolean
+  | {
+      approved: boolean;
+      reason?: string;
+      metadata?: Record<string, unknown>;
+    }
+  | {
+      status: "approved" | "denied" | "pending";
+      reason?: string;
+      url?: string;
+      requestId?: string;
+      metadata?: Record<string, unknown>;
+    };
+
+/**
+ * Safe approval metadata exposed through policy decisions and logs.
+ * @pk
+ */
+export type ApprovalMetadata = {
+  status: "approved" | "denied" | "pending";
+  reason?: string;
+  url?: string;
+  requestId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+/**
+ * Permission approval callback.
+ * @pk
+ */
+export type ApprovalHandler<TRequest> = (request: TRequest, context: MiddlewareContext) => MaybePromise<ApprovalResult>;
 
 /**
  * Filter for proxy call hooks.
@@ -428,8 +466,11 @@ export class ResponseController {
       ? {
           ...result,
           _meta: {
-            ...result._meta,
-            error: this.structuredError,
+          ...result._meta,
+            error: {
+              ...(isRecord(result._meta?.error) ? result._meta.error : {}),
+              ...this.structuredError,
+            },
           },
         }
       : result;
@@ -714,7 +755,7 @@ export type ToolPermission = {
   tool: string;
   effect?: "allow" | "deny";
   limiter?: RateLimiter;
-  approval?: (request: ToolCallRequest, context: MiddlewareContext) => MaybePromise<boolean>;
+  approval?: ApprovalHandler<ToolCallRequest>;
   metadata?: Record<string, unknown>;
 };
 
@@ -735,7 +776,7 @@ export type CapabilityPermission = {
   targetKind?: CapabilityTargetKind;
   effect?: "allow" | "deny";
   limiter?: RateLimiter;
-  approval?: (request: CapabilityOperationRequest, context: MiddlewareContext) => MaybePromise<boolean>;
+  approval?: ApprovalHandler<CapabilityOperationRequest>;
   metadata?: Record<string, unknown>;
 };
 
@@ -861,3 +902,7 @@ export type GovernanceContext = MiddlewareContext & {
   registry?: Registry;
   rateLimiter?: RateLimiter;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}

@@ -1,8 +1,9 @@
 import type {
+  ApprovalMetadata,
+  ApprovalResult,
   CapabilityOperationRequest,
   CapabilityPermission,
   MiddlewareContext,
-  McpOperationName,
   Policy,
   PolicyDecision,
   ToolCallRequest,
@@ -92,10 +93,11 @@ export class SimplePolicy implements Policy {
         });
       }
 
-      const approved = await permission.approval(capabilityRequest, context);
-      if (!approved) {
+      const approval = normalizeApprovalResult(await permission.approval(capabilityRequest, context));
+      if (approval.status !== "approved") {
         return this.decision(false, capabilityRequest, user, permission, {
-          reason: "Approval required but not granted",
+          reason: approval.reason ?? (approval.status === "pending" ? "Approval is pending" : "Approval required but not granted"),
+          approval,
         });
       }
     }
@@ -108,7 +110,7 @@ export class SimplePolicy implements Policy {
     request: CapabilityOperationRequest,
     user: UserContext,
     permission?: CapabilityPermission,
-    options: { reason?: string } = {},
+    options: { reason?: string; approval?: ApprovalMetadata } = {},
   ): PolicyDecision {
     return {
       allowed,
@@ -124,6 +126,7 @@ export class SimplePolicy implements Policy {
         permission: permission?.metadata,
         limiter: permission?.limiter,
         effect: permission?.effect ?? (allowed ? "allow" : "deny"),
+        approval: options.approval,
       },
     };
   }
@@ -140,10 +143,6 @@ export function filterToolsByPolicy<TTool extends { name: string }>(
 ): TTool[] {
   const permissions = policy.getPermissions(serverName);
   return tools.filter((tool) => isToolAllowedByPermissions(permissions, unproxyToolName(tool.name, serverName)));
-}
-
-function findMatchingPermission(permissions: ToolPermission[], toolName: string): ToolPermission | undefined {
-  return getToolPermission(permissions, toolName);
 }
 
 /**
@@ -234,6 +233,32 @@ export function isCapabilityAllowedByPermissions(
 ): boolean {
   const permission = getCapabilityPermission(permissions, request);
   return permission?.effect !== "deny" && Boolean(permission);
+}
+
+/**
+ * Normalize approval callback output into safe policy metadata.
+ * @pk
+ */
+export function normalizeApprovalResult(result: ApprovalResult): ApprovalMetadata {
+  if (typeof result === "boolean") {
+    return { status: result ? "approved" : "denied" };
+  }
+
+  if ("approved" in result) {
+    return {
+      status: result.approved ? "approved" : "denied",
+      reason: result.reason,
+      metadata: result.metadata,
+    };
+  }
+
+  return {
+    status: result.status,
+    reason: result.reason,
+    url: result.url,
+    requestId: result.requestId,
+    metadata: result.metadata,
+  };
 }
 
 function findMatchingCapabilityPermission(

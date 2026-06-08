@@ -17,7 +17,15 @@ export { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
  * Logger type definitions.
  * @pk
  */
-export type { LogEntry, LoggerDriver, LoggerOptions, LogLevel, RedisLoggerClient, RedisLoggerDriverOptions } from "./logger.js";
+export type {
+  LogEntry,
+  LoggerDriver,
+  LoggerOptions,
+  LoggerRedactionOptions,
+  LogLevel,
+  RedisLoggerClient,
+  RedisLoggerDriverOptions,
+} from "./logger.js";
 /**
  * MCP proxy server.
  * @pk
@@ -97,6 +105,9 @@ export { ResponseController } from "./types.js";
  */
 export type {
   ErrorMapper,
+  ApprovalHandler,
+  ApprovalMetadata,
+  ApprovalResult,
   CompleteParams,
   CompleteResponse,
   CredentialSourceMetadata,
@@ -200,7 +211,7 @@ export {
   sensitive,
   user,
 } from "./governance.js";
-export type { CapabilityPermissionOptions, SubjectIndex, ToolPermissionOptions } from "./governance.js";
+export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "./governance.js";
 /**
  * Local auth and API-key identity APIs.
  * @pk

@@ -1,4 +1,7 @@
 import type {
+  ApprovalHandler,
+  ApprovalMetadata,
+  ApprovalResult,
   CapabilityOperationRequest,
   CapabilityPermission,
   MiddlewareContext,
@@ -10,7 +13,7 @@ import type {
   ToolPermission,
   UserContext,
 } from "./types.js";
-import { getCapabilityPermission, getToolPermission, toCapabilityPermissions, toCapabilityRequest } from "./policy.js";
+import { getCapabilityPermission, normalizeApprovalResult, toCapabilityPermissions, toCapabilityRequest } from "./policy.js";
 
 /**
  * First-class non-sensitive subject declaration.
@@ -175,9 +178,16 @@ export class Policy implements PolicyContract {
         return this.decision(false, capabilityRequest, user, permission, "Approval requires middleware context");
       }
 
-      const approved = await permission.approval(capabilityRequest, context);
-      if (!approved) {
-        return this.decision(false, capabilityRequest, user, permission, "Approval required but not granted");
+      const approval = normalizeApprovalResult(await permission.approval(capabilityRequest, context));
+      if (approval.status !== "approved") {
+        return this.decision(
+          false,
+          capabilityRequest,
+          user,
+          permission,
+          approval.reason ?? (approval.status === "pending" ? "Approval is pending" : "Approval required but not granted"),
+          approval,
+        );
       }
     }
 
@@ -202,6 +212,7 @@ export class Policy implements PolicyContract {
     user: UserContext,
     permission?: CapabilityPermission,
     reason?: string,
+    approvalMetadata?: ApprovalMetadata,
   ): PolicyDecision {
     return {
       allowed,
@@ -232,6 +243,7 @@ export class Policy implements PolicyContract {
         permission: permission?.metadata,
         limiter: permission?.limiter,
         effect: permission?.effect ?? (allowed ? "allow" : "deny"),
+        approval: approvalMetadata,
       },
     };
   }
@@ -356,13 +368,58 @@ export function limit(limiter: ToolPermission["limiter"]): Pick<ToolPermissionOp
   return { limiter };
 }
 
+type ApprovalHelper = {
+  (handler: ToolPermission["approval"]): Pick<ToolPermissionOptions, "approval">;
+  allow(metadata?: Record<string, unknown>): Pick<ToolPermissionOptions, "approval">;
+  deny(reason?: string, metadata?: Record<string, unknown>): Pick<ToolPermissionOptions, "approval">;
+  manual(options: ManualApprovalOptions): Pick<ToolPermissionOptions, "approval">;
+};
+
+/**
+ * Options for an external approval workflow.
+ * @pk
+ */
+export type ManualApprovalOptions = {
+  requestId?: string | ((request: ToolCallRequest, context: MiddlewareContext) => string);
+  url?: string | ((request: ToolCallRequest, context: MiddlewareContext) => string | undefined);
+  reason?: string | ((request: ToolCallRequest, context: MiddlewareContext) => string | undefined);
+  metadata?: Record<string, unknown> | ((request: ToolCallRequest, context: MiddlewareContext) => Record<string, unknown> | undefined);
+  resolve?: ApprovalHandler<ToolCallRequest>;
+};
+
 /**
  * Permission helper for approval callbacks.
  * @pk
  */
-export function approval(handler: ToolPermission["approval"]): Pick<ToolPermissionOptions, "approval"> {
-  return { approval: handler };
-}
+export const approval: ApprovalHelper = Object.assign(
+  (handler: ToolPermission["approval"]): Pick<ToolPermissionOptions, "approval"> => ({ approval: handler }),
+  {
+    allow(metadata?: Record<string, unknown>): Pick<ToolPermissionOptions, "approval"> {
+      return { approval: () => ({ status: "approved", metadata }) };
+    },
+    deny(reason = "Approval required but not granted", metadata?: Record<string, unknown>): Pick<ToolPermissionOptions, "approval"> {
+      return { approval: () => ({ status: "denied", reason, metadata }) };
+    },
+    manual(options: ManualApprovalOptions): Pick<ToolPermissionOptions, "approval"> {
+      return {
+        approval: async (request, context): Promise<ApprovalResult> => {
+          const resolved = options.resolve ? normalizeApprovalResult(await options.resolve(request, context)) : undefined;
+          if (resolved?.status === "approved" || resolved?.status === "denied") {
+            return resolved;
+          }
+
+          return {
+            status: "pending",
+            requestId: typeof options.requestId === "function" ? options.requestId(request, context) : options.requestId,
+            url: typeof options.url === "function" ? options.url(request, context) : options.url,
+            reason: typeof options.reason === "function" ? options.reason(request, context) : options.reason,
+            metadata: typeof options.metadata === "function" ? options.metadata(request, context) : options.metadata,
+          };
+        },
+      };
+    },
+  },
+);
 
 /**
  * Permission helper for sensitive-operation metadata.
@@ -443,13 +500,14 @@ export async function evaluateGroupPolicies(
 
   const allowed = decisions.some((decision) => decision.allowed);
   if (!allowed) {
+    const firstReason = decisions.find((decision) => decision.reason)?.reason;
     return mergeGroupDecisions(
       false,
       groups,
       decisions,
-      capabilityRequest.operation === "tool:call"
+      firstReason ?? (capabilityRequest.operation === "tool:call"
         ? `Tool "${capabilityRequest.target ?? "*"}" not permitted by effective group policies`
-        : `Operation "${capabilityRequest.operation}" not permitted by effective group policies`,
+        : `Operation "${capabilityRequest.operation}" not permitted by effective group policies`),
     );
   }
 
@@ -497,6 +555,7 @@ function mergeGroupDecisions(
         })),
       ),
       denialReason: allowed ? undefined : reason,
+      approval: decisions.find((decision) => decision.metadata?.approval)?.metadata?.approval,
     },
   };
 }
