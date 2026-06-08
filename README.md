@@ -1,7 +1,7 @@
 <div align="center">
   <a href="https://github.com/panther-io/panther">
     <picture>
-      <img alt="Panther logo" src="./static/logo_black.svg" width="90%">
+      <img alt="Panther logo" src="./static/logo_white.svg" width="90%">
     </picture>
   </a>
 </div>
