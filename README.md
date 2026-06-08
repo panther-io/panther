@@ -1,14 +1,12 @@
 <div align="center">
   <a href="https://github.com/panther-io/panther">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/logo-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="./docs/assets/logo-light.svg">
-      <img alt="Panther logo" src="./static/logo_black.svg" width="60%">
+      <img alt="Panther logo" src="./static/logo_white.svg" width="90%">
     </picture>
   </a>
 </div>
 
-&nbsp;
+&nbsp; 
 
 <p align="center">
   <a href="./docs/index.mdx" alt="Documentation">
