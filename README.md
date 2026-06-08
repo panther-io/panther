@@ -1,0 +1,253 @@
+<div align="center">
+  <a href="https://github.com/panther-io/panther">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/logo-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="./docs/assets/logo-light.svg">
+      <img alt="Panther logo" src="./docs/assets/logo-light.svg" width="60%">
+    </picture>
+  </a>
+</div>
+
+&nbsp;
+
+<p align="center">
+  <a href="./docs/index.mdx" alt="Documentation">
+    <img src="https://img.shields.io/badge/panther-docs-blue?labelColor=white" /></a>
+  <a href="./packages/core" alt="Core package">
+    <img src="https://img.shields.io/badge/core-%40panther%2Fcore-blue?labelColor=white" /></a>
+  <a href="./packages/cli" alt="CLI package">
+    <img src="https://img.shields.io/badge/cli-%40panther%2Fcli-blue?labelColor=white" /></a>
+  <a href="./packages/approval-telegram" alt="Telegram approval package">
+    <img src="https://img.shields.io/badge/approval-telegram-blue?labelColor=white" /></a>
+  <br/>
+  <a href="./package.json" alt="TypeScript">
+    <img src="https://img.shields.io/badge/typescript-6.x-blue?logo=typescript&labelColor=white" /></a>
+  <a href="./pnpm-workspace.yaml" alt="pnpm workspace">
+    <img src="https://img.shields.io/badge/pnpm-workspace-orange?logo=pnpm&labelColor=white" /></a>
+  <a href="./packages/core/package.json" alt="License">
+    <img src="https://img.shields.io/badge/license-MIT-green" /></a>
+</p>
+
+## About
+
+<b>Panther</b> is a centralized MCP proxy for routing multiple MCP servers through one controlled endpoint.
+
+- **Unify** stdio, Streamable HTTP, SSE, and HTTP upstream MCP servers behind one proxy.
+- **Protect** tool calls, resources, prompts, and completions with policy, identity, middleware, hooks, and rate limits.
+- **Observe** every proxied operation with structured logging, lifecycle events, and per-request context.
+- **Ship** generated proxy projects with the Panther CLI and local encrypted auth files.
+
+Panther is designed for teams that want MCP servers to behave like production infrastructure: stable names, centralized governance, auditable calls, and predictable client-facing endpoints.
+
+## Documentation
+
+Start with the [docs homepage](./docs/index.mdx), or jump directly to:
+
+- [Quickstart](./docs/getting-started/quickstart.mdx): create and run a Panther proxy project.
+- [Architecture](./docs/core/architecture.mdx): understand the runtime model.
+- [Proxy setup](./docs/guides/proxy-setup.mdx): production-ready configuration patterns.
+- [Governance auth](./docs/guides/governance-auth.mdx): users, groups, policy, API keys, and upstream credentials.
+- [API reference](./docs/reference-auto/index.mdx): generated package reference.
+
+## Express-like SDK
+
+Install the core package in an existing project:
+
+```bash
+pnpm add @panther/core
+```
+
+Build a proxy in a few lines:
+
+```ts
+import { panther, server, stdio } from "@panther/core";
+
+const proxy = panther({
+  port: 3000,
+  path: "/mcp",
+  servers: [
+    server("filesystem", {
+      transport: stdio({
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      }),
+    }),
+  ],
+});
+
+await proxy.start();
+// MCP endpoint: http://localhost:3000/mcp
+```
+
+Upstream tool names are still stable and namespaced by server. A filesystem tool is exposed to clients with a proxy name such as:
+
+```txt
+filesystem__list_directory
+```
+
+Add another upstream without changing the client endpoint:
+
+```ts
+import { panther, server, streamableHttp } from "@panther/core";
+
+const proxy = panther({
+  servers: [
+    server("docs", {
+      transport: streamableHttp({
+        url: "https://mcp.specification.website/mcp",
+      }),
+    }),
+  ],
+});
+```
+
+## Governance
+
+Add users, groups, and policy:
+
+```ts
+import { group, panther, policy, user } from "@panther/core";
+
+const readOnly = policy("read-only")
+  .server("filesystem")
+  .allow("list_directory");
+
+const proxy = panther({
+  servers: [filesystem],
+  groups: [
+    group({
+      id: "operators",
+      users: [user("alice", { email: "alice@example.com" })],
+      policy: readOnly,
+    }),
+  ],
+});
+```
+
+Block a sensitive tool:
+
+```ts
+proxy.server("filesystem").tool("write_file", (ctx, next) => {
+  return ctx.subject?.hasGroup("admins")
+    ? next()
+    : ctx.deny("Admin required.");
+});
+```
+
+Ask for approval before dangerous tools:
+
+```ts
+import { approval, policy } from "@panther/core";
+
+const deploy = policy("deploy")
+  .server("github")
+  .allow("deploy_production", approval.manual({
+    reason: "Production deploy requires approval",
+  }));
+```
+
+Hide tools from clients:
+
+```ts
+proxy.on("tools:list:after", ({ tools }) => {
+  return tools?.filter((tool) => !tool.name.includes("__dangerous"));
+});
+```
+
+Modify a tool result:
+
+```ts
+proxy.server("github").tool("search_issues", async (_ctx, next) => {
+  const result = await next();
+  if ("content" in result) {
+    result.content.push({ type: "text", text: "Filtered by Panther" });
+  }
+  return result;
+});
+```
+
+Observe every tool call:
+
+```ts
+proxy.on("tool:success", ({ ctx, durationMs }) => {
+  ctx.log.info("tool.success", { tool: ctx.tool?.name, durationMs });
+});
+```
+
+Policies can govern tool calls and MCP capabilities such as resources, prompts, and completion. Runtime routes can deny, approve, hide, log, or transform calls.
+
+## CLI
+
+Create the same kind of proxy from one command:
+
+```bash
+pnpm dlx @panther/cli init my-proxy
+```
+
+The generated project includes a runnable proxy, demo API keys, local encrypted auth files, policy rules, rate limiting, one stdio upstream, one remote HTTP MCP upstream, TypeScript config, package scripts, and project checks.
+
+Connect your MCP client to the generated endpoint, usually `http://localhost:4000/mcp`, and send the generated API key in the default Panther auth header:
+
+```txt
+x-panther-api-key: <guest-or-admin-api-key>
+```
+
+## Local Auth
+
+Panther can resolve caller identity and upstream credentials from local encrypted files:
+
+```bash
+panther auth init --dir .panther/auth --key "$PANTHER_AUTH_KEY"
+panther auth set-api-key --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
+panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
+```
+
+Or, inside a generated Panther project:
+
+```bash
+panther secrets set github.token --user alice
+```
+
+Credential values are not exposed to middleware, hooks, logs, or policy callbacks.
+
+## Packages
+
+| Package | Description |
+| --- | --- |
+| [`@panther/core`](./packages/core) | Proxy runtime, MCP server wrapper, transports, policy, auth, logging, and middleware APIs. |
+| [`@panther/cli`](./packages/cli) | Project generator and local development commands. |
+| [`@panther/approval-telegram`](./packages/approval-telegram) | Telegram approval adapter for Panther policies. |
+
+## Development
+
+Install dependencies:
+
+```bash
+pnpm install
+```
+
+Build all packages:
+
+```bash
+pnpm build
+```
+
+Run checks:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm --filter @panther/core test
+pnpm --filter @panther/cli test
+pnpm --filter @panther/approval-telegram test
+```
+
+Generate docs reference:
+
+```bash
+pnpm docs:generate
+```
+
+## License
+
+MIT, as declared by the published Panther packages.
