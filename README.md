@@ -3,7 +3,7 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/logo-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="./docs/assets/logo-light.svg">
-      <img alt="Panther logo" src="./docs/assets/logo-light.svg" width="60%">
+      <img alt="Panther logo" src="./static/logo_black.svg" width="60%">
     </picture>
   </a>
 </div>
