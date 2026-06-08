@@ -1,0 +1,32 @@
+{
+  "name": "@panther/approval-telegram",
+  "version": "0.1.0",
+  "description": "Telegram approval adapter for Panther policies",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "test": "vitest run src",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@panther/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "vitest": "^4.1.7"
+  },
+  "keywords": [
+    "panther",
+    "mcp",
+    "approval",
+    "telegram"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "module"
+}

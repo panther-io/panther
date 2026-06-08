@@ -1,0 +1,58 @@
+---
+title: "Telegram approval"
+description: "Gate sensitive Panther tool calls with a simple Telegram approval adapter."
+---
+
+Use `@panther/approval-telegram` when a policy needs a human approve/deny step without building a custom UI.
+
+```bash theme={null}
+pnpm add @panther/approval-telegram
+```
+
+## Add an approval
+
+```ts theme={null}
+import { telegramApproval } from "@panther/approval-telegram";
+import { group, policy, user } from "@panther/core";
+
+const maintainers = group({
+  id: "maintainers",
+  users: [user("alice")],
+  policy: policy("maintainers")
+    .server("github")
+    .allow("delete_repo", telegramApproval({
+      botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+      chatId: process.env.TELEGRAM_APPROVAL_CHAT_ID ?? "",
+      reason: "Repository deletion requires Telegram approval",
+    })),
+});
+```
+
+The adapter sends a Telegram message with Approve and Deny buttons. Tool arguments are included by default with sensitive keys such as tokens, passwords, API keys, authorization headers, secrets, and credentials redacted.
+
+## Handle callbacks
+
+Wire Telegram webhook updates to `handleTelegramApprovalCallback`. The in-memory store is useful for local demos; production deployments should provide a durable store.
+
+```ts theme={null}
+import {
+  createInMemoryTelegramApprovalStore,
+  handleTelegramApprovalCallback,
+  telegramApproval,
+} from "@panther/approval-telegram";
+
+const approvalStore = createInMemoryTelegramApprovalStore();
+
+const approval = telegramApproval({
+  botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+  chatId: process.env.TELEGRAM_APPROVAL_CHAT_ID ?? "",
+  store: approvalStore,
+});
+
+await handleTelegramApprovalCallback(telegramUpdateBody, {
+  botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+  store: approvalStore,
+});
+```
+
+`telegramApproval(...)` returns `pending` until the store has an approval decision for the request id. Panther denies the current tool call while the approval is pending and includes safe approval metadata in the policy error.
