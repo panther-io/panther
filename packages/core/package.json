@@ -1,7 +1,7 @@
 {
-  "name": "@panther/core",
+  "name": "@fentaris/core",
   "version": "0.1.0",
-  "description": "Panther MCP Proxy - Core",
+  "description": "Fentaris MCP Proxy - Core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -10,13 +10,30 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
-    "test": "vitest run src",
+    "test": "vitest run test",
     "clean": "rm -rf dist"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "fentaris",
+    "mcp",
+    "proxy",
+    "model-context-protocol"
+  ],
+  "author": "Gabriele Cipriani",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fentaris-io/fentaris.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/fentaris-io/fentaris#readme",
+  "bugs": {
+    "url": "https://github.com/fentaris-io/fentaris/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
