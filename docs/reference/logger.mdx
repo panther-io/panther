@@ -1,9 +1,9 @@
 ---
 title: "Logger"
-description: "Reference for Panther logging primitives."
+description: "Reference for Fentaris logging primitives."
 ---
 
-Panther ships a structured logger with pluggable drivers.
+Fentaris ships a structured logger with pluggable drivers.
 
 ## Logger
 
@@ -25,7 +25,7 @@ new Logger({
 - `onWrite`: callback for side effects.
 - `redact`: `true` by default for sensitive keys, `false` to disable, or an object with `keys`, `paths`, `replacement`, and a custom `redact(value, path, key)` callback.
 
-Redaction runs before entries reach the configured driver or `onWrite`. Panther redacts common credential fields such as tokens, secrets, passwords, authorization headers, API keys, and credential values by default.
+Redaction runs before entries reach the configured driver or `onWrite`. Fentaris redacts common credential fields such as tokens, secrets, passwords, authorization headers, API keys, and credential values by default.
 
 ### Methods
 
