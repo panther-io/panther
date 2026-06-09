@@ -26,7 +26,7 @@ import {
   type ReadResourceRequest,
   type ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
+import { DefaultErrorMapper, FentarisErrorCode } from "./errors.js";
 import { Logger } from "./logger.js";
 import { McpServer } from "./McpServer.js";
 import {
@@ -41,7 +41,7 @@ import {
 } from "./nameMapping.js";
 import { filterToolsByPolicy, getToolPermission } from "./policy.js";
 import { getCapabilityPermission, toCapabilityPermissions } from "./policy.js";
-import type { PantherAuth } from "./auth.js";
+import type { FentarisAuth } from "./auth.js";
 import {
   buildSubjectIndex,
   evaluateGroupPolicies,
@@ -49,49 +49,43 @@ import {
   type Group,
   type SubjectIndex,
 } from "./governance.js";
-import { HttpProxyExposureTransport } from "./transports/HttpProxyExposureTransport.js";
-import {
-  ResponseController,
-  type CapabilityOperationRequest,
-  type CapabilityPermission,
-  type CredentialSourceMetadata,
-  type ErrorMapper,
-  type ListToolsHook,
-  type Middleware,
-  type MiddlewareContext,
-  type IdentityMetadata,
-  type IdentityStrategy,
-  type LegacyMiddleware,
-  type LifecycleHook,
-  type LifecycleHookEvent,
-  type Policy,
-  type ProxyContext,
-  type ProxyEventFilter,
-  type ProxyEventHandler,
-  type ProxyEventName,
-  type ProxyHookEvent,
-  type ProxyExposureHandle,
-  type ProxyExposureTransport,
-  type ProxyMiddleware,
-  type ProxyRuntime,
-  type ProxyServerHandle,
-  type ProxyOperationHandler,
-  type ProxyOperationResult,
-  type ProxyToolHandler,
-  type ProxyToolPattern,
-  type Registry,
-  type ToolCallHook,
-  type ToolCallHookFilter,
-  type ToolCallRequest,
-  type UserContext,
-  type ResolvedSubject,
-} from "./types.js";
+import { HttpProxyExposureTransport } from "./transports/exposure/HttpProxyExposureTransport.js";
+import { ResponseController } from "./types/middleware.js";
+import type { CapabilityOperationRequest, ToolCallRequest } from "./types/mcp-operation.js";
+import type { CredentialSourceMetadata, IdentityMetadata, ResolvedSubject, UserContext } from "./types/shared.js";
+import type {
+  ListToolsHook,
+  Middleware,
+  MiddlewareContext,
+  LegacyMiddleware,
+  LifecycleHook,
+  LifecycleHookEvent,
+  ProxyHookEvent,
+  ProxyMiddleware,
+  ToolCallHook,
+  ToolCallHookFilter,
+} from "./types/middleware.js";
+import type { ProxyOperationResult } from "./types/mcp-operation.js";
+import type { CapabilityPermission, ErrorMapper, IdentityStrategy, Policy, Registry } from "./types/policy.js";
+import type {
+  ProxyContext,
+  ProxyEventFilter,
+  ProxyEventHandler,
+  ProxyEventName,
+  ProxyExposureHandle,
+  ProxyExposureTransport,
+  ProxyRuntime,
+  ProxyServerHandle,
+  ProxyOperationHandler,
+  ProxyToolHandler,
+  ProxyToolPattern,
+} from "./types/proxy.js";
 
 class PolicyDeniedError extends Error {
   readonly code: number;
   readonly context?: ProxyContext;
 
-  constructor(message: string, code: number = PantherErrorCode.PolicyDenied, context?: ProxyContext) {
+  constructor(message: string, code: number = FentarisErrorCode.PolicyDenied, context?: ProxyContext) {
     super(message);
     this.code = code;
     this.context = context;
@@ -112,7 +106,7 @@ export type McpProxyOptions = {
   identity?: IdentityStrategy | IdentityResolverOptions;
   policy?: Policy;
   groups?: Group[];
-  auth?: PantherAuth;
+  auth?: FentarisAuth;
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
   errorMapper?: ErrorMapper;
@@ -189,7 +183,7 @@ export class McpProxy {
   private readonly policy?: Policy;
   private readonly groups: Group[];
   private readonly subjectIndex?: SubjectIndex;
-  private readonly auth?: PantherAuth;
+  private readonly auth?: FentarisAuth;
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
   private readonly errorMapper: ErrorMapper;
@@ -216,7 +210,7 @@ export class McpProxy {
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
-    this.name = options.name ?? "panther-core-proxy";
+    this.name = options.name ?? "fentaris-core-proxy";
     this.version = options.version ?? "0.1.0";
     this.defaultPort = options.port;
     this.defaultPath = options.path ?? "/mcp";
@@ -554,7 +548,7 @@ export class McpProxy {
         (await this.dispatchRoutes(0, request, context, () => {
           if (context.policyDecision && !context.policyDecision.allowed) {
             const denied = context.res.fail(
-              PantherErrorCode.PolicyDenied,
+              FentarisErrorCode.PolicyDenied,
               context.policyDecision.reason ?? "Tool call denied by policy",
             );
             return Promise.resolve({
@@ -935,7 +929,7 @@ export class McpProxy {
       {
         capabilities,
         instructions:
-          "Panther MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use panther:// proxy URIs.",
+          "Fentaris MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use fentaris:// proxy URIs.",
       },
     );
 
@@ -1353,7 +1347,7 @@ export class McpProxy {
     };
 
     if (decision && !decision.allowed) {
-      throw new PolicyDeniedError(decision.reason ?? `Operation "${request.operation}" denied by policy`, PantherErrorCode.PolicyDenied, context);
+      throw new PolicyDeniedError(decision.reason ?? `Operation "${request.operation}" denied by policy`, FentarisErrorCode.PolicyDenied, context);
     }
 
     return context;
@@ -1625,7 +1619,7 @@ export class McpProxy {
     console.error(gradientLine(empty));
     console.error(gradientLine(bottom));
     console.error();
-    console.error(" \x1b[38;2;6;182;212m🐾 Panther Proxy\x1b[0m \x1b[90mv0.1.0\x1b[0m");
+    console.error(" \x1b[38;2;6;182;212m🐾 Fentaris Proxy\x1b[0m \x1b[90mv0.1.0\x1b[0m");
     console.error(" \x1b[32m\x1b[1m🚀 Proxy ready\x1b[0m");
     console.error(` \x1b[36m⚡ Listening on:\x1b[0m  http://localhost:${port}${path}`);
     console.error();
@@ -1752,8 +1746,8 @@ export class McpProxy {
     return {
       user: {
         ...user,
-        __pantherUpstreamEnv: {
-          ...(isRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : {}),
+        __fentarisUpstreamEnv: {
+          ...(isRecord(user.__fentarisUpstreamEnv) ? user.__fentarisUpstreamEnv : {}),
           ...env,
         },
       },
@@ -1867,6 +1861,20 @@ export class McpProxy {
   }
 }
 
+/**
+ * Create a Fentaris proxy with the express-like routing API.
+ * @pk
+ */
+export function createProxy(options: McpProxyOptions): McpProxy {
+  return new McpProxy(options);
+}
+
+/**
+ * Create a Fentaris proxy with the express-like routing API.
+ * @pk
+ */
+export const fentaris = createProxy;
+
 class McpProxyServerHandle implements ProxyServerHandle {
   constructor(
     private readonly proxy: McpProxy,
@@ -1932,7 +1940,7 @@ function normalizeIdentityOptions(
   return "strategy" in identity ? { required, ...identity } : { strategy: identity, required };
 }
 
-function toUpstreamEnv(binding: NonNullable<ReturnType<PantherAuth["getBinding"]>>, credential: string): Record<string, string> {
+function toUpstreamEnv(binding: NonNullable<ReturnType<FentarisAuth["getBinding"]>>, credential: string): Record<string, string> {
   if (binding.type === "bearer") {
     return { AUTHORIZATION: `Bearer ${credential}` };
   }

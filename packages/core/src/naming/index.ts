@@ -1,0 +1,11 @@
+export {
+  assertValidServerName,
+  fromProxyPromptName,
+  fromProxyResourceTemplateUri,
+  fromProxyResourceUri,
+  fromProxyToolName,
+  toProxyPromptName,
+  toProxyResourceTemplateUri,
+  toProxyResourceUri,
+  toProxyToolName,
+} from "./nameMapping.js";

@@ -1,5 +1,5 @@
 /**
- * Core public exports for Panther.
+ * Core public exports for Fentaris.
  * @pk
  */
 
@@ -7,12 +7,12 @@
  * Logger utilities for core runtime logging.
  * @pk
  */
-export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "./logger.js";
+export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "./logging/index.js";
 /**
  * Standard error mapping.
  * @pk
  */
-export { DefaultErrorMapper, PantherErrorCode } from "./errors.js";
+export { DefaultErrorMapper, FentarisErrorCode } from "./errors/index.js";
 /**
  * Logger type definitions.
  * @pk
@@ -25,80 +25,80 @@ export type {
   LogLevel,
   RedisLoggerClient,
   RedisLoggerDriverOptions,
-} from "./logger.js";
+} from "./logging/index.js";
 /**
  * MCP proxy server.
  * @pk
  */
-export { McpProxy } from "./McpProxy.js";
+export { McpProxy, createProxy, fentaris } from "./proxy/index.js";
 /**
  * MCP proxy options.
  * @pk
  */
-export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxyStartOptions } from "./McpProxy.js";
+export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxyStartOptions } from "./proxy/index.js";
 /**
  * MCP server wrapper.
  * @pk
  */
-export { McpServer } from "./McpServer.js";
+export { McpServer, server } from "./server/index.js";
 /**
  * MCP server option types.
  * @pk
  */
-export type { EnvResolver, McpServerOptions } from "./McpServer.js";
+export type { EnvResolver, McpServerOptions } from "./server/index.js";
 /**
  * Stdio transport for MCP clients.
  * @pk
  */
-export { StdioTransport } from "./transports/StdioTransport.js";
+export { StdioTransport, stdio } from "./transports/index.js";
 /**
  * Stdio transport option types.
  * @pk
  */
-export type { StdioTransportOptions } from "./transports/StdioTransport.js";
+export type { StdioTransportOptions } from "./transports/index.js";
 /**
  * HTTP transport for MCP clients.
  * @pk
  */
-export { HttpTransport } from "./transports/HttpTransport.js";
+export { HttpTransport } from "./transports/index.js";
 /**
  * HTTP transport option types.
  * @pk
  */
-export type { HttpTransportOptions } from "./transports/HttpTransport.js";
+export type { HttpTransportOptions } from "./transports/index.js";
 /**
  * Native MCP Streamable HTTP transport for upstream MCP servers.
  * @pk
  */
-export { StreamableHttpMcpTransport } from "./transports/StreamableHttpMcpTransport.js";
-export type { StreamableHttpMcpTransportOptions } from "./transports/StreamableHttpMcpTransport.js";
+export { StreamableHttpMcpTransport, streamableHttp } from "./transports/index.js";
+export type { StreamableHttpMcpTransportOptions } from "./transports/index.js";
 /**
  * Native MCP SSE transport for upstream MCP servers.
  * @pk
  */
-export { SseMcpTransport } from "./transports/SseMcpTransport.js";
-export type { SseMcpTransportOptions } from "./transports/SseMcpTransport.js";
+export { SseMcpTransport } from "./transports/index.js";
+export type { SseMcpTransportOptions } from "./transports/index.js";
 /**
  * Downstream proxy exposure transports.
  * @pk
  */
-export { HttpProxyExposureTransport } from "./transports/HttpProxyExposureTransport.js";
-export type { HttpProxyExposureHandle, HttpProxyExposureTransportOptions } from "./transports/HttpProxyExposureTransport.js";
-export { StdioProxyExposureTransport } from "./transports/StdioProxyExposureTransport.js";
-export type { StdioProxyExposureTransportOptions } from "./transports/StdioProxyExposureTransport.js";
-export { SseProxyExposureTransport } from "./transports/SseProxyExposureTransport.js";
-export type { SseProxyExposureHandle, SseProxyExposureTransportOptions } from "./transports/SseProxyExposureTransport.js";
+export { HttpProxyExposureTransport } from "./transports/index.js";
+export type { HttpProxyExposureHandle, HttpProxyExposureTransportOptions } from "./transports/index.js";
+export { StdioProxyExposureTransport } from "./transports/index.js";
+export type { StdioProxyExposureTransportOptions } from "./transports/index.js";
+export { SseProxyExposureTransport } from "./transports/index.js";
+export type { SseProxyExposureHandle, SseProxyExposureTransportOptions } from "./transports/index.js";
 /**
  * Shared HTTP-family transport auth helpers.
  * @pk
  */
-export { MissingHttpTransportCredentialError, resolveHttpTransportHeaders } from "./transportAuth.js";
-export type { HttpTransportApiKeyAuth, HttpTransportAuthContext, HttpTransportAuthOptions } from "./transportAuth.js";
+export { MissingHttpTransportCredentialError, resolveHttpTransportHeaders } from "./transports/auth/index.js";
+export type { HttpTransportApiKeyAuth, HttpTransportAuthContext, HttpTransportAuthOptions } from "./transports/auth/index.js";
 /**
  * Response controller for middleware.
  * @pk
  */
-export { ResponseController } from "./types.js";
+export { ResponseController } from "./types/index.js";
 /**
  * Core middleware and transport types.
  * @pk
@@ -134,7 +134,7 @@ export type {
   Middleware,
   MiddlewareContext,
   Next,
-  PanterTransport,
+  FentarisTransport,
   Policy as PolicyContract,
   PolicyDecision,
   PolicyMetadata,
@@ -178,17 +178,17 @@ export type {
   ToolCallRequest,
   ToolPermission,
   UserContext,
-} from "./types.js";
+} from "./types/index.js";
 /**
  * Tool name mapping helpers.
  * @pk
  */
-export { fromProxyToolName, toProxyToolName } from "./nameMapping.js";
+export { fromProxyToolName, toProxyToolName } from "./naming/index.js";
 /**
  * Identity strategy helpers.
  * @pk
  */
-export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity.js";
+export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity/index.js";
 /**
  * First-class governance declaration APIs.
  * @pk
@@ -210,19 +210,19 @@ export {
   policy,
   sensitive,
   user,
-} from "./governance.js";
-export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "./governance.js";
+} from "./governance/index.js";
+export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "./governance/index.js";
 /**
  * Local auth and API-key identity APIs.
  * @pk
  */
-export { PantherAuth, apiKeyIdentityStrategy } from "./auth.js";
-export type { CredentialResolution, LocalAuthOptions, LocalCredentials, UpstreamAuthBinding, UpstreamAuthBindings } from "./auth.js";
+export { FentarisAuth, apiKeyIdentityStrategy } from "./auth/index.js";
+export type { CredentialResolution, LocalAuthOptions, LocalCredentials, UpstreamAuthBinding, UpstreamAuthBindings } from "./auth/index.js";
 /**
  * Isolation runtime implementations.
  * @pk
  */
-export { InProcessIsolation } from "./isolation.js";
+export { InProcessIsolation } from "./isolation/index.js";
 /**
  * Policy engine and evaluation.
  * @pk
@@ -236,15 +236,15 @@ export {
   isToolAllowedByPermissions,
   toCapabilityPermissions,
   toCapabilityRequest,
-} from "./policy.js";
+} from "./policy/index.js";
 /**
  * Registry implementations.
  * @pk
  */
-export { MemoryRegistry, RedisRegistry } from "./registry.js";
-export type { RedisRegistryClient, RedisRegistryOptions } from "./registry.js";
+export { MemoryRegistry, RedisRegistry } from "./registry/index.js";
+export type { RedisRegistryClient, RedisRegistryOptions } from "./registry/index.js";
 /**
  * Rate limit store implementations.
  * @pk
  */
-export { MemoryRateLimitStore, SlidingWindowRateLimiter, rateLimitKey, rateLimitMiddleware } from "./rateLimit.js";
+export { MemoryRateLimitStore, SlidingWindowRateLimiter, rateLimitKey, rateLimitMiddleware } from "./rate-limit/index.js";
