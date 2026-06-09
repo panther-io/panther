@@ -9,7 +9,7 @@ The system SHALL expose a resolved subject context to middleware, hooks, policy 
 
 #### Scenario: Subject group helper
 - **WHEN** middleware checks whether a subject belongs to a group
-- **THEN** Panther provides a helper or equivalent API that returns membership without requiring direct group graph traversal
+- **THEN** Fentaris provides a helper or equivalent API that returns membership without requiring direct group graph traversal
 
 ### Requirement: Policy context
 The system SHALL expose effective policy metadata for the current request without exposing raw policy internals unnecessarily.
@@ -20,14 +20,14 @@ The system SHALL expose effective policy metadata for the current request withou
 
 #### Scenario: Approval callback context
 - **WHEN** an approval callback is invoked
-- **THEN** Panther passes request, subject, groups, policy metadata, logger, timing metadata, and response helpers to the callback
+- **THEN** Fentaris passes request, subject, groups, policy metadata, logger, timing metadata, and response helpers to the callback
 
 ### Requirement: Credential metadata without secret values
 The system SHALL expose credential resolution metadata without exposing decrypted credential values in normal context.
 
 #### Scenario: Credential source metadata
 - **WHEN** upstream auth resolves a credential for a request
-- **THEN** Panther can expose the credential reference and source type, such as user, group, or default, without exposing the credential value
+- **THEN** Fentaris can expose the credential reference and source type, such as user, group, or default, without exposing the credential value
 
 #### Scenario: Secret value not available
 - **WHEN** middleware or hooks inspect the governance context
@@ -38,8 +38,8 @@ The system SHALL provide a compatibility path for existing middleware that reads
 
 #### Scenario: Existing middleware reads user id
 - **WHEN** existing middleware reads `context.user.id`
-- **THEN** Panther provides the resolved subject id during the compatibility period
+- **THEN** Fentaris provides the resolved subject id during the compatibility period
 
 #### Scenario: New middleware reads subject
 - **WHEN** new middleware reads `context.subject`
-- **THEN** Panther provides richer subject and group context than the legacy user object
+- **THEN** Fentaris provides richer subject and group context than the legacy user object

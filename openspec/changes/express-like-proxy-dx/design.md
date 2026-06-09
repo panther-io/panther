@@ -1,8 +1,8 @@
 ## Context
 
-Panther currently exposes a functional MCP proxy pipeline, but developers interact with it through several adjacent APIs: middleware receives `(request, context, next)`, targeted hooks use `proxy.on("call", ...)`, list transformations use `proxy.onListTools(...)`, lifecycle hooks use `proxy.onLifecycle(...)`, and response helpers live under `ctx.res`. Governance work has already introduced subjects, groups, policy decisions, credential metadata, and safe auth context. Transport work has separated the reusable proxy runtime from downstream exposure concerns.
+Fentaris currently exposes a functional MCP proxy pipeline, but developers interact with it through several adjacent APIs: middleware receives `(request, context, next)`, targeted hooks use `proxy.on("call", ...)`, list transformations use `proxy.onListTools(...)`, lifecycle hooks use `proxy.onLifecycle(...)`, and response helpers live under `ctx.res`. Governance work has already introduced subjects, groups, policy decisions, credential metadata, and safe auth context. Transport work has separated the reusable proxy runtime from downstream exposure concerns.
 
-This change builds on those foundations by making Panther feel like a small MCP application framework. The public API should let developers route behavior by server and tool, observe lifecycle and tool events consistently, and use one normalized context object everywhere.
+This change builds on those foundations by making Fentaris feel like a small MCP application framework. The public API should let developers route behavior by server and tool, observe lifecycle and tool events consistently, and use one normalized context object everywhere.
 
 ## Goals / Non-Goals
 
@@ -23,7 +23,7 @@ This change builds on those foundations by making Panther feel like a small MCP 
 - Do not move authorization policy out of `Group`/`Policy` declarations.
 - Do not add new MCP transport protocols.
 - Do not expose decrypted credential values through the unified context.
-- Do not require applications to use the new `panther(...)`, `mcp.*`, or `http(...)` helper style if they prefer existing constructors.
+- Do not require applications to use the new `fentaris(...)`, `mcp.*`, or `http(...)` helper style if they prefer existing constructors.
 
 ## Decisions
 
@@ -41,7 +41,7 @@ Alternative considered: flatten fields such as `ctx.groups`, `ctx.permissions`, 
 
 ### Keep `ctx.log`
 
-The context will expose `ctx.log` as a contextual child logger. Panther will enrich it with safe metadata such as operation, subject id, server name, tool name, proxied tool name, transport type, session id, request id, and policy outcome where available.
+The context will expose `ctx.log` as a contextual child logger. Fentaris will enrich it with safe metadata such as operation, subject id, server name, tool name, proxied tool name, transport type, session id, request id, and policy outcome where available.
 
 Alternative considered: require all logging through a proxy-level logger import. That reduces context size but forces applications to repeat metadata manually and increases inconsistent audit logs.
 
@@ -59,7 +59,7 @@ Alternative considered: dispatch server routes separately from proxy routes. Tha
 
 ### Use `server.tool` pattern names in the public DX
 
-Public pattern strings will use dot notation such as `github.create_issue`, `github.*`, and `*.search_*`. Panther will translate them to the internal namespaced MCP names used for client-facing tool names.
+Public pattern strings will use dot notation such as `github.create_issue`, `github.*`, and `*.search_*`. Fentaris will translate them to the internal namespaced MCP names used for client-facing tool names.
 
 Alternative considered: expose `<server>__<tool>` in patterns. That mirrors MCP routing internals but leaks an implementation detail into user code.
 
@@ -101,6 +101,6 @@ Rollback is straightforward because this change is additive: remove the new expo
 
 ## Open Questions
 
-- Should `panther(...)`, `mcp.stdio(...)`, `mcp.http(...)`, and `http(...)` helpers ship in the same change or remain documented aliases over existing constructors until a follow-up?
+- Should `fentaris(...)`, `mcp.stdio(...)`, `mcp.http(...)`, and `http(...)` helpers ship in the same change or remain documented aliases over existing constructors until a follow-up?
 - Should event handlers be allowed to transform `tools:list:after` results only, or should future before/after events allow mutation more broadly?
 - Should `ctx.policy.can(server, tool)` consult only the current effective policy snapshot, or trigger a fresh policy evaluation for arbitrary server/tool checks?

@@ -1,6 +1,6 @@
 ## Why
 
-Panther already exposes subject, authentication, and policy metadata, but the current shape still leaves developers checking optional fields and mixing legacy `user`, `policyDecision`, and response-controller access. A clearer context DX makes middleware, routes, approvals, and hooks easier to read and safer to use.
+Fentaris already exposes subject, authentication, and policy metadata, but the current shape still leaves developers checking optional fields and mixing legacy `user`, `policyDecision`, and response-controller access. A clearer context DX makes middleware, routes, approvals, and hooks easier to read and safer to use.
 
 ## What Changes
 

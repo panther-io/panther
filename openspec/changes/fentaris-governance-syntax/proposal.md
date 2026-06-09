@@ -1,6 +1,6 @@
 ## Why
 
-The current Panther core exposes proxy/middleware/hooks, but the governance-centric syntax (policy, registry/secrets, rate limiting, identity, isolation, and richer logging) is not implemented. We need a scalable, production-ready foundation so teams can enforce policy and operate multi-tenant proxies without bespoke glue code.
+The current Fentaris core exposes proxy/middleware/hooks, but the governance-centric syntax (policy, registry/secrets, rate limiting, identity, isolation, and richer logging) is not implemented. We need a scalable, production-ready foundation so teams can enforce policy and operate multi-tenant proxies without bespoke glue code.
 
 ## What Changes
 

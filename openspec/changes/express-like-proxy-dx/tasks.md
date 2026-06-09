@@ -64,7 +64,7 @@
 
 ## 8. Helper API And Exports
 
-- [x] 8.1 Decide whether this change exports `panther(...)`, `mcp.*`, and `http(...)` helper aliases or leaves them for a follow-up
+- [x] 8.1 Decide whether this change exports `fentaris(...)`, `mcp.*`, and `http(...)` helper aliases or leaves them for a follow-up
 - [x] 8.2 Export new context, middleware, route, server handle, event, filter, and pattern types from `packages/core/src/index.ts`
 - [x] 8.3 Keep existing constructor exports and type exports stable
 - [x] 8.4 Add API-level tests or type tests for the recommended syntax examples
@@ -80,8 +80,8 @@
 
 ## 10. Verification
 
-- [x] 10.1 Run `pnpm --filter @panther/core test`
-- [x] 10.2 Run `pnpm --filter @panther/core build`
+- [x] 10.1 Run `pnpm --filter @fentaris/core test`
+- [x] 10.2 Run `pnpm --filter @fentaris/core build`
 - [x] 10.3 Run `pnpm lint`
 - [x] 10.4 Run `pnpm typecheck`
 - [x] 10.5 Verify `openspec status --change "express-like-proxy-dx"` reports the change as apply-ready

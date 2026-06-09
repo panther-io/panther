@@ -2,7 +2,7 @@
 
 - [x] 1.1 Audit current MCP SDK transport exports and decide exact class names for native HTTP, SSE, and proxy exposure transports
 - [x] 1.2 Define upstream HTTP-family auth option types for static headers, bearer tokens, API keys, and async user-aware resolvers
-- [x] 1.3 Define a downstream proxy exposure transport interface separate from `PanterTransport`
+- [x] 1.3 Define a downstream proxy exposure transport interface separate from `FentarisTransport`
 - [x] 1.4 Refactor `McpProxy` internals so MCP SDK server creation and list/call handling can be reused outside the Node HTTP listener
 - [x] 1.5 Preserve `McpProxy.start()` as the backward-compatible default HTTP exposure API
 
@@ -26,7 +26,7 @@
 
 - [x] 4.1 Extract current HTTP Streamable MCP exposure into an explicit HTTP proxy exposure transport
 - [x] 4.2 Wire `McpProxy.start()` to the HTTP proxy exposure transport without changing existing defaults
-- [x] 4.3 Implement stdio proxy exposure so Panther can run as a local MCP server process
+- [x] 4.3 Implement stdio proxy exposure so Fentaris can run as a local MCP server process
 - [x] 4.4 Implement SSE proxy exposure with session and stream cleanup
 - [x] 4.5 Ensure HTTP and SSE exposure resolve downstream identity at the proxy edge
 - [x] 4.6 Define and implement stdio exposure user context behavior for non-HTTP identity
@@ -48,7 +48,7 @@
 
 ## 7. Verification
 
-- [x] 7.1 Run `pnpm --filter @panther/core test`
-- [x] 7.2 Run `pnpm --filter @panther/core build`
+- [x] 7.1 Run `pnpm --filter @fentaris/core test`
+- [x] 7.2 Run `pnpm --filter @fentaris/core build`
 - [x] 7.3 Run repository lint/typecheck commands required by the project
 - [x] 7.4 Verify `openspec status --change "mcp-transport-matrix"` reports the change as apply-ready

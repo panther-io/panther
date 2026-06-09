@@ -4,7 +4,7 @@
 The core package SHALL export the Fase 0 classes and types needed to create a proxy, define upstream MCP servers, configure stdio transports, log from context, and write middleware.
 
 #### Scenario: Consumer imports core primitives
-- **WHEN** an application imports `McpProxy`, `McpServer`, `StdioTransport`, and `Logger` from `@panther/core`
+- **WHEN** an application imports `McpProxy`, `McpServer`, `StdioTransport`, and `Logger` from `@fentaris/core`
 - **THEN** the package exposes those symbols from its public entrypoint
 
 ### Requirement: Stdio upstream transport

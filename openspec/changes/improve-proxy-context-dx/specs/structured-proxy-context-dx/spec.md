@@ -61,8 +61,8 @@ The system SHALL preserve existing context aliases while recommending the struct
 
 #### Scenario: Existing middleware reads legacy aliases
 - **WHEN** existing middleware reads `ctx.user`, `ctx.policyDecision`, or `ctx.res`
-- **THEN** Panther provides behavior compatible with the existing public API
+- **THEN** Fentaris provides behavior compatible with the existing public API
 
 #### Scenario: New middleware uses structured domains
 - **WHEN** new middleware reads `ctx.subject`, `ctx.auth`, and `ctx.policy`
-- **THEN** Panther provides the same resolved runtime information through the structured domain fields
+- **THEN** Fentaris provides the same resolved runtime information through the structured domain fields

@@ -1,8 +1,8 @@
 ## Context
 
-Panther currently has governance building blocks: `UserContext`, identity strategies, registry secrets/tokens, `SimplePolicy`, `ToolPermission`, rate limit middleware, and approval callbacks. The pieces are functional but not cohesive for a developer building a production proxy. Users and groups are not first-class, policy is global rather than group-owned, API-key identity is not modeled as the default secure local pattern, and upstream auth currently relies on manual `env(user)` or header wiring.
+Fentaris currently has governance building blocks: `UserContext`, identity strategies, registry secrets/tokens, `SimplePolicy`, `ToolPermission`, rate limit middleware, and approval callbacks. The pieces are functional but not cohesive for a developer building a production proxy. Users and groups are not first-class, policy is global rather than group-owned, API-key identity is not modeled as the default secure local pattern, and upstream auth currently relies on manual `env(user)` or header wiring.
 
-This change introduces a higher-level governance and auth DX. Developers declare `User`, `Group`, and `Policy` in TypeScript. Sensitive credentials and user API keys live in encrypted local JSON. Non-sensitive upstream auth bindings live in local JSON. `PantherAuth.local(...)` hides those files behind one object, and `McpProxy` receives groups, auth, and servers.
+This change introduces a higher-level governance and auth DX. Developers declare `User`, `Group`, and `Policy` in TypeScript. Sensitive credentials and user API keys live in encrypted local JSON. Non-sensitive upstream auth bindings live in local JSON. `FentarisAuth.local(...)` hides those files behind one object, and `McpProxy` receives groups, auth, and servers.
 
 ## Goals / Non-Goals
 
@@ -41,13 +41,13 @@ Alternative considered: pass `users` and `groups` separately to `McpProxy`. This
 
 ### Use API keys as the default secure identity pattern
 
-The default local identity strategy will read a configured header such as `x-panther-api-key`, hash or compare the key securely, and resolve it to a declared user id from encrypted auth storage. User id headers can remain available for trusted internal setups but are not the recommended secure default.
+The default local identity strategy will read a configured header such as `x-fentaris-api-key`, hash or compare the key securely, and resolve it to a declared user id from encrypted auth storage. User id headers can remain available for trusted internal setups but are not the recommended secure default.
 
-Alternative considered: keep `x-user-id` as the primary identity mechanism. That is acceptable behind a trusted auth gateway but unsafe as a direct Panther auth mode.
+Alternative considered: keep `x-user-id` as the primary identity mechanism. That is acceptable behind a trusted auth gateway but unsafe as a direct Fentaris auth mode.
 
 ### Unify local auth configuration
 
-Expose a single `PantherAuth.local({ dir, key })` or equivalent API. Internally it reads encrypted secrets and non-sensitive upstream auth bindings from predictable files, but application code treats auth as one object.
+Expose a single `FentarisAuth.local({ dir, key })` or equivalent API. Internally it reads encrypted secrets and non-sensitive upstream auth bindings from predictable files, but application code treats auth as one object.
 
 Alternative considered: require developers to pass separate `credentials` and `upstreamAuth` objects. That is explicit but makes two linked files feel unrelated and harder to onboard.
 
@@ -71,7 +71,7 @@ Alternative considered: attach decrypted secrets to `ctx.subject`. That recreate
 
 ## Risks / Trade-offs
 
-- Encrypted local files can create key-management confusion -> Provide clear `PantherAuth.local` defaults, validation errors, and CLI helpers.
+- Encrypted local files can create key-management confusion -> Provide clear `FentarisAuth.local` defaults, validation errors, and CLI helpers.
 - Multiple group membership can create ambiguous policy behavior -> Define deterministic policy merge semantics and test conflicts.
 - API keys stored in encrypted files still need rotation -> Support multiple keys per user and key identifiers where possible.
 - Hiding two files behind one auth object can obscure how auth works -> Document the internal file layout and provide inspect commands that redact secrets.
@@ -80,7 +80,7 @@ Alternative considered: attach decrypted secrets to `ctx.subject`. That recreate
 ## Migration Plan
 
 1. Add new User/Group/Policy DX APIs without removing current `SimplePolicy`.
-2. Add `PantherAuth.local` and encrypted local store support.
+2. Add `FentarisAuth.local` and encrypted local store support.
 3. Add API-key identity resolution and subject index resolution from groups.
 4. Add credential resolution and upstream auth binding support.
 5. Wire the new governance context into middleware/hooks while preserving `ctx.user` compatibility where practical.
@@ -89,5 +89,5 @@ Alternative considered: attach decrypted secrets to `ctx.subject`. That recreate
 ## Open Questions
 
 - Should effective policy across multiple groups be union-based with explicit deny precedence, or first-match by group order?
-- Should `User` ids be arbitrary strings, or should Panther enforce a restricted id format?
+- Should `User` ids be arbitrary strings, or should Fentaris enforce a restricted id format?
 - Should encrypted local files use a passphrase-derived key or require a raw encryption key from environment variables?

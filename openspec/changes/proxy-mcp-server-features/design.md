@@ -1,8 +1,8 @@
 ## Context
 
-Panther currently models upstream MCP access through `PanterTransport`, which only exposes `listTools`, `callTool`, and `close`. `McpServer` wraps that transport, and `McpProxy.createSdkServer()` registers downstream handlers for `tools/list` and `tools/call` while declaring `tools` and `logging` capabilities.
+Fentaris currently models upstream MCP access through `FentarisTransport`, which only exposes `listTools`, `callTool`, and `close`. `McpServer` wraps that transport, and `McpProxy.createSdkServer()` registers downstream handlers for `tools/list` and `tools/call` while declaring `tools` and `logging` capabilities.
 
-The MCP specification treats resources, prompts, and completion as first-class server capabilities alongside tools. This change covers the request/response portion of those server capabilities so Panther can aggregate them from multiple upstream MCP servers.
+The MCP specification treats resources, prompts, and completion as first-class server capabilities alongside tools. This change covers the request/response portion of those server capabilities so Fentaris can aggregate them from multiple upstream MCP servers.
 
 ## Goals / Non-Goals
 
@@ -11,7 +11,7 @@ The MCP specification treats resources, prompts, and completion as first-class s
 - Keep existing tool proxy behavior and names stable.
 - Allow tool-only transports to keep working.
 - Derive downstream capabilities from actual upstream support.
-- Preserve upstream schema and content payloads except for Panther routing metadata and exposed names/URIs.
+- Preserve upstream schema and content payloads except for Fentaris routing metadata and exposed names/URIs.
 
 **Non-Goals:**
 - Resource subscriptions and list-change notifications.
@@ -24,7 +24,7 @@ The MCP specification treats resources, prompts, and completion as first-class s
 
 ### Extend transports with optional feature methods
 
-`PanterTransport` will gain optional methods for resources, prompts, and completion rather than making every transport implement them immediately.
+`FentarisTransport` will gain optional methods for resources, prompts, and completion rather than making every transport implement them immediately.
 
 Alternative considered: create separate transport interfaces per capability and require all upstream wrappers to advertise a capability map. That is more explicit, but it would force a larger migration before any feature can ship. Optional methods keep existing tests and custom transports compatible.
 
@@ -36,19 +36,19 @@ Alternative considered: let `McpProxy` call transports directly. That would bypa
 
 ### Namespace prompts by name and resources by proxy URI
 
-Prompt names will follow the existing tool naming style: `<server>__<prompt>`. Resources and resource templates will use Panther-owned proxy URIs so routing can be recovered from the URI alone. The proxy URI should encode both server name and original upstream URI or URI template.
+Prompt names will follow the existing tool naming style: `<server>__<prompt>`. Resources and resource templates will use Fentaris-owned proxy URIs so routing can be recovered from the URI alone. The proxy URI should encode both server name and original upstream URI or URI template.
 
 Alternative considered: expose original resource URIs and attach server metadata under `_meta`. MCP clients call `resources/read` by URI, so routing must be recoverable without relying on client-preserved metadata.
 
 ### Keep completion references aligned with proxied names
 
-`completion/complete` will accept proxied prompt names and proxied resource template URIs. Panther will translate the reference to the upstream prompt name or URI template before forwarding.
+`completion/complete` will accept proxied prompt names and proxied resource template URIs. Fentaris will translate the reference to the upstream prompt name or URI template before forwarding.
 
 Alternative considered: expose completion only for prompts first. That would leave resource templates incomplete and create an inconsistent user experience.
 
 ### Declare downstream capabilities dynamically
 
-`createSdkServer()` will declare `resources`, `prompts`, and `completions` only when at least one configured upstream can support the corresponding feature. If capability discovery is expensive, Panther may use transport method presence as the first approximation and refine after upstream capability discovery.
+`createSdkServer()` will declare `resources`, `prompts`, and `completions` only when at least one configured upstream can support the corresponding feature. If capability discovery is expensive, Fentaris may use transport method presence as the first approximation and refine after upstream capability discovery.
 
 Alternative considered: always declare every capability and return empty results. That misleads clients during capability negotiation.
 
@@ -70,6 +70,6 @@ Alternative considered: always declare every capability and return empty results
 
 ## Open Questions
 
-- Should proxy resource URIs use `panther://resources/<server>/<encoded-uri>` or another stable scheme?
-- Should proxied resources expose original URI in `_meta.panther.originalUri` for debugging?
+- Should proxy resource URIs use `fentaris://resources/<server>/<encoded-uri>` or another stable scheme?
+- Should proxied resources expose original URI in `_meta.fentaris.originalUri` for debugging?
 - Should completion be declared if only prompts or only resource templates support it, or always when either exists?

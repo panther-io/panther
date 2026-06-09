@@ -1,6 +1,6 @@
 ## Context
 
-`@panther/core` currently has no source implementation. The nearby sandbox proves the useful base pattern: create an MCP server, aggregate upstream tools, prefix names to preserve routing, and forward calls to the selected upstream. The framework version should extract that behavior into reusable classes with a public API that can later host policy, registry, logging, approval, and isolation features.
+`@fentaris/core` currently has no source implementation. The nearby sandbox proves the useful base pattern: create an MCP server, aggregate upstream tools, prefix names to preserve routing, and forward calls to the selected upstream. The framework version should extract that behavior into reusable classes with a public API that can later host policy, registry, logging, approval, and isolation features.
 
 The first implementation target is a usable Fase 0 core: one streamable HTTP proxy endpoint, stdio upstream support, namespaced tool routing, and a middleware pipeline around tool calls.
 
@@ -8,7 +8,7 @@ The first implementation target is a usable Fase 0 core: one streamable HTTP pro
 
 **Goals:**
 
-- Provide an importable `@panther/core` API with `McpProxy`, `McpServer`, `StdioTransport`, `Logger`, and core middleware/context types.
+- Provide an importable `@fentaris/core` API with `McpProxy`, `McpServer`, `StdioTransport`, `Logger`, and core middleware/context types.
 - Use object-style configuration constructors so future options can be added without positional API churn.
 - Aggregate tools from multiple upstream MCP servers and expose stable proxied names.
 - Route `call_tool` requests through middleware before forwarding to the upstream.
