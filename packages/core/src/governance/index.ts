@@ -10,10 +10,12 @@ export {
   buildSubjectIndex,
   deny,
   denyCapability,
+  evaluateGroupPolicies,
+  filterToolsByGroupPolicies,
   group,
   limit,
   policy,
   sensitive,
   user,
-} from "../governance.js";
-export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "../governance.js";
+} from "./governance.js";
+export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "./governance.js";

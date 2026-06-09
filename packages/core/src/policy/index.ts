@@ -8,4 +8,4 @@ export {
   normalizeApprovalResult,
   toCapabilityPermissions,
   toCapabilityRequest,
-} from "../policy.js";
+} from "./policy.js";

@@ -13,11 +13,11 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { Logger } from "./logger.js";
-import { McpProxy } from "./McpProxy.js";
-import { McpServer } from "./McpServer.js";
-import { PantherErrorCode } from "./errors.js";
-import { Policy } from "./governance.js";
+import { Logger } from "../src/logger.js";
+import { McpProxy } from "../src/McpProxy.js";
+import { McpServer } from "../src/McpServer.js";
+import { FentarisErrorCode } from "../src/errors.js";
+import { Policy } from "../src/governance.js";
 import {
   fromProxyPromptName,
   fromProxyResourceTemplateUri,
@@ -27,9 +27,9 @@ import {
   toProxyResourceTemplateUri,
   toProxyResourceUri,
   toProxyToolName,
-} from "./nameMapping.js";
-import type { LogEntry, LoggerDriver } from "./logger.js";
-import type { PanterTransport } from "./types.js";
+} from "../src/nameMapping.js";
+import type { LogEntry, LoggerDriver } from "../src/logger.js";
+import type { FentarisTransport } from "../src/types.js";
 
 class MemoryLogDriver implements LoggerDriver {
   readonly entries: LogEntry[] = [];
@@ -39,7 +39,7 @@ class MemoryLogDriver implements LoggerDriver {
   }
 }
 
-class MockTransport implements PanterTransport {
+class MockTransport implements FentarisTransport {
   readonly callTool = vi.fn(async (params: CallToolRequest["params"]): Promise<CallToolResult> => {
     return {
       content: [{ type: "text", text: `called:${params.name}` }],
@@ -194,7 +194,7 @@ describe("proxied resource URIs", () => {
   it("round-trips resource URIs", () => {
     const proxyUri = toProxyResourceUri("files", "file:///tmp/readme.md?rev=1");
 
-    expect(proxyUri).toBe("panther://resources/files/file%3A%2F%2F%2Ftmp%2Freadme.md%3Frev%3D1");
+    expect(proxyUri).toBe("fentaris://resources/files/file%3A%2F%2F%2Ftmp%2Freadme.md%3Frev%3D1");
     expect(fromProxyResourceUri(proxyUri)).toEqual({
       serverName: "files",
       uri: "file:///tmp/readme.md?rev=1",
@@ -204,7 +204,7 @@ describe("proxied resource URIs", () => {
   it("round-trips resource template URIs", () => {
     const proxyTemplate = toProxyResourceTemplateUri("repo", "repo://{owner}/{name}/issues/{id}");
 
-    expect(proxyTemplate).toBe("panther://resource-templates/repo/repo%3A%2F%2F%7Bowner%7D%2F%7Bname%7D%2Fissues%2F%7Bid%7D");
+    expect(proxyTemplate).toBe("fentaris://resource-templates/repo/repo%3A%2F%2F%7Bowner%7D%2F%7Bname%7D%2Fissues%2F%7Bid%7D");
     expect(fromProxyResourceTemplateUri(proxyTemplate)).toEqual({
       serverName: "repo",
       uriTemplate: "repo://{owner}/{name}/issues/{id}",
@@ -215,9 +215,9 @@ describe("proxied resource URIs", () => {
     expect(() => toProxyResourceUri("bad__server", "file:///tmp/readme.md")).toThrow(/cannot include/);
     expect(() => toProxyResourceUri("files", "")).toThrow(/resource URI cannot be empty/);
     expect(() => fromProxyResourceUri("file:///tmp/readme.md")).toThrow(/Invalid proxied resource URI/);
-    expect(() => fromProxyResourceUri("panther://resources/files")).toThrow(/Invalid proxied resource URI/);
-    expect(() => fromProxyResourceUri("panther://resources/files/file/raw")).toThrow(/raw path separators/);
-    expect(() => fromProxyResourceTemplateUri("panther://resources/files/file%3A%2F%2Fa")).toThrow(
+    expect(() => fromProxyResourceUri("fentaris://resources/files")).toThrow(/Invalid proxied resource URI/);
+    expect(() => fromProxyResourceUri("fentaris://resources/files/file/raw")).toThrow(/raw path separators/);
+    expect(() => fromProxyResourceTemplateUri("fentaris://resources/files/file%3A%2F%2Fa")).toThrow(
       /Invalid proxied resource template URI/,
     );
   });
@@ -274,7 +274,7 @@ describe("McpProxy", () => {
 
     expect(result.resources).toEqual([
       expect.objectContaining({
-        uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+        uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md",
         name: "shared",
         title: "Shared",
         description: "Shared resource",
@@ -283,7 +283,7 @@ describe("McpProxy", () => {
         _meta: { upstream: true },
       }),
       expect.objectContaining({
-        uri: "panther://resources/notion/file%3A%2F%2F%2Fshared.md",
+        uri: "fentaris://resources/notion/file%3A%2F%2F%2Fshared.md",
         name: "shared",
       }),
     ]);
@@ -296,14 +296,14 @@ describe("McpProxy", () => {
     });
 
     const result = await proxy.readResource({
-      uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+      uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md",
     });
 
     expect(transport.readResource).toHaveBeenCalledWith({ uri: "file:///shared.md" });
     expect(result).toEqual({
       contents: [
         {
-          uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+          uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md",
           text: "resource text",
           mimeType: "text/markdown",
           _meta: { content: true },
@@ -322,7 +322,7 @@ describe("McpProxy", () => {
 
     expect(result.resourceTemplates).toEqual([
       expect.objectContaining({
-        uriTemplate: "panther://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D",
+        uriTemplate: "fentaris://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D",
         name: "file",
         description: "File template",
         mimeType: "text/plain",
@@ -395,7 +395,7 @@ describe("McpProxy", () => {
     });
     await expect(
       proxy.complete({
-        ref: { type: "ref/resource", uri: "panther://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D" },
+        ref: { type: "ref/resource", uri: "fentaris://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D" },
         argument: { name: "path", value: "r" },
       }),
     ).resolves.toMatchObject({
@@ -449,12 +449,12 @@ describe("McpProxy", () => {
       servers: [new McpServer({ name: "github", transport })],
     });
 
-    await expect(proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" })).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+    await expect(proxy.readResource({ uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md" })).rejects.toMatchObject({
+      code: FentarisErrorCode.PolicyDenied,
       message: 'Operation "resource:read" denied by policy "blocked"',
     });
     await expect(proxy.getPrompt({ name: "github__summarize" })).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+      code: FentarisErrorCode.PolicyDenied,
       message: 'Operation "prompt:get" denied by policy "blocked"',
     });
     await expect(
@@ -463,7 +463,7 @@ describe("McpProxy", () => {
         argument: { name: "topic", value: "m" },
       }),
     ).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+      code: FentarisErrorCode.PolicyDenied,
       message: 'Operation "completion:complete" denied by policy "blocked"',
     });
     expect(transport.readResource).not.toHaveBeenCalled();
@@ -495,7 +495,7 @@ describe("McpProxy", () => {
       return next();
     });
 
-    await proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" });
+    await proxy.readResource({ uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md" });
     await proxy.getPrompt({ name: "github__summarize", arguments: { topic: "mcp" } });
     await proxy.complete({
       ref: { type: "ref/prompt", name: "github__summarize" },
@@ -508,7 +508,7 @@ describe("McpProxy", () => {
         server: "github",
         resource: {
           uri: "file:///shared.md",
-          proxyUri: "panther://resources/github/file%3A%2F%2F%2Fshared.md",
+          proxyUri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md",
         },
         hasUser: true,
         hasAuth: true,
@@ -543,21 +543,21 @@ describe("McpProxy", () => {
 
     proxy.use((ctx, next) => {
       if (ctx.operation === "resource:read") {
-        return ctx.fail(PantherErrorCode.PolicyDenied, `blocked:${ctx.resource?.uri}`);
+        return ctx.fail(FentarisErrorCode.PolicyDenied, `blocked:${ctx.resource?.uri}`);
       }
       if (ctx.operation === "completion:complete") {
-        return ctx.fail(PantherErrorCode.PolicyDenied, `blocked:${ctx.completion?.target}`);
+        return ctx.fail(FentarisErrorCode.PolicyDenied, `blocked:${ctx.completion?.target}`);
       }
       return next();
     });
-    proxy.operation("prompt:get", (ctx) => ctx.fail(PantherErrorCode.PolicyDenied, `blocked:${ctx.prompt?.name}`));
+    proxy.operation("prompt:get", (ctx) => ctx.fail(FentarisErrorCode.PolicyDenied, `blocked:${ctx.prompt?.name}`));
 
-    await expect(proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" })).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+    await expect(proxy.readResource({ uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md" })).rejects.toMatchObject({
+      code: FentarisErrorCode.PolicyDenied,
       message: "blocked:file:///shared.md",
     });
     await expect(proxy.getPrompt({ name: "github__summarize" })).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+      code: FentarisErrorCode.PolicyDenied,
       message: "blocked:summarize",
     });
     await expect(
@@ -566,7 +566,7 @@ describe("McpProxy", () => {
         argument: { name: "topic", value: "m" },
       }),
     ).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+      code: FentarisErrorCode.PolicyDenied,
       message: "blocked:summarize",
     });
     expect(transport.readResource).not.toHaveBeenCalled();
@@ -601,9 +601,9 @@ describe("McpProxy", () => {
       events.push(`prompt:after:${success}`);
     });
 
-    await proxy.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Fshared.md" }, { id: "alice" });
+    await proxy.readResource({ uri: "fentaris://resources/github/file%3A%2F%2F%2Fshared.md" }, { id: "alice" });
     await expect(proxy.getPrompt({ name: "github__summarize" }, { id: "alice" })).rejects.toMatchObject({
-      code: PantherErrorCode.PolicyDenied,
+      code: FentarisErrorCode.PolicyDenied,
     });
 
     expect(events).toEqual([
@@ -647,7 +647,7 @@ describe("McpProxy", () => {
       servers: [new McpServer({ name: "github", transport: new FeatureTransport() })],
     });
 
-    await expect(proxy.readResource({ uri: "panther://resources/missing/file%3A%2F%2F%2Fshared.md" })).rejects.toThrow(
+    await expect(proxy.readResource({ uri: "fentaris://resources/missing/file%3A%2F%2F%2Fshared.md" })).rejects.toThrow(
       /Unknown MCP server/,
     );
     await expect(proxy.getPrompt({ name: "missing__summarize" })).rejects.toThrow(/Unknown MCP server/);
@@ -751,7 +751,7 @@ describe("McpProxy", () => {
         proxyToolName: "github__create_issue",
       },
     });
-    expect(JSON.stringify(seen)).not.toContain("__pantherUpstreamEnv");
+    expect(JSON.stringify(seen)).not.toContain("__fentarisUpstreamEnv");
   });
 
   it("runs filtered call hooks before middleware", async () => {

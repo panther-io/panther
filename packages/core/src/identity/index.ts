@@ -1,1 +1,1 @@
-export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "../identity.js";
+export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity.js";

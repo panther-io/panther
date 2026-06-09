@@ -2,9 +2,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { describe, expect, it, vi } from "vitest";
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { McpProxy } from "./McpProxy.js";
-import { McpServer } from "./McpServer.js";
-import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "./types.js";
+import { McpProxy } from "../src/McpProxy.js";
+import { McpServer } from "../src/McpServer.js";
+import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../src/types.js";
 import type {
   CallToolRequest,
   CallToolResult,
@@ -19,9 +19,9 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { PanterTransport } from "./types.js";
+import type { FentarisTransport } from "../src/types.js";
 
-class MockTransport implements PanterTransport {
+class MockTransport implements FentarisTransport {
   readonly callTool = vi.fn(async (params: CallToolRequest["params"]): Promise<CallToolResult> => {
     return { content: [{ type: "text", text: `called:${params.name}` }] };
   });
@@ -57,7 +57,7 @@ class MockTransport implements PanterTransport {
   async close(): Promise<void> {}
 }
 
-class ToolOnlyTransport implements PanterTransport {
+class ToolOnlyTransport implements FentarisTransport {
   readonly callTool = vi.fn(async (): Promise<CallToolResult> => {
     return { content: [{ type: "text", text: "ok" }] };
   });
@@ -151,15 +151,15 @@ describe("proxy exposure pipeline", () => {
         completions: {},
       });
       await expect(handle.client.listResources()).resolves.toMatchObject({
-        resources: [{ uri: "panther://resources/github/file%3A%2F%2F%2Freadme.md", name: "readme" }],
+        resources: [{ uri: "fentaris://resources/github/file%3A%2F%2F%2Freadme.md", name: "readme" }],
       });
       await expect(
-        handle.client.readResource({ uri: "panther://resources/github/file%3A%2F%2F%2Freadme.md" }),
+        handle.client.readResource({ uri: "fentaris://resources/github/file%3A%2F%2F%2Freadme.md" }),
       ).resolves.toMatchObject({
-        contents: [{ uri: "panther://resources/github/file%3A%2F%2F%2Freadme.md", text: "readme" }],
+        contents: [{ uri: "fentaris://resources/github/file%3A%2F%2F%2Freadme.md", text: "readme" }],
       });
       await expect(handle.client.listResourceTemplates()).resolves.toMatchObject({
-        resourceTemplates: [{ uriTemplate: "panther://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D" }],
+        resourceTemplates: [{ uriTemplate: "fentaris://resource-templates/github/file%3A%2F%2F%2F%7Bpath%7D" }],
       });
       await expect(handle.client.listPrompts()).resolves.toMatchObject({
         prompts: [{ name: "github__summarize" }],

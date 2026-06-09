@@ -12,10 +12,10 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { McpServer } from "./McpServer.js";
-import type { Isolation, PanterTransport } from "./types.js";
+import { McpServer } from "../src/McpServer.js";
+import type { Isolation, FentarisTransport } from "../src/types.js";
 
-class EnvAwareTransport implements PanterTransport {
+class EnvAwareTransport implements FentarisTransport {
   readonly callToolMock = vi.fn(async (params: CallToolRequest["params"], env: Record<string, string>): Promise<CallToolResult> => {
     return { content: [{ type: "text", text: `${params.name}:${env.TOKEN ?? "none"}` }] };
   });
@@ -165,7 +165,7 @@ describe("McpServer", () => {
   });
 
   it("returns empty lists and unsupported errors for missing optional server features", async () => {
-    const transport: PanterTransport = {
+    const transport: FentarisTransport = {
       listTools: vi.fn(async () => ({ tools: [] })),
       callTool: vi.fn(async () => ({ content: [] })),
       close: vi.fn(async () => undefined),

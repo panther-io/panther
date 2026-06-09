@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CallToolRequest, CallToolResult, ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   DefaultErrorMapper,
   MemoryRateLimitStore,
-  PantherErrorCode,
+  FentarisErrorCode,
   ResponseController,
   SimplePolicy,
   SlidingWindowRateLimiter,
@@ -11,23 +10,8 @@ import {
   headerIdentityStrategy,
   rateLimitMiddleware,
   toCapabilityPermissions,
-} from "./index.js";
-import type { MiddlewareContext, PanterTransport } from "./types.js";
-
-class MockTransport implements PanterTransport {
-  readonly callTool = vi.fn(async (params: CallToolRequest["params"]): Promise<CallToolResult> => ({
-    content: [{ type: "text", text: `called:${params.name}` }],
-  }));
-
-  readonly listTools = vi.fn(async (): Promise<ListToolsResult> => ({
-    tools: [
-      { name: "allowed", description: "Allowed", inputSchema: { type: "object" } },
-      { name: "denied", description: "Denied", inputSchema: { type: "object" } },
-    ],
-  }));
-
-  readonly close = vi.fn(async (): Promise<void> => {});
-}
+} from "../../src/index.js";
+import type { MiddlewareContext } from "../../src/types.js";
 
 describe("governance primitives", () => {
   it("evaluates policy decisions and filters listed tools", async () => {
@@ -132,18 +116,18 @@ describe("governance primitives", () => {
 
   it("returns structured middleware errors and maps upstream errors", () => {
     const controller = new ResponseController();
-    expect(controller.fail(PantherErrorCode.PolicyDenied, "blocked")).toMatchObject({
+    expect(controller.fail(FentarisErrorCode.PolicyDenied, "blocked")).toMatchObject({
       isError: true,
       _meta: {
         error: {
-          code: PantherErrorCode.PolicyDenied,
+          code: FentarisErrorCode.PolicyDenied,
           message: "blocked",
         },
       },
     });
 
     expect(new DefaultErrorMapper().mapError(new Error("upstream failed"), {})).toEqual({
-      code: PantherErrorCode.UpstreamError,
+      code: FentarisErrorCode.UpstreamError,
       message: "upstream failed",
     });
   });

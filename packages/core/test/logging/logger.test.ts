@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Logger, type LogEntry, type LoggerDriver } from "./logger.js";
+import { Logger, type LogEntry, type LoggerDriver } from "../../src/logging/index.js";
 
 class MemoryDriver implements LoggerDriver {
   readonly entries: LogEntry[] = [];

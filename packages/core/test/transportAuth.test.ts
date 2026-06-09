@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MissingHttpTransportCredentialError, resolveHttpTransportHeaders } from "./transportAuth.js";
+import { MissingHttpTransportCredentialError, resolveHttpTransportHeaders } from "../src/transportAuth.js";
 
 describe("resolveHttpTransportHeaders", () => {
   it("merges static headers, bearer tokens, API keys, and resolved headers", async () => {

@@ -7,7 +7,7 @@ import {
   Group,
   McpProxy,
   McpServer,
-  PantherAuth,
+  FentarisAuth,
   Policy,
   User,
   allow,
@@ -17,10 +17,10 @@ import {
   policy,
   sensitive,
   user,
-} from "./index.js";
-import type { PanterTransport } from "./types.js";
+} from "../../src/index.js";
+import type { FentarisTransport } from "../../src/types.js";
 
-class EnvTransport implements PanterTransport {
+class EnvTransport implements FentarisTransport {
   readonly env: Record<string, string>;
   readonly callToolMock = vi.fn(async (params: CallToolRequest["params"], env: Record<string, string>): Promise<CallToolResult> => ({
     content: [{ type: "text", text: `${params.name}:${env.AUTHORIZATION ?? env.GITHUB_TOKEN ?? env["x-api-key"] ?? "none"}` }],
@@ -162,9 +162,9 @@ describe("governance auth DX", () => {
     });
     const strategy = apiKeyIdentityStrategy({ auth });
 
-    await expect(Promise.resolve(strategy.resolve({ headers: { "x-panther-api-key": "old-key" } }))).resolves.toEqual({ id: "alice" });
-    await expect(Promise.resolve(strategy.resolve({ headers: { "x-panther-api-key": "new-key" } }))).resolves.toEqual({ id: "alice" });
-    await expect(Promise.resolve(strategy.resolve({ headers: { "x-panther-api-key": "bad-key" } }))).resolves.toBeNull();
+    await expect(Promise.resolve(strategy.resolve({ headers: { "x-fentaris-api-key": "old-key" } }))).resolves.toEqual({ id: "alice" });
+    await expect(Promise.resolve(strategy.resolve({ headers: { "x-fentaris-api-key": "new-key" } }))).resolves.toEqual({ id: "alice" });
+    await expect(Promise.resolve(strategy.resolve({ headers: { "x-fentaris-api-key": "bad-key" } }))).resolves.toBeNull();
   });
 
   it("resolves credential precedence and injects upstream auth without exposing secrets", async () => {
@@ -513,12 +513,12 @@ describe("governance auth DX", () => {
 });
 
 async function createAuth(
-  credentials: Parameters<typeof PantherAuth.encryptCredentials>[0],
+  credentials: Parameters<typeof FentarisAuth.encryptCredentials>[0],
   upstreamAuth: unknown = { servers: { github: { type: "bearer", credential: "github.token" } } },
-): Promise<PantherAuth> {
-  const dir = await mkdtemp(join(tmpdir(), "panther-auth-"));
+): Promise<FentarisAuth> {
+  const dir = await mkdtemp(join(tmpdir(), "fentaris-auth-"));
   const key = "test-key";
-  await writeFile(join(dir, "credentials.enc.json"), JSON.stringify(PantherAuth.encryptCredentials(credentials, key)));
+  await writeFile(join(dir, "credentials.enc.json"), JSON.stringify(FentarisAuth.encryptCredentials(credentials, key)));
   await writeFile(join(dir, "upstream-auth.json"), JSON.stringify(upstreamAuth));
-  return PantherAuth.local({ dir, key });
+  return FentarisAuth.local({ dir, key });
 }
