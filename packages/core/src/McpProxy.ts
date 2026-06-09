@@ -553,12 +553,20 @@ export class McpProxy {
         hookResult ??
         (await this.dispatchRoutes(0, request, context, () => {
           if (context.policyDecision && !context.policyDecision.allowed) {
-            return Promise.resolve(
-              context.res.fail(
-                PantherErrorCode.PolicyDenied,
-                context.policyDecision.reason ?? "Tool call denied by policy",
-              ),
+            const denied = context.res.fail(
+              PantherErrorCode.PolicyDenied,
+              context.policyDecision.reason ?? "Tool call denied by policy",
             );
+            return Promise.resolve({
+              ...denied,
+              _meta: {
+                ...denied._meta,
+                error: {
+                  ...(isRecord(denied._meta?.error) ? denied._meta.error : {}),
+                  policy: context.policyDecision.metadata,
+                },
+              },
+            });
           }
 
           return this.forwardToolCall(params, upstreamUser);

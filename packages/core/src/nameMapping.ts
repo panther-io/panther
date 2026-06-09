@@ -172,7 +172,7 @@ function fromProxyUri(prefix: string, proxyValue: string, kind: string): {
     return { serverName, upstreamValue };
   } catch (error) {
     if (error instanceof URIError) {
-      throw new Error(`Invalid proxied ${kind} "${proxyValue}". Encoded segments are malformed.`);
+      throw new Error(`Invalid proxied ${kind} "${proxyValue}". Encoded segments are malformed.`, { cause: error });
     }
 
     throw error;

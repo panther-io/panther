@@ -13,6 +13,7 @@ new Logger({
   driver,
   context,
   onWrite,
+  redact,
 });
 ```
 
@@ -22,6 +23,9 @@ new Logger({
 - `driver`: implements `write(entry)`.
 - `context`: base context merged into every log.
 - `onWrite`: callback for side effects.
+- `redact`: `true` by default for sensitive keys, `false` to disable, or an object with `keys`, `paths`, `replacement`, and a custom `redact(value, path, key)` callback.
+
+Redaction runs before entries reach the configured driver or `onWrite`. Panther redacts common credential fields such as tokens, secrets, passwords, authorization headers, API keys, and credential values by default.
 
 ### Methods
 

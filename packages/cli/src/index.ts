@@ -157,13 +157,6 @@ async function route(command: CliCommand, runtime: Runtime): Promise<void> {
     return;
   }
 
-  if (command.name === "deploy") {
-    section(runtime, "Deploy");
-    runtime.out.log(style.warn("Deploy is not available yet."));
-    runtime.out.log(nextSteps(["Run panther build to create a local artifact for future deployment."]));
-    return;
-  }
-
   throw new Error(`Unknown command "${command.name}". Run panther help.`);
 }
 
@@ -284,7 +277,7 @@ async function getDoctorResults(runtime: Runtime, shouldFix: boolean): Promise<H
       group: "Runtime",
       label: "Docker",
       status: runtime.probe("docker", ["--version"]) ? "pass" : "warn",
-      detail: runtime.probe("docker", ["--version"]) ? "Available" : "Optional for future Docker/deploy workflows.",
+      detail: runtime.probe("docker", ["--version"]) ? "Available" : "Optional for future container workflows.",
     },
     await cliDirectoryResult(runtime.cwd),
     await writableResult(runtime.cwd),
@@ -1035,7 +1028,6 @@ function printHelp(runtime: Runtime): void {
   panther check [--offline] [--strict]
   panther doctor [--fix]
   panther build
-  panther deploy
   panther secrets set <reference> [--user <id> | --group <id>]
 
 Legacy local auth:

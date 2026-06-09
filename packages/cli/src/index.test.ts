@@ -153,11 +153,11 @@ describe("project commands", () => {
     await expect(readdir(join(dir, ".panther"))).resolves.toEqual([]);
   });
 
-  it("reports deploy as a placeholder", async () => {
+  it("does not expose deploy before it is implemented", async () => {
     const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
     const rt = runtime(dir);
-    await expect(main(["deploy"], rt)).resolves.toBe(0);
-    expect(rt.out.log).toHaveBeenCalledWith(expect.stringContaining("Deploy is not available yet"));
+    await expect(main(["deploy"], rt)).resolves.toBe(1);
+    expect(rt.out.error).toHaveBeenCalledWith(expect.stringContaining('Unknown command "deploy"'));
   });
 });
 
