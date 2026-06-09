@@ -4,7 +4,7 @@ import type {
   ListToolsRequest,
   ListToolsResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { FentarisTransport } from "../types/transport.js";
+import type { FentarisTransport } from "../../types/transport.js";
 
 /**
  * Options for HTTP transport.

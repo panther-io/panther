@@ -1,13 +1,13 @@
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { FentarisErrorCode } from "../errors.js";
-import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../types/proxy.js";
+import { FentarisErrorCode } from "../../errors.js";
+import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../../types/proxy.js";
 import type {
   IdentityMetadata,
   ResolvedSubject,
   UserContext,
-} from "../types/shared.js";
+} from "../../types/shared.js";
 
 /**
  * Options for SSE downstream proxy exposure.

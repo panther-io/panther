@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { HttpTransport } from "./HttpTransport.js";
+import { HttpTransport } from "../../src/transports/client/HttpTransport.js";
 
 describe("HttpTransport", () => {
   it("posts listTools requests over HTTP with auth headers", async () => {
@@ -30,7 +30,7 @@ describe("HttpTransport", () => {
       fetch: fetchMock as unknown as typeof fetch,
     });
 
-    const result = await transport.callTool({ name: "search", arguments: { q: "panther" } });
+    const result = await transport.callTool({ name: "search", arguments: { q: "fentaris" } });
 
     expect(result).toEqual({ content: [{ type: "text", text: "ok" }] });
     expect(fetchMock).toHaveBeenCalledWith(new URL("https://mcp.example/api/callTool"), {
@@ -38,7 +38,7 @@ describe("HttpTransport", () => {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ params: { name: "search", arguments: { q: "panther" } } }),
+      body: JSON.stringify({ params: { name: "search", arguments: { q: "fentaris" } } }),
     });
   });
 });

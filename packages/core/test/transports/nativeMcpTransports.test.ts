@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HttpTransport } from "./HttpTransport.js";
-import { SseMcpTransport } from "./SseMcpTransport.js";
-import { StdioTransport } from "./StdioTransport.js";
-import { StreamableHttpMcpTransport } from "./StreamableHttpMcpTransport.js";
-import { MissingHttpTransportCredentialError } from "../transportAuth.js";
+import { HttpTransport } from "../../src/transports/client/HttpTransport.js";
+import { SseMcpTransport } from "../../src/transports/client/SseMcpTransport.js";
+import { StdioTransport } from "../../src/transports/client/StdioTransport.js";
+import { StreamableHttpMcpTransport } from "../../src/transports/client/StreamableHttpMcpTransport.js";
+import { MissingHttpTransportCredentialError } from "../../src/transportAuth.js";
 
 const fakes = vi.hoisted(() => {
   const clientInstances: FakeClient[] = [];
@@ -170,8 +170,8 @@ describe("native MCP upstream transports", () => {
   it("calls tools over native HTTPS Streamable HTTP and closes client resources", async () => {
     const transport = new StreamableHttpMcpTransport({ url: "https://mcp.example/mcp" });
 
-    await expect(transport.callTool({ name: "search", arguments: { q: "panther" } })).resolves.toMatchObject({
-      content: [{ text: 'called:{"name":"search","arguments":{"q":"panther"}}' }],
+    await expect(transport.callTool({ name: "search", arguments: { q: "fentaris" } })).resolves.toMatchObject({
+      content: [{ text: 'called:{"name":"search","arguments":{"q":"fentaris"}}' }],
     });
     await transport.close();
 

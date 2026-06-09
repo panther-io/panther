@@ -19,9 +19,9 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../transportAuth.js";
-import type { UserContext } from "../types/shared.js";
-import type { FentarisTransport } from "../types/transport.js";
+import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../auth/transportAuth.js";
+import type { UserContext } from "../../types/shared.js";
+import type { FentarisTransport } from "../../types/transport.js";
 
 /**
  * Options for native MCP Streamable HTTP upstream transport.

@@ -29,13 +29,13 @@
 
 ## 4. Transport Domain Split
 
-- [ ] 4.1 Move upstream MCP client transports into `packages/core/src/transports/client`
-- [ ] 4.2 Move downstream proxy exposure transports into `packages/core/src/transports/exposure`
-- [ ] 4.3 Move shared HTTP-family transport auth helpers into `packages/core/src/transports/auth`
-- [ ] 4.4 Add transport compatibility barrels or update `src/index.ts` so public exports remain unchanged
-- [ ] 4.5 Update internal imports and moved transport tests
-- [ ] 4.6 Run `pnpm --filter @fentaris/core test`
-- [ ] 4.7 Run `pnpm --filter @fentaris/core build`
+- [x] 4.1 Move upstream MCP client transports into `packages/core/src/transports/client`
+- [x] 4.2 Move downstream proxy exposure transports into `packages/core/src/transports/exposure`
+- [x] 4.3 Move shared HTTP-family transport auth helpers into `packages/core/src/transports/auth`
+- [x] 4.4 Add transport compatibility barrels or update `src/index.ts` so public exports remain unchanged
+- [x] 4.5 Update internal imports and moved transport tests
+- [x] 4.6 Run `pnpm --filter @fentaris/core test`
+- [x] 4.7 Run `pnpm --filter @fentaris/core build`
 
 ## 5. Simple Domain Moves
 

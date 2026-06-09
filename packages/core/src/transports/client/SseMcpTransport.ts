@@ -1,5 +1,5 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { SSEClientTransport, type SSEClientTransportOptions } from "@modelcontextprotocol/sdk/client/sse.js";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import type {
   CallToolRequest,
@@ -19,60 +19,57 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { FentarisTransport } from "../types/transport.js";
+import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../auth/transportAuth.js";
+import type { UserContext } from "../../types/shared.js";
+import type { FentarisTransport } from "../../types/transport.js";
 
 /**
- * Options for the stdio transport.
+ * Options for native MCP SSE upstream transport.
  * @pk
  */
-export type StdioTransportOptions = {
-  command: string;
-  args?: string[];
-  env?: Record<string, string>;
-  stderr?: "inherit" | "pipe" | "overlapped" | "ignore";
+export type SseMcpTransportOptions = {
+  url: string | URL;
+  auth?: HttpTransportAuthOptions;
+  eventSourceInit?: SSEClientTransportOptions["eventSourceInit"];
+  requestInit?: RequestInit;
+  fetch?: SSEClientTransportOptions["fetch"];
   clientName?: string;
   clientVersion?: string;
 };
 
 /**
- * Stdio-based MCP transport implementation.
+ * Native MCP SSE upstream transport.
  * @pk
  */
-export class StdioTransport implements FentarisTransport {
-  private readonly options: StdioTransportOptions;
+export class SseMcpTransport implements FentarisTransport {
+  private readonly options: SseMcpTransportOptions;
+  private readonly user: UserContext;
   private client: Client | null = null;
+  private transport: SSEClientTransport | null = null;
   private connectPromise: Promise<Client> | null = null;
 
   /**
-   * Create a new stdio transport.
+   * Create a native MCP SSE transport.
    * @pk
    */
-  constructor(options: StdioTransportOptions) {
-    if (!options.command.trim()) {
-      throw new Error("StdioTransport command cannot be empty");
+  constructor(options: SseMcpTransportOptions, user: UserContext = {}) {
+    const url = new URL(options.url);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error("SseMcpTransport url must use http:// or https://");
     }
 
-    this.options = options;
+    this.options = { ...options, url };
+    this.user = user;
   }
 
   /**
-   * Return a copy with merged environment variables.
+   * Return a copy bound to the current proxy user context.
    * @pk
    */
-  withEnv(env: Record<string, string>): StdioTransport {
-    return new StdioTransport({
-      ...this.options,
-      env: {
-        ...this.options.env,
-        ...env,
-      },
-    });
+  withUser(user: UserContext): SseMcpTransport {
+    return new SseMcpTransport(this.options, user);
   }
 
-  /**
-   * List tools exposed by the MCP server.
-   * @pk
-   */
   async listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult> {
     const client = await this.getClient();
     if (!client.getServerCapabilities()?.tools) {
@@ -82,10 +79,6 @@ export class StdioTransport implements FentarisTransport {
     return client.listTools(params);
   }
 
-  /**
-   * Call a tool on the MCP server.
-   * @pk
-   */
   async callTool(params: CallToolRequest["params"]): Promise<CallToolResult> {
     return (await this.getClient()).callTool(params, CallToolResultSchema) as Promise<CallToolResult>;
   }
@@ -144,13 +137,11 @@ export class StdioTransport implements FentarisTransport {
     return client.complete(params);
   }
 
-  /**
-   * Close the underlying client connection.
-   * @pk
-   */
   async close(): Promise<void> {
     await this.client?.close();
+    await this.transport?.close();
     this.client = null;
+    this.transport = null;
     this.connectPromise = null;
   }
 
@@ -173,6 +164,7 @@ export class StdioTransport implements FentarisTransport {
   }
 
   private async connect(): Promise<Client> {
+    const headers = await resolveHttpTransportHeaders(this.options.auth, this.user);
     const client = new Client(
       {
         name: this.options.clientName ?? "fentaris-core",
@@ -180,26 +172,33 @@ export class StdioTransport implements FentarisTransport {
       },
       { capabilities: {} },
     );
+    const transport = new SSEClientTransport(new URL(this.options.url), {
+      fetch: this.options.fetch,
+      eventSourceInit: {
+        ...this.options.eventSourceInit,
+        fetch: this.options.eventSourceInit?.fetch,
+      },
+      requestInit: {
+        ...this.options.requestInit,
+        headers: {
+          ...headersFrom(this.options.requestInit?.headers),
+          ...headers,
+        },
+      },
+    });
 
-    await client.connect(
-      new StdioClientTransport({
-        command: this.options.command,
-        args: this.options.args ?? [],
-        env: this.options.env,
-        stderr: this.options.stderr ?? "inherit",
-      }),
-    );
-
+    await client.connect(transport);
+    this.transport = transport;
     return client;
   }
 }
 
-/**
- * Create a stdio upstream transport.
- * @pk
- */
-export function stdio(options: StdioTransportOptions): StdioTransport {
-  return new StdioTransport(options);
+function headersFrom(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) {
+    return {};
+  }
+
+  return Object.fromEntries(new Headers(headers).entries());
 }
 
 function unsupportedCapability(capability: "resources" | "prompts" | "completions"): Error {
