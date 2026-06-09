@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { PantherErrorCode } from "../errors.js";
+import { FentarisErrorCode } from "../errors.js";
 import type {
   IdentityMetadata,
   ProxyExposureHandle,
@@ -67,7 +67,7 @@ export class SseProxyExposureTransport implements ProxyExposureTransport<SseProx
         if (req.method === "GET" && path === this.options.ssePath) {
           const { user, identity, subject } = await runtime.resolveHttpUser(req);
           if (runtime.identityRequired && !identity?.authenticated) {
-            sendJsonRpcError(res, 401, PantherErrorCode.Unauthorized, "Unauthorized");
+            sendJsonRpcError(res, 401, FentarisErrorCode.Unauthorized, "Unauthorized");
             return;
           }
 

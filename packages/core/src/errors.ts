@@ -1,10 +1,10 @@
-import type { ErrorMapper } from "./types.js";
+import type { ErrorMapper } from "./types/policy.js";
 
 /**
- * Standard Panther MCP-style error codes.
+ * Standard Fentaris MCP-style error codes.
  * @pk
  */
-export const PantherErrorCode = {
+export const FentarisErrorCode = {
   PolicyDenied: -32030,
   Unauthorized: -32040,
   UpstreamError: -32050,
@@ -19,13 +19,13 @@ export class DefaultErrorMapper implements ErrorMapper {
   mapError(error: unknown): { code: number; message: string } {
     if (error instanceof Error) {
       return {
-        code: PantherErrorCode.UpstreamError,
+        code: FentarisErrorCode.UpstreamError,
         message: error.message,
       };
     }
 
     return {
-      code: PantherErrorCode.InternalError,
+      code: FentarisErrorCode.InternalError,
       message: String(error),
     };
   }

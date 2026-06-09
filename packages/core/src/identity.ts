@@ -1,4 +1,5 @@
-import type { IdentityStrategy, UserContext } from "./types.js";
+import type { IdentityStrategy } from "./types/policy.js";
+import type { UserContext } from "./types/shared.js";
 
 /**
  * Create a strategy that resolves identity from request headers.

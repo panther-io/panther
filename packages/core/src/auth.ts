@@ -2,7 +2,8 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import type { CredentialSourceMetadata, IdentityStrategy, ResolvedSubject } from "./types.js";
+import type { CredentialSourceMetadata, ResolvedSubject } from "./types/shared.js";
+import type { IdentityStrategy } from "./types/policy.js";
 
 const encryptedCredentialsSchema = z.object({
   version: z.literal(1),
@@ -68,7 +69,7 @@ export type CredentialResolution = CredentialSourceMetadata & {
  * Unified local auth configuration.
  * @pk
  */
-export class PantherAuth {
+export class FentarisAuth {
   private readonly credentials: LocalCredentials;
   private readonly bindings: UpstreamAuthBindings;
 
@@ -81,7 +82,7 @@ export class PantherAuth {
    * Load local encrypted credentials and upstream auth bindings from a directory.
    * @pk
    */
-  static async local(options: LocalAuthOptions): Promise<PantherAuth> {
+  static async local(options: LocalAuthOptions): Promise<FentarisAuth> {
     const credentialsPath = path.join(options.dir, options.credentialsFile ?? "credentials.enc.json");
     const upstreamAuthPath = path.join(options.dir, options.upstreamAuthFile ?? "upstream-auth.json");
 
@@ -95,7 +96,7 @@ export class PantherAuth {
     const credentials = parseWithError(localCredentialsSchema, decrypted, "Invalid decrypted credentials payload");
     const bindings = parseWithError(upstreamAuthBindingsSchema, upstreamBindings, "Invalid upstream auth bindings file");
 
-    return new PantherAuth(credentials, bindings);
+    return new FentarisAuth(credentials, bindings);
   }
 
   /**
@@ -189,11 +190,11 @@ export class PantherAuth {
  * @pk
  */
 export function apiKeyIdentityStrategy(options: {
-  auth: PantherAuth;
+  auth: FentarisAuth;
   header?: string;
   name?: string;
 }): IdentityStrategy {
-  const header = (options.header ?? "x-panther-api-key").toLowerCase();
+  const header = (options.header ?? "x-fentaris-api-key").toLowerCase();
 
   return {
     name: options.name ?? "api-key",

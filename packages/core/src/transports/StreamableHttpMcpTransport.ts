@@ -20,7 +20,7 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../transportAuth.js";
-import type { PanterTransport, UserContext } from "../types.js";
+import type { FentarisTransport, UserContext } from "../types.js";
 
 /**
  * Options for native MCP Streamable HTTP upstream transport.
@@ -40,7 +40,7 @@ export type StreamableHttpMcpTransportOptions = {
  * Native MCP Streamable HTTP upstream transport for http:// and https:// servers.
  * @pk
  */
-export class StreamableHttpMcpTransport implements PanterTransport {
+export class StreamableHttpMcpTransport implements FentarisTransport {
   private readonly options: StreamableHttpMcpTransportOptions;
   private readonly user: UserContext;
   private client: Client | null = null;
@@ -166,7 +166,7 @@ export class StreamableHttpMcpTransport implements PanterTransport {
     const headers = await resolveHttpTransportHeaders(this.options.auth, this.user);
     const client = new Client(
       {
-        name: this.options.clientName ?? "panther-core",
+        name: this.options.clientName ?? "fentaris-core",
         version: this.options.clientVersion ?? "0.1.0",
       },
       { capabilities: {} },
@@ -187,6 +187,14 @@ export class StreamableHttpMcpTransport implements PanterTransport {
     this.transport = transport;
     return client;
   }
+}
+
+/**
+ * Create a Streamable HTTP upstream transport.
+ * @pk
+ */
+export function streamableHttp(options: StreamableHttpMcpTransportOptions): StreamableHttpMcpTransport {
+  return new StreamableHttpMcpTransport(options);
 }
 
 function headersFrom(headers: HeadersInit | undefined): Record<string, string> {

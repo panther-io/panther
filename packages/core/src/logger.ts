@@ -79,7 +79,7 @@ export class ConsoleLoggerDriver implements LoggerDriver {
       ...entry.metadata,
     };
     const method = entry.level === "debug" ? "debug" : entry.level === "info" ? "info" : entry.level === "warn" ? "warn" : "error";
-    console[method](`[panther:${entry.level}] ${entry.message}`, payload);
+    console[method](`[fentaris:${entry.level}] ${entry.message}`, payload);
   }
 }
 
@@ -114,7 +114,7 @@ export class RedisLoggerDriver implements LoggerDriver {
    */
   constructor(options: RedisLoggerDriverOptions) {
     this.client = options.client;
-    this.key = options.key ?? "panther:logs";
+    this.key = options.key ?? "fentaris:logs";
   }
 
   async write(entry: LogEntry): Promise<void> {

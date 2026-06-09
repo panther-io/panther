@@ -1,4 +1,5 @@
-import type { Registry, UserContext } from "./types.js";
+import type { Registry } from "./types/policy.js";
+import type { UserContext } from "./types/shared.js";
 
 /**
  * Minimal Redis-compatible client contract.
@@ -107,7 +108,7 @@ export class RedisRegistry implements Registry {
    */
   constructor(options: RedisRegistryOptions) {
     this.client = options.client;
-    this.keyPrefix = options.keyPrefix ?? "panther:registry";
+    this.keyPrefix = options.keyPrefix ?? "fentaris:registry";
   }
 
   /**

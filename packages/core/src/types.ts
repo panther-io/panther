@@ -705,7 +705,7 @@ export type ProxyServerHandle = {
  * Transport interface for MCP client interactions.
  * @pk
  */
-export type PanterTransport = {
+export type FentarisTransport = {
   listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
   callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
   listResources?(params?: ListResourcesParams): Promise<ListResourcesResponse>;
@@ -740,7 +740,7 @@ export type ProxyRuntime = {
 };
 
 /**
- * Transport interface for exposing the Panther proxy to downstream MCP clients.
+ * Transport interface for exposing the Fentaris proxy to downstream MCP clients.
  * @pk
  */
 export type ProxyExposureTransport<THandle extends ProxyExposureHandle = ProxyExposureHandle> = {

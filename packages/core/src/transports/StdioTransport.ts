@@ -19,7 +19,7 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { PanterTransport } from "../types.js";
+import type { FentarisTransport } from "../types.js";
 
 /**
  * Options for the stdio transport.
@@ -38,7 +38,7 @@ export type StdioTransportOptions = {
  * Stdio-based MCP transport implementation.
  * @pk
  */
-export class StdioTransport implements PanterTransport {
+export class StdioTransport implements FentarisTransport {
   private readonly options: StdioTransportOptions;
   private client: Client | null = null;
   private connectPromise: Promise<Client> | null = null;
@@ -175,7 +175,7 @@ export class StdioTransport implements PanterTransport {
   private async connect(): Promise<Client> {
     const client = new Client(
       {
-        name: this.options.clientName ?? "panther-core",
+        name: this.options.clientName ?? "fentaris-core",
         version: this.options.clientVersion ?? "0.1.0",
       },
       { capabilities: {} },
@@ -192,6 +192,14 @@ export class StdioTransport implements PanterTransport {
 
     return client;
   }
+}
+
+/**
+ * Create a stdio upstream transport.
+ * @pk
+ */
+export function stdio(options: StdioTransportOptions): StdioTransport {
+  return new StdioTransport(options);
 }
 
 function unsupportedCapability(capability: "resources" | "prompts" | "completions"): Error {

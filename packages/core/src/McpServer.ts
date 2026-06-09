@@ -17,7 +17,9 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "./nameMapping.js";
-import type { Isolation, PanterTransport, UserContext } from "./types.js";
+import type { FentarisTransport } from "./types/transport.js";
+import type { Isolation } from "./types/policy.js";
+import type { UserContext } from "./types/shared.js";
 
 /**
  * Resolve environment variables per user.
@@ -32,18 +34,18 @@ export type EnvResolver = Record<string, string> | ((user: UserContext) => Recor
 export type McpServerOptions = {
   name: string;
   displayName?: string;
-  transport: PanterTransport;
+  transport: FentarisTransport;
   env?: EnvResolver;
   isolation?: Isolation;
   isolationTimeout?: number;
 };
 
-type EnvAwareTransport = PanterTransport & {
-  withEnv(env: Record<string, string>): PanterTransport;
+type EnvAwareTransport = FentarisTransport & {
+  withEnv(env: Record<string, string>): FentarisTransport;
 };
 
-type UserAwareTransport = PanterTransport & {
-  withUser(user: UserContext): PanterTransport;
+type UserAwareTransport = FentarisTransport & {
+  withUser(user: UserContext): FentarisTransport;
 };
 
 /**
@@ -54,11 +56,11 @@ export class McpServer {
   readonly name: string;
   readonly displayName: string;
 
-  private readonly transport: PanterTransport;
+  private readonly transport: FentarisTransport;
   private readonly env?: EnvResolver;
   private readonly isolation?: Isolation;
   private readonly isolationTimeout?: number;
-  private readonly userTransports = new Map<string, PanterTransport>();
+  private readonly userTransports = new Map<string, FentarisTransport>();
 
   /**
    * Create a new MCP server wrapper.
@@ -215,8 +217,8 @@ export class McpServer {
     await this.transport.close();
   }
 
-  private transportFor(user: UserContext): PanterTransport {
-    const upstreamEnv = isStringRecord(user.__pantherUpstreamEnv) ? user.__pantherUpstreamEnv : undefined;
+  private transportFor(user: UserContext): FentarisTransport {
+    const upstreamEnv = isStringRecord(user.__fentarisUpstreamEnv) ? user.__fentarisUpstreamEnv : undefined;
     const supportsUserContext = isUserAwareTransport(this.transport);
     if (!this.env && !upstreamEnv && !supportsUserContext) {
       return this.transport;
@@ -252,14 +254,22 @@ export class McpServer {
 }
 
 /**
+ * Create an upstream MCP server declaration.
+ * @pk
+ */
+export function server(name: string, options: Omit<McpServerOptions, "name">): McpServer {
+  return new McpServer({ ...options, name });
+}
+
+/**
  * Type guard for env-aware transports.
  * @pk
  */
-function isEnvAwareTransport(transport: PanterTransport): transport is EnvAwareTransport {
+function isEnvAwareTransport(transport: FentarisTransport): transport is EnvAwareTransport {
   return "withEnv" in transport && typeof transport.withEnv === "function";
 }
 
-function isUserAwareTransport(transport: PanterTransport): transport is UserAwareTransport {
+function isUserAwareTransport(transport: FentarisTransport): transport is UserAwareTransport {
   return "withUser" in transport && typeof transport.withUser === "function";
 }
 

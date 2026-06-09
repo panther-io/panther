@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from "node:http";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { PantherErrorCode } from "../errors.js";
+import { FentarisErrorCode } from "../errors.js";
 import type {
   IdentityMetadata,
   ProxyExposureHandle,
@@ -74,7 +74,7 @@ export class HttpProxyExposureTransport implements ProxyExposureTransport<HttpPr
       try {
         const { user, identity, subject } = await runtime.resolveHttpUser(req);
         if (runtime.identityRequired && !identity?.authenticated) {
-          sendJsonRpcError(res, 401, PantherErrorCode.Unauthorized, "Unauthorized");
+          sendJsonRpcError(res, 401, FentarisErrorCode.Unauthorized, "Unauthorized");
           return;
         }
 

@@ -1,5 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { Isolation, MaybePromise } from "./types.js";
+import type { Isolation } from "./types/policy.js";
+import type { MaybePromise } from "./types/shared.js";
 
 type QueueState = {
   active: number;

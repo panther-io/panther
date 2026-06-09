@@ -4,7 +4,7 @@ import type {
   ListToolsRequest,
   ListToolsResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { PanterTransport } from "../types.js";
+import type { FentarisTransport } from "../types.js";
 
 /**
  * Options for HTTP transport.
@@ -21,7 +21,7 @@ export type HttpTransportOptions = {
  * HTTP-based MCP transport adapter.
  * @pk
  */
-export class HttpTransport implements PanterTransport {
+export class HttpTransport implements FentarisTransport {
   private readonly options: HttpTransportOptions;
   private readonly fetchImpl: typeof fetch;
 

@@ -1,5 +1,5 @@
-import { PantherErrorCode } from "./errors.js";
-import type { MaybePromise, UserContext } from "./types.js";
+import { FentarisErrorCode } from "./errors.js";
+import type { MaybePromise, UserContext } from "./types/shared.js";
 
 /**
  * User-aware HTTP-family auth resolver context.
@@ -42,7 +42,7 @@ export type HttpTransportAuthOptions = {
  * @pk
  */
 export class MissingHttpTransportCredentialError extends Error {
-  readonly code = PantherErrorCode.Unauthorized;
+  readonly code = FentarisErrorCode.Unauthorized;
 
   constructor(message = "Missing required upstream HTTP transport credentials") {
     super(message);

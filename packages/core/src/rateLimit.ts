@@ -1,4 +1,7 @@
-import type { Middleware, RateLimiter, RateLimitStore, ToolCallRequest, UserContext } from "./types.js";
+import type { Middleware } from "./types/middleware.js";
+import type { ToolCallRequest } from "./types/mcp-operation.js";
+import type { RateLimiter, RateLimitStore } from "./types/policy.js";
+import type { UserContext } from "./types/shared.js";
 
 type Bucket = {
   count: number;
@@ -73,7 +76,7 @@ export class SlidingWindowRateLimiter implements RateLimiter {
       windowMs: options.windowMs ?? 60_000,
       maxDailyCalls: options.maxDailyCalls,
     };
-    this.keyPrefix = options.keyPrefix ?? "panther:rate-limit";
+    this.keyPrefix = options.keyPrefix ?? "fentaris:rate-limit";
   }
 
   async checkLimit(key: string): Promise<boolean> {

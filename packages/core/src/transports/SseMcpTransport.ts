@@ -20,7 +20,7 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../transportAuth.js";
-import type { PanterTransport, UserContext } from "../types.js";
+import type { FentarisTransport, UserContext } from "../types.js";
 
 /**
  * Options for native MCP SSE upstream transport.
@@ -40,7 +40,7 @@ export type SseMcpTransportOptions = {
  * Native MCP SSE upstream transport.
  * @pk
  */
-export class SseMcpTransport implements PanterTransport {
+export class SseMcpTransport implements FentarisTransport {
   private readonly options: SseMcpTransportOptions;
   private readonly user: UserContext;
   private client: Client | null = null;
@@ -166,7 +166,7 @@ export class SseMcpTransport implements PanterTransport {
     const headers = await resolveHttpTransportHeaders(this.options.auth, this.user);
     const client = new Client(
       {
-        name: this.options.clientName ?? "panther-core",
+        name: this.options.clientName ?? "fentaris-core",
         version: this.options.clientVersion ?? "0.1.0",
       },
       { capabilities: {} },

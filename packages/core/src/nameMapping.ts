@@ -4,8 +4,8 @@
  */
 
 const SEPARATOR = "__";
-const RESOURCE_URI_PREFIX = "panther://resources";
-const RESOURCE_TEMPLATE_URI_PREFIX = "panther://resource-templates";
+const RESOURCE_URI_PREFIX = "fentaris://resources";
+const RESOURCE_TEMPLATE_URI_PREFIX = "fentaris://resource-templates";
 
 /**
  * Validate that a server name is safe to use in proxied tool names.
@@ -63,7 +63,7 @@ export function fromProxyPromptName(proxyPromptName: string): {
 }
 
 /**
- * Build a Panther-owned URI for routing a proxied MCP resource.
+ * Build a Fentaris-owned URI for routing a proxied MCP resource.
  * @pk
  */
 export function toProxyResourceUri(serverName: string, uri: string): string {
@@ -71,7 +71,7 @@ export function toProxyResourceUri(serverName: string, uri: string): string {
 }
 
 /**
- * Parse a Panther-owned resource URI back to its upstream owner and URI.
+ * Parse a Fentaris-owned resource URI back to its upstream owner and URI.
  * @pk
  */
 export function fromProxyResourceUri(proxyUri: string): {
@@ -83,7 +83,7 @@ export function fromProxyResourceUri(proxyUri: string): {
 }
 
 /**
- * Build a Panther-owned URI template for routing a proxied MCP resource template.
+ * Build a Fentaris-owned URI template for routing a proxied MCP resource template.
  * @pk
  */
 export function toProxyResourceTemplateUri(serverName: string, uriTemplate: string): string {
@@ -91,7 +91,7 @@ export function toProxyResourceTemplateUri(serverName: string, uriTemplate: stri
 }
 
 /**
- * Parse a Panther-owned resource template URI back to its upstream owner and template.
+ * Parse a Fentaris-owned resource template URI back to its upstream owner and template.
  * @pk
  */
 export function fromProxyResourceTemplateUri(proxyUriTemplate: string): {
