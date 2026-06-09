@@ -1,9 +1,9 @@
 ---
 title: "User context"
-description: "Pass per-user metadata through Panther."
+description: "Pass per-user metadata through Fentaris."
 ---
 
-Panther threads a `UserContext` object through middleware, hooks, and transports.
+Fentaris threads a `UserContext` object through middleware, hooks, and transports.
 
 ## What it contains
 
@@ -24,7 +24,7 @@ type UserContext = {
 
 ## How it works in practice
 
-The `UserContext` is resolved once at the edge of the proxy. From that moment on, it becomes the single source of truth for identity, tenancy, and request metadata. Panther never mutates the object; instead, middleware and hooks read from it to make decisions.
+The `UserContext` is resolved once at the edge of the proxy. From that moment on, it becomes the single source of truth for identity, tenancy, and request metadata. Fentaris never mutates the object; instead, middleware and hooks read from it to make decisions.
 
 That means:
 

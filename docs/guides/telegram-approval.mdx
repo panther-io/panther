@@ -1,19 +1,19 @@
 ---
 title: "Telegram approval"
-description: "Gate sensitive Panther tool calls with a simple Telegram approval adapter."
+description: "Gate sensitive Fentaris tool calls with a simple Telegram approval adapter."
 ---
 
-Use `@panther/approval-telegram` when a policy needs a human approve/deny step without building a custom UI.
+Use `@fentaris/approval-telegram` when a policy needs a human approve/deny step without building a custom UI.
 
 ```bash theme={null}
-pnpm add @panther/approval-telegram
+pnpm add @fentaris/approval-telegram
 ```
 
 ## Add an approval
 
 ```ts theme={null}
-import { telegramApproval } from "@panther/approval-telegram";
-import { group, policy, user } from "@panther/core";
+import { telegramApproval } from "@fentaris/approval-telegram";
+import { group, policy, user } from "@fentaris/core";
 
 const maintainers = group({
   id: "maintainers",
@@ -39,7 +39,7 @@ import {
   createInMemoryTelegramApprovalStore,
   handleTelegramApprovalCallback,
   telegramApproval,
-} from "@panther/approval-telegram";
+} from "@fentaris/approval-telegram";
 
 const approvalStore = createInMemoryTelegramApprovalStore();
 
@@ -55,4 +55,4 @@ await handleTelegramApprovalCallback(telegramUpdateBody, {
 });
 ```
 
-`telegramApproval(...)` returns `pending` until the store has an approval decision for the request id. Panther denies the current tool call while the approval is pending and includes safe approval metadata in the policy error.
+`telegramApproval(...)` returns `pending` until the store has an approval decision for the request id. Fentaris denies the current tool call while the approval is pending and includes safe approval metadata in the policy error.

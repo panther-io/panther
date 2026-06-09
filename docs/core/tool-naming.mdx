@@ -1,9 +1,9 @@
 ---
 title: "Proxy naming"
-description: "How Panther prefixes names and URIs to avoid collisions."
+description: "How Fentaris prefixes names and URIs to avoid collisions."
 ---
 
-Panther ensures tool names are globally unique by prefixing every tool with its server name.
+Fentaris ensures tool names are globally unique by prefixing every tool with its server name.
 
 ## Naming rule
 
@@ -29,11 +29,11 @@ Example:
 github__summarize_issue
 ```
 
-Resources and resource templates use Panther-owned proxy URIs so clients can route follow-up reads and completions without preserving metadata:
+Resources and resource templates use Fentaris-owned proxy URIs so clients can route follow-up reads and completions without preserving metadata:
 
 ```
-panther://resources/<server>/<encoded-upstream-uri>
-panther://resource-templates/<server>/<encoded-upstream-uri-template>
+fentaris://resources/<server>/<encoded-upstream-uri>
+fentaris://resource-templates/<server>/<encoded-upstream-uri-template>
 ```
 
 ## Why it matters
@@ -45,10 +45,10 @@ panther://resource-templates/<server>/<encoded-upstream-uri-template>
 
 ## Constraints
 
-Server names cannot be empty and cannot contain the `__` separator. Panther enforces this at startup to avoid ambiguous tool names.
+Server names cannot be empty and cannot contain the `__` separator. Fentaris enforces this at startup to avoid ambiguous tool names.
 
-Upstream resource URIs and URI templates are percent-encoded inside the Panther proxy URI. Downstream clients should treat the full Panther URI as opaque and pass it back unchanged for `resources/read` and `completion/complete`.
+Upstream resource URIs and URI templates are percent-encoded inside the Fentaris proxy URI. Downstream clients should treat the full Fentaris URI as opaque and pass it back unchanged for `resources/read` and `completion/complete`.
 
 ## Title formatting
 
-When tools are listed, Panther prepends the server display name to the tool title, making UI listings readable across multiple servers.
+When tools are listed, Fentaris prepends the server display name to the tool title, making UI listings readable across multiple servers.

@@ -3,7 +3,7 @@ title: "Observability"
 description: "Structured logging and monitoring patterns."
 ---
 
-Panther ships with a structured logger that you can swap or extend. Observability is not just logs: it is consistent metadata, trace correlation, and a clear strategy for where those signals live.
+Fentaris ships with a structured logger that you can swap or extend. Observability is not just logs: it is consistent metadata, trace correlation, and a clear strategy for where those signals live.
 
 Use this guide to build a logging baseline, then integrate it with your existing telemetry stack.
 
@@ -21,7 +21,7 @@ This uses the built-in console driver which prints JSON-style logs to stdout. It
 ## Use a custom driver
 
 ```ts theme={null}
-import { Logger } from "@panther/core";
+import { Logger } from "@fentaris/core";
 
 const logger = new Logger({
   driver: {
@@ -39,7 +39,7 @@ If you already use structured logging (Datadog, Honeycomb, OpenTelemetry, etc.),
 
 ```ts theme={null}
 proxy.use(async (request, context, next) => {
-  context.log.setTag("trace", "panther-demo");
+  context.log.setTag("trace", "fentaris-demo");
   return next();
 });
 ```

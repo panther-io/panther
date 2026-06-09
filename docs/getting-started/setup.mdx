@@ -1,6 +1,6 @@
 ---
 title: "Setup"
-description: "Full Panther setup with TypeScript."
+description: "Full Fentaris setup with TypeScript."
 ---
 
 ## Prerequisites
@@ -12,18 +12,18 @@ description: "Full Panther setup with TypeScript."
 
 <CodeGroup>
   ```bash pnpm theme={null}
-  pnpm add @panther/core
+  pnpm add @fentaris/core
   ```
 
   ```bash npm theme={null}
-  npm i @panther/core
+  npm i @fentaris/core
   ```
 </CodeGroup>
 
 ## 2. Configure servers
 
 ```ts theme={null}
-import { McpServer, StdioTransport } from "@panther/core";
+import { McpServer, StdioTransport } from "@fentaris/core";
 
 const filesystem = new McpServer({
   name: "filesystem",
@@ -50,13 +50,13 @@ const custom = new McpServer({
 ## 3. Start the proxy
 
 ```ts theme={null}
-import { McpProxy } from "@panther/core";
+import { McpProxy } from "@fentaris/core";
 
 const proxy = new McpProxy({
   servers: [filesystem, custom],
   port: 3000,
   path: "/mcp",
-  name: "panther-proxy",
+  name: "fentaris-proxy",
   version: "0.1.0",
 });
 
@@ -79,7 +79,7 @@ proxy.use(async (request, context, next) => {
 
 ## 5. Connect an MCP client
 
-Point your MCP client to `http://localhost:3000/mcp`. Panther forwards requests to the configured servers.
+Point your MCP client to `http://localhost:3000/mcp`. Fentaris forwards requests to the configured servers.
 
 <Tip>
   Change `port` and `path` in `McpProxy` to align with your environments.

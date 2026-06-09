@@ -140,7 +140,7 @@ proxy.use(async (ctx, next) => {
 
 ## Pattern: lightweight rate limiting
 
-Panther does not implement rate limiting directly, but you can implement a simple per-user limit inside middleware. For production, use a shared store (Redis, KV) to coordinate across multiple instances.
+Fentaris does not implement rate limiting directly, but you can implement a simple per-user limit inside middleware. For production, use a shared store (Redis, KV) to coordinate across multiple instances.
 
 ```ts theme={null}
 const calls: Record<string, number> = {};
@@ -177,7 +177,7 @@ If requests are not behaving as expected, log `ctx.tool?.proxyName`, `ctx.server
 
 ## Ordering rules
 
-Middleware runs in registration order. If a middleware returns a `CallToolResult`, Panther stops the chain.
+Middleware runs in registration order. If a middleware returns a `CallToolResult`, Fentaris stops the chain.
 
 ## Best practices
 

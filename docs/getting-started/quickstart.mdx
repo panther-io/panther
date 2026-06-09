@@ -1,48 +1,48 @@
 ---
 title: "Quickstart"
-description: "Stand up a Panther proxy in minutes."
+description: "Stand up a Fentaris proxy in minutes."
 ---
 
-This quickstart creates a ready-to-run Panther project with a local MCP proxy, demo auth, policy rules, rate limiting, one stdio upstream, and one remote HTTP MCP upstream.
+This quickstart creates a ready-to-run Fentaris project with a local MCP proxy, demo auth, policy rules, rate limiting, one stdio upstream, and one remote HTTP MCP upstream.
 
-## 1. Install Panther
+## 1. Install Fentaris
 
 <CodeGroup>
   ```bash pnpm theme={null}
-  pnpm add -g @panther/cli
+  pnpm add -g @fentaris/cli
   ```
 
   ```bash npm theme={null}
-  npm i -g @panther/cli
+  npm i -g @fentaris/cli
   ```
 </CodeGroup>
 
 ## 2. Create a project
 
 ```bash theme={null}
-panther init my-proxy
+fentaris init my-proxy
 ```
 
 The generated project includes:
 
 - `src/index.ts` with the runnable proxy example.
-- `panther.config.json` for CLI project discovery.
-- Local encrypted auth files under `.panther/auth`.
+- `fentaris.config.json` for CLI project discovery.
+- Local encrypted auth files under `.fentaris/auth`.
 - `.env.example`, `.gitignore`, TypeScript config, and package scripts.
 
 ## 3. Run locally
 
 ```bash theme={null}
 cd my-proxy
-panther dev
+fentaris dev
 ```
 
 ## 4. Connect a client
 
-Point your MCP client to the endpoint printed by `panther dev`, usually `http://localhost:4000/mcp`, and send one of the generated demo API keys in the `x-panther-api-key` header.
+Point your MCP client to the endpoint printed by `fentaris dev`, usually `http://localhost:4000/mcp`, and send one of the generated demo API keys in the `x-fentaris-api-key` header.
 
 <Tip>
-  Run `panther check --offline` before connecting a client when you want fast local validation without network checks.
+  Run `fentaris check --offline` before connecting a client when you want fast local validation without network checks.
 </Tip>
 
 ## Next step

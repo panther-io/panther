@@ -1,9 +1,9 @@
 ---
 title: "Architecture"
-description: "How Panther routes, aggregates, and serves MCP traffic."
+description: "How Fentaris routes, aggregates, and serves MCP traffic."
 ---
 
-Panther is composed of three building blocks that keep the proxy predictable and easy to extend.
+Fentaris is composed of three building blocks that keep the proxy predictable and easy to extend.
 
 ## Request flow
 
@@ -16,7 +16,7 @@ flowchart LR
 ```
 
 1. An MCP client connects to `McpProxy`.
-2. Panther initializes an MCP session over HTTP.
+2. Fentaris initializes an MCP session over HTTP.
 3. The proxy lists tools from each `McpServer` and applies naming rules.
 4. Tool calls are dispatched through middleware and hooks before forwarding.
 
@@ -27,16 +27,16 @@ flowchart LR
 - Normalizes tool names to prevent collisions.
 
 **McpServer**
-- Adapts an MCP transport to Panther.
+- Adapts an MCP transport to Fentaris.
 - Supports user-based environment injection.
 
-**PanterTransport**
+**FentarisTransport**
 - Transport abstraction used by `McpServer`.
 - Current implementation: `StdioTransport` for local MCP processes.
 
 ## Sessions
 
-Panther uses streamable HTTP sessions. Each session tracks its own MCP server instance and is closed when the client disconnects.
+Fentaris uses streamable HTTP sessions. Each session tracks its own MCP server instance and is closed when the client disconnects.
 
 ## Error handling
 
