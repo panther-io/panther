@@ -1,13 +1,11 @@
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../types/proxy.js";
 import type {
   IdentityMetadata,
-  ProxyExposureHandle,
-  ProxyExposureTransport,
-  ProxyRuntime,
   ResolvedSubject,
   UserContext,
-} from "../types.js";
+} from "../types/shared.js";
 
 /**
  * Options for stdio downstream proxy exposure.

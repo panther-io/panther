@@ -3,14 +3,12 @@ import { createServer, type IncomingMessage, type Server as HttpServer, type Ser
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { FentarisErrorCode } from "../errors.js";
+import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../types/proxy.js";
 import type {
   IdentityMetadata,
-  ProxyExposureHandle,
-  ProxyExposureTransport,
-  ProxyRuntime,
   ResolvedSubject,
   UserContext,
-} from "../types.js";
+} from "../types/shared.js";
 
 /**
  * Options for HTTP downstream proxy exposure.

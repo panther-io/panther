@@ -16,16 +16,16 @@
 - [x] 2.2 Add or preserve compatibility barrels for existing public source-level modules
 - [x] 2.3 Ensure `packages/core/src/index.ts` remains the package public facade
 - [x] 2.4 Add a short internal architecture note or README describing where new core code belongs
-- [ ] 2.5 Run `pnpm --filter @fentaris/core build`
+- [x] 2.5 Run `pnpm --filter @fentaris/core build`
 
 ## 3. Shared Types Split
 
-- [ ] 3.1 Create focused type modules for shared, MCP operation, proxy, middleware, policy, and transport contracts
-- [ ] 3.2 Move type declarations from `packages/core/src/types.ts` into the focused modules
-- [ ] 3.3 Keep `packages/core/src/types.ts` as a compatibility barrel re-exporting the moved type declarations
-- [ ] 3.4 Update internal imports that can safely target focused type modules
-- [ ] 3.5 Run `pnpm --filter @fentaris/core test`
-- [ ] 3.6 Run `pnpm --filter @fentaris/core build`
+- [x] 3.1 Create focused type modules for shared, MCP operation, proxy, middleware, policy, and transport contracts
+- [x] 3.2 Move type declarations from `packages/core/src/types.ts` into the focused modules
+- [x] 3.3 Keep `packages/core/src/types.ts` as a compatibility barrel re-exporting the moved type declarations
+- [x] 3.4 Update internal imports that can safely target focused type modules
+- [x] 3.5 Run `pnpm --filter @fentaris/core test`
+- [x] 3.6 Run `pnpm --filter @fentaris/core build`
 
 ## 4. Transport Domain Split
 

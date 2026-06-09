@@ -19,7 +19,7 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { FentarisTransport } from "../types.js";
+import type { FentarisTransport } from "../types/transport.js";
 
 /**
  * Options for the stdio transport.

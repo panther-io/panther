@@ -34,6 +34,8 @@ export type {
   ReadResourceResponse,
   ToolCallRequest,
 } from "./mcp-operation.js";
+export { ResponseController } from "./middleware.js";
+
 export type {
   LegacyMiddleware,
   LifecycleHook,
@@ -47,7 +49,6 @@ export type {
   ProxyHookEvent,
   ProxyMiddleware,
   ProxyNext,
-  ResponseController,
   ToolCallHook,
   ToolCallHookFilter,
 } from "./middleware.js";

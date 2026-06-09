@@ -20,7 +20,8 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { resolveHttpTransportHeaders, type HttpTransportAuthOptions } from "../transportAuth.js";
-import type { FentarisTransport, UserContext } from "../types.js";
+import type { UserContext } from "../types/shared.js";
+import type { FentarisTransport } from "../types/transport.js";
 
 /**
  * Options for native MCP SSE upstream transport.
