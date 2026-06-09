@@ -5,7 +5,7 @@ description: "Production-ready proxy configuration patterns."
 
 This guide shows a hardened proxy setup that you can adapt for staging and production. It focuses on repeatable patterns: naming, routing, policy enforcement, and clean shutdowns. The goal is to make your proxy predictable for clients and easy to operate for your team.
 
-If you are new to Panther, start with the [Quickstart](/getting-started/quickstart) and come back here when you need to operationalize the proxy.
+If you are new to Fentaris, start with the [Quickstart](/getting-started/quickstart) and come back here when you need to operationalize the proxy.
 
 ## Choose a stable endpoint
 
@@ -24,7 +24,7 @@ const proxy = new McpProxy({
 ```ts theme={null}
 const proxy = new McpProxy({
   servers: [filesystem, diagnostics],
-  name: "panther-proxy",
+  name: "fentaris-proxy",
   version: "0.1.0",
   port: 3000,
   path: "/mcp",
@@ -61,7 +61,7 @@ proxy.on("tools:list:after", ({ tools }) => {
 
 ## Proxy resources, prompts, and completions
 
-Panther also proxies MCP resources, resource templates, prompts, and argument completion when at least one upstream transport supports those methods. Downstream capabilities are advertised dynamically:
+Fentaris also proxies MCP resources, resource templates, prompts, and argument completion when at least one upstream transport supports those methods. Downstream capabilities are advertised dynamically:
 
 - `resources` is exposed when an upstream can list, read, or template resources.
 - `prompts` is exposed when an upstream can list or get prompts.
@@ -73,14 +73,14 @@ Prompts use the same namespace format as tools:
 github__summarize_issue
 ```
 
-Resources and resource templates use Panther-owned URIs:
+Resources and resource templates use Fentaris-owned URIs:
 
 ```txt
-panther://resources/github/file%3A%2F%2F%2Fissues%2F123.md
-panther://resource-templates/github/file%3A%2F%2F%2Fissues%2F%7Bid%7D.md
+fentaris://resources/github/file%3A%2F%2F%2Fissues%2F123.md
+fentaris://resource-templates/github/file%3A%2F%2F%2Fissues%2F%7Bid%7D.md
 ```
 
-Clients should pass these values back unchanged to `resources/read`, `prompts/get`, and `completion/complete`. Panther restores the upstream prompt name, resource URI, or resource template URI before forwarding the request.
+Clients should pass these values back unchanged to `resources/read`, `prompts/get`, and `completion/complete`. Fentaris restores the upstream prompt name, resource URI, or resource template URI before forwarding the request.
 
 ## Add environment-aware tool lists
 
@@ -163,7 +163,7 @@ process.on("SIGTERM", async () => {
 ## Complete Express-like proxy example
 
 ```ts theme={null}
-import { McpProxy, McpServer, Policy, group, user } from "@panther/core";
+import { McpProxy, McpServer, Policy, group, user } from "@fentaris/core";
 
 const github = new McpServer({
   name: "github",

@@ -1,15 +1,15 @@
 ---
 title: "Transports"
-description: "Connect MCP servers using Panther transports."
+description: "Connect MCP servers using Fentaris transports."
 ---
 
-Panther uses transports to connect to MCP servers. A transport must list tools, call tools, and close the connection.
+Fentaris uses transports to connect to MCP servers. A transport must list tools, call tools, and close the connection.
 
-Transports are the boundary between Panther and the MCP server runtime. They decide *how* bytes move and *where* the server runs (local process, remote HTTP server, or event stream).
+Transports are the boundary between Fentaris and the MCP server runtime. They decide *how* bytes move and *where* the server runs (local process, remote HTTP server, or event stream).
 
 ## Supported transport matrix
 
-Panther distinguishes upstream transports, which connect Panther to configured MCP servers, from downstream proxy exposure transports, which expose Panther itself to MCP clients.
+Fentaris distinguishes upstream transports, which connect Fentaris to configured MCP servers, from downstream proxy exposure transports, which expose Fentaris itself to MCP clients.
 
 | Direction | Transport | Class | Notes |
 | --- | --- | --- | --- |
@@ -18,15 +18,15 @@ Panther distinguishes upstream transports, which connect Panther to configured M
 | Upstream | SSE | `SseMcpTransport` | Native MCP SDK SSE client transport for SSE-capable MCP servers. Supports shared HTTP-family auth options. |
 | Upstream | simple REST-like HTTP | `HttpTransport` | Compatibility adapter that posts to fixed `/listTools` and `/callTool` endpoints. It is not a native MCP Streamable HTTP transport. |
 | Downstream | Streamable HTTP | `HttpProxyExposureTransport` or `McpProxy.start()` | Default proxy exposure. Preserves the existing `port` and `path` behavior. |
-| Downstream | stdio | `StdioProxyExposureTransport` | Runs Panther as a local MCP server process for clients that launch the proxy over stdio. |
-| Downstream | SSE | `SseProxyExposureTransport` | Exposes Panther through the MCP SDK SSE server transport with session cleanup. |
+| Downstream | stdio | `StdioProxyExposureTransport` | Runs Fentaris as a local MCP server process for clients that launch the proxy over stdio. |
+| Downstream | SSE | `SseProxyExposureTransport` | Exposes Fentaris through the MCP SDK SSE server transport with session cleanup. |
 
 ## Transport interface
 
-All Panther transports implement the same interface:
+All Fentaris transports implement the same interface:
 
 ```ts theme={null}
-export type PanterTransport = {
+export type FentarisTransport = {
   listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
   callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
   close(): Promise<void>;
@@ -50,7 +50,7 @@ For long-lived transports, connection reuse is expected. For short-lived transpo
 The underlying implementation uses the MCP SDK stdio client transport, so it follows the same semantics, lifecycle, and error behavior as the official reference. See the MCP SDK documentation for the stdio transport for deeper protocol details and compatibility guidance: https://github.com/modelcontextprotocol/sdk
 
 ```ts theme={null}
-import { StdioTransport } from "@panther/core";
+import { StdioTransport } from "@fentaris/core";
 
 const transport = new StdioTransport({
   command: "npx",
@@ -68,12 +68,12 @@ const transport = new StdioTransport({
 
 ### How stdio works end-to-end
 
-Stdio is a local process transport. Panther spawns the server process, connects the MCP SDK client over stdin/stdout, and manages request/response framing for tool calls. This is the most reliable choice for local development and for running existing MCP servers in the same host or container.
+Stdio is a local process transport. Fentaris spawns the server process, connects the MCP SDK client over stdin/stdout, and manages request/response framing for tool calls. This is the most reliable choice for local development and for running existing MCP servers in the same host or container.
 
 Under the hood the flow is:
 
-1. Panther constructs a `StdioTransport` with the command + args you provide.
-2. When a tool call arrives, Panther ensures the client is connected.
+1. Fentaris constructs a `StdioTransport` with the command + args you provide.
+2. When a tool call arrives, Fentaris ensures the client is connected.
 3. The MCP SDK client sends `listTools` and `callTool` frames through stdio.
 4. When the proxy shuts down, the transport closes the client and the spawned process exits.
 
@@ -85,7 +85,7 @@ Under the hood the flow is:
 
 ### Common stdio pitfalls
 
-- **Missing executable:** ensure `command` resolves in the environment where Panther runs.
+- **Missing executable:** ensure `command` resolves in the environment where Fentaris runs.
 - **Hanging process:** always handle `SIGTERM` and call `proxy.close()`.
 - **Silent stderr:** use `stderr: "inherit"` to see server logs.
 
@@ -94,11 +94,11 @@ Under the hood the flow is:
 Stdio does not have HTTP headers or an OAuth protocol exchange. Configure stdio credentials as environment values:
 
 - Use `McpServer.env(user)` for per-user env values.
-- Use `PantherAuth` upstream bindings or a registry to resolve secrets and tokens into env values before calls reach the stdio transport.
+- Use `FentarisAuth` upstream bindings or a registry to resolve secrets and tokens into env values before calls reach the stdio transport.
 - Use `McpServer.isolation` when a stdio server needs per-user queueing or process isolation semantics.
 
 ```ts theme={null}
-import { McpServer, StdioTransport } from "@panther/core";
+import { McpServer, StdioTransport } from "@fentaris/core";
 
 const github = new McpServer({
   name: "github",
@@ -116,7 +116,7 @@ const github = new McpServer({
 - Use `stderr: "inherit"` so server logs appear in your terminal.
 
 ```ts theme={null}
-import { McpServer, StdioTransport } from "@panther/core";
+import { McpServer, StdioTransport } from "@fentaris/core";
 
 const filesystem = new McpServer({
   name: "filesystem",
@@ -135,7 +135,7 @@ const filesystem = new McpServer({
 Use `SseMcpTransport` for MCP servers that still expose the SSE transport.
 
 ```ts theme={null}
-import { McpServer, SseMcpTransport } from "@panther/core";
+import { McpServer, SseMcpTransport } from "@fentaris/core";
 
 const server = new McpServer({
   name: "legacy_sse",
@@ -148,14 +148,14 @@ const server = new McpServer({
 });
 ```
 
-Panther opens or reuses the SDK SSE client connection on first use, sends tool requests through the SSE flow, and closes the active client/stream resources when the proxy closes.
+Fentaris opens or reuses the SDK SSE client connection on first use, sends tool requests through the SSE flow, and closes the active client/stream resources when the proxy closes.
 
 ## Native Streamable HTTP upstream transport
 
 Use `StreamableHttpMcpTransport` for native MCP Streamable HTTP endpoints over HTTP or HTTPS.
 
 ```ts theme={null}
-import { McpServer, StreamableHttpMcpTransport } from "@panther/core";
+import { McpServer, StreamableHttpMcpTransport } from "@fentaris/core";
 
 const server = new McpServer({
   name: "remote_mcp",
@@ -186,7 +186,7 @@ new StreamableHttpMcpTransport({
 
 ### Bearer tokens and OAuth access tokens
 
-Panther does not acquire or refresh OAuth tokens. If a caller already has an OAuth access token, pass it as a bearer token directly or through a resolver.
+Fentaris does not acquire or refresh OAuth tokens. If a caller already has an OAuth access token, pass it as a bearer token directly or through a resolver.
 
 ```ts theme={null}
 new StreamableHttpMcpTransport({
@@ -223,14 +223,14 @@ new StreamableHttpMcpTransport({
 });
 ```
 
-Resolvers receive the resolved `UserContext`, including registry-provided `secrets` and `tokens`. If a required API key or credential resolver cannot produce credentials, Panther fails before sending the upstream request.
+Resolvers receive the resolved `UserContext`, including registry-provided `secrets` and `tokens`. If a required API key or credential resolver cannot produce credentials, Fentaris fails before sending the upstream request.
 
 ## Simple HTTP adapter compatibility
 
 `HttpTransport` remains available for compatibility with REST-like adapters that expose fixed `/listTools` and `/callTool` endpoints. It is intentionally separate from `StreamableHttpMcpTransport`.
 
 ```ts theme={null}
-import { HttpTransport } from "@panther/core";
+import { HttpTransport } from "@fentaris/core";
 
 const legacyAdapter = new HttpTransport({
   baseUrl: "https://adapter.example/",
@@ -256,7 +256,7 @@ import {
   HttpProxyExposureTransport,
   SseProxyExposureTransport,
   StdioProxyExposureTransport,
-} from "@panther/core";
+} from "@fentaris/core";
 
 await proxy.listen(new HttpProxyExposureTransport({ port: 3000, path: "/mcp" }));
 await proxy.listen(new SseProxyExposureTransport({ port: 3001 }));
@@ -276,4 +276,4 @@ Start with stdio for local development, then move to native Streamable HTTP/HTTP
 
 ## Env-aware transports
 
-If a transport implements `withEnv`, Panther can inject user-specific environment variables per request.
+If a transport implements `withEnv`, Fentaris can inject user-specific environment variables per request.

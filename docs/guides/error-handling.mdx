@@ -1,9 +1,9 @@
 ---
 title: "Error handling"
-description: "How Panther surfaces errors and how to customize them."
+description: "How Fentaris surfaces errors and how to customize them."
 ---
 
-Panther normalizes errors and provides helpers to return safe responses. The goal is simple: do not leak sensitive details to the caller, while still producing actionable logs for operators.
+Fentaris normalizes errors and provides helpers to return safe responses. The goal is simple: do not leak sensitive details to the caller, while still producing actionable logs for operators.
 
 If you are new to the request lifecycle, review the [Flow diagrams](/guides/flows).
 
@@ -15,7 +15,7 @@ There are three primary error surfaces:
 2. **Tool errors** returned by upstream servers.
 3. **Unexpected failures** (exceptions) thrown in hooks or middleware.
 
-Panther maps each to a safe JSON-RPC error response for the client while keeping detailed logs internally.
+Fentaris maps each to a safe JSON-RPC error response for the client while keeping detailed logs internally.
 
 ## Deny a tool call
 
@@ -73,7 +73,7 @@ proxy.use(async (request, context, next) => {
 ## Common error patterns
 
 - Return `context.res.deny(...)` for policy violations.
-- Throw errors for unexpected failures; Panther returns a JSON-RPC error.
+- Throw errors for unexpected failures; Fentaris returns a JSON-RPC error.
 - Use `context.res.on("error", ...)` for telemetry hooks.
 
 ## Best practices

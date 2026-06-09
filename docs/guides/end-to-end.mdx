@@ -3,14 +3,14 @@ title: "End-to-end examples"
 description: "Full examples with multi-server routing, policy, and logging."
 ---
 
-This guide provides real-world, end-to-end examples that combine multiple Panther features. Each example includes the “why”, the wiring, and the operational considerations so you can apply it directly in production.
+This guide provides real-world, end-to-end examples that combine multiple Fentaris features. Each example includes the “why”, the wiring, and the operational considerations so you can apply it directly in production.
 
 ## Example 1: Multi-tenant tool routing
 
 Use `UserContext` to route requests and inject tenant-specific environment variables.
 
 ```ts theme={null}
-import { McpProxy, McpServer, StdioTransport } from "@panther/core";
+import { McpProxy, McpServer, StdioTransport } from "@fentaris/core";
 
 const analytics = new McpServer({
   name: "analytics",

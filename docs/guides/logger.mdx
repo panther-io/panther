@@ -1,20 +1,20 @@
 ---
 title: "Logger"
-description: "Configure Panther logging in detail, parameter by parameter."
+description: "Configure Fentaris logging in detail, parameter by parameter."
 ---
 
-This guide explains how Panther logging works and how to configure it in depth. You will learn every configurable parameter, see examples, and get practical tips for production.
+This guide explains how Fentaris logging works and how to configure it in depth. You will learn every configurable parameter, see examples, and get practical tips for production.
 
 If you only need the high-level concept, see [Core logger](/core/logger).
 
 ## Overview
 
-Panther uses a structured `Logger` with a pluggable `LoggerDriver`. The logger is available in middleware, routes, and events as `ctx.log` and is also used internally by the proxy.
+Fentaris uses a structured `Logger` with a pluggable `LoggerDriver`. The logger is available in middleware, routes, and events as `ctx.log` and is also used internally by the proxy.
 
 At a minimum you can instantiate a default logger:
 
 ```ts theme={null}
-import { Logger } from "@panther/core";
+import { Logger } from "@fentaris/core";
 
 const logger = new Logger();
 ```
@@ -129,15 +129,15 @@ const logger = new Logger({
 
 ### Redis logger driver
 
-Use `RedisLoggerDriver` when you want Panther to append structured log entries to a Redis list.
+Use `RedisLoggerDriver` when you want Fentaris to append structured log entries to a Redis list.
 
 ```ts theme={null}
-import { Logger, RedisLoggerDriver } from "@panther/core";
+import { Logger, RedisLoggerDriver } from "@fentaris/core";
 
 const logger = new Logger({
   driver: new RedisLoggerDriver({
     client: redis,
-    key: "panther:logs",
+    key: "fentaris:logs",
   }),
 });
 ```
@@ -156,7 +156,7 @@ const proxy = new McpProxy({
 
 ## Logger in middleware and hooks
 
-The same logger instance is exposed as `ctx.log`. Panther enriches it with safe metadata such as operation, subject id, server name, tool name, proxied tool name, resource URI, prompt name, completion target, transport type, session id, credential source, and policy outcome where available.
+The same logger instance is exposed as `ctx.log`. Fentaris enriches it with safe metadata such as operation, subject id, server name, tool name, proxied tool name, resource URI, prompt name, completion target, transport type, session id, credential source, and policy outcome where available.
 
 ```ts theme={null}
 proxy.on("tool:success", async ({ ctx, durationMs }) => {

@@ -5,8 +5,8 @@ description: ""
 
 <div className="px-4 py-8 mt-10 lg:pb-16 max-w-5xl mx-auto">
   <div className="text-center">
-    <img noZoom src="/assets/logo-light.svg" className="block dark:hidden mx-auto h-14 w-auto" alt="Panther" />
-    <img noZoom src="/assets/logo-dark.svg" className="hidden dark:block mx-auto h-14 w-auto" alt="Panther" />
+    <img noZoom src="/assets/logo-light.svg" className="block dark:hidden mx-auto h-14 w-auto" alt="Fentaris" />
+    <img noZoom src="/assets/logo-dark.svg" className="hidden dark:block mx-auto h-14 w-auto" alt="Fentaris" />
   </div>
 
   <div className="max-w-2xl mx-auto px-4 mt-6 text-center">
@@ -34,7 +34,7 @@ description: ""
 
 ## Start here
 
-This homepage mirrors the structure you see in the example documentation, but tailored for Panther. Each block below explains *why* the code exists and where to go next.
+This homepage mirrors the structure you see in the example documentation, but tailored for Fentaris. Each block below explains *why* the code exists and where to go next.
 
 1. **Install and run a tiny proxy** in [Quickstart](/getting-started/quickstart).
 2. **Understand the moving parts** in [Architecture](/core/architecture) and [Transports](/core/transports).
@@ -46,23 +46,23 @@ If you want to understand the MCP spec and the ecosystem of official servers, ex
 ## Quickstart
 
 <Steps>
-  <Step title="Install @panther/core">
+  <Step title="Install @fentaris/core">
     <CodeGroup>
       ```bash pnpm theme={null}
-      pnpm add @panther/core
+      pnpm add @fentaris/core
       ```
 
       ```bash npm theme={null}
-      npm i @panther/core
+      npm i @fentaris/core
       ```
     </CodeGroup>
 
-    This gives you the Panther SDK and the built-in `StdioTransport`, which can spawn MCP servers like the official filesystem server.
+    This gives you the Fentaris SDK and the built-in `StdioTransport`, which can spawn MCP servers like the official filesystem server.
   </Step>
 
   <Step title="Define MCP servers">
     ```ts theme={null}
-    import { McpServer, StdioTransport } from "@panther/core";
+    import { McpServer, StdioTransport } from "@fentaris/core";
 
     const filesystem = new McpServer({
       name: "filesystem",
@@ -74,12 +74,12 @@ If you want to understand the MCP spec and the ecosystem of official servers, ex
     });
     ```
 
-    The `McpServer` wrapper lets Panther enumerate tools, prefix names to avoid collisions, and inject per-user env variables.
+    The `McpServer` wrapper lets Fentaris enumerate tools, prefix names to avoid collisions, and inject per-user env variables.
   </Step>
 
   <Step title="Start the proxy">
     ```ts theme={null}
-    import { McpProxy } from "@panther/core";
+    import { McpProxy } from "@fentaris/core";
 
     const proxy = new McpProxy({
       servers: [filesystem],
@@ -94,11 +94,11 @@ If you want to understand the MCP spec and the ecosystem of official servers, ex
   </Step>
 </Steps>
 
-## Explore Panther
+## Explore Fentaris
 
 <CardGroup cols={3}>
   <Card title="Architecture" icon="layers" href="/core/architecture">
-    How Panther routes requests and manages sessions.
+    How Fentaris routes requests and manages sessions.
   </Card>
   <Card title="Tool naming" icon="tag" href="/core/tool-naming">
     Understand proxy tool names and collisions.
@@ -124,9 +124,9 @@ If you want to understand the MCP spec and the ecosystem of official servers, ex
 
 <div className="mt-10 border-t border-zinc-800 pt-6 pb-12 text-sm text-zinc-500">
   <div className="flex flex-col gap-2">
-    <div>Panther is a centralized MCP proxy for routing, policy, and observability.</div>
+    <div>Fentaris is a centralized MCP proxy for routing, policy, and observability.</div>
     <div>
-      Useful links: <a href="https://github.com/panther-io/panther" target="_blank" rel="noreferrer">GitHub</a>,
+      Useful links: <a href="https://github.com/fentaris-io/fentaris" target="_blank" rel="noreferrer">GitHub</a>,
       <a href="/reference-auto/index">API Reference (Auto)</a>,
       <a href="/getting-started/tutorial">Tutorial</a>.
     </div>

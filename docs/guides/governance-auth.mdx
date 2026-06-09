@@ -11,16 +11,16 @@ Use the governance auth DX when one proxy serves multiple callers and upstream s
 import {
   Group,
   McpProxy,
-  PantherAuth,
+  FentarisAuth,
   Policy,
   User,
   approval,
   sensitive,
-} from "@panther/core";
+} from "@fentaris/core";
 
-const auth = await PantherAuth.local({
-  dir: ".panther/auth",
-  key: process.env.PANTHER_AUTH_KEY ?? "",
+const auth = await FentarisAuth.local({
+  dir: ".fentaris/auth",
+  key: process.env.FENTARIS_AUTH_KEY ?? "",
 });
 
 const readOnly = new Policy({ name: "read-only" })
@@ -62,10 +62,10 @@ The same API is available through helpers such as `user(...)`, `group(...)`, `po
 
 ## Local auth files
 
-`PantherAuth.local({ dir, key })` reads two files from the configured directory:
+`FentarisAuth.local({ dir, key })` reads two files from the configured directory:
 
 ```txt theme={null}
-.panther/auth/
+.fentaris/auth/
   credentials.enc.json
   upstream-auth.json
 ```
@@ -86,7 +86,7 @@ The same API is available through helpers such as `user(...)`, `group(...)`, `po
 
 ## API-key identity
 
-When `auth` is passed to `McpProxy`, Panther uses API-key identity by default and requires the configured header. The default header is `x-panther-api-key`.
+When `auth` is passed to `McpProxy`, Fentaris uses API-key identity by default and requires the configured header. The default header is `x-fentaris-api-key`.
 
 API keys resolve to declared user ids from encrypted local auth storage. Raw API keys are not exposed to middleware, hooks, logs, or policy callbacks.
 
@@ -94,7 +94,7 @@ Trusted user id headers remain available through `headerIdentityStrategy`, but t
 
 ## Credential precedence
 
-For an upstream binding such as `github -> bearer github.token`, Panther resolves the credential in this order:
+For an upstream binding such as `github -> bearer github.token`, Fentaris resolves the credential in this order:
 
 1. User credential for the authenticated subject.
 2. Group credential from the subject's matching groups.
@@ -164,7 +164,7 @@ proxy.server("github").use(async (ctx, next) => {
 
 ## Capability permissions
 
-Tool permissions are still supported, but Panther also accepts operation-based capability permissions for proxied resources, prompts, and completion.
+Tool permissions are still supported, but Fentaris also accepts operation-based capability permissions for proxied resources, prompts, and completion.
 
 ```ts theme={null}
 const policy = new Policy({ name: "support" })
@@ -218,32 +218,32 @@ const policy = new Policy({ name: "existing" })
   .deny("delete_repo");
 ```
 
-Panther adapts those declarations internally to `tool:call` capability permissions. Existing `ToolPermission`, `SimplePolicy`, `Policy.evaluate(...)`, group policy, middleware, and `ctx.policy.can(server, tool)` behavior remain compatible for tool calls. Add `allowCapability(...)` or `denyCapability(...)` only when you need to govern resources, resource templates, prompts, or completion.
+Fentaris adapts those declarations internally to `tool:call` capability permissions. Existing `ToolPermission`, `SimplePolicy`, `Policy.evaluate(...)`, group policy, middleware, and `ctx.policy.can(server, tool)` behavior remain compatible for tool calls. Add `allowCapability(...)` or `denyCapability(...)` only when you need to govern resources, resource templates, prompts, or completion.
 
 ## CLI helpers
 
 Initialize local auth files:
 
 ```bash theme={null}
-panther auth init --dir .panther/auth --key "$PANTHER_AUTH_KEY"
+fentaris auth init --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY"
 ```
 
 Store a user API key:
 
 ```bash theme={null}
-panther auth set-api-key --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
+fentaris auth set-api-key --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
 ```
 
 Store a credential:
 
 ```bash theme={null}
-panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
-panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --group support --ref github.token --value "$SUPPORT_GITHUB_TOKEN"
-panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --ref github.token --value "$DEFAULT_GITHUB_TOKEN"
+fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
+fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --group support --ref github.token --value "$SUPPORT_GITHUB_TOKEN"
+fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --ref github.token --value "$DEFAULT_GITHUB_TOKEN"
 ```
 
 Inspect redacted local auth:
 
 ```bash theme={null}
-panther auth inspect --dir .panther/auth --key "$PANTHER_AUTH_KEY"
+fentaris auth inspect --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY"
 ```

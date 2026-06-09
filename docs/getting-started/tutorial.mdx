@@ -3,12 +3,12 @@ title: "Tutorial"
 description: "Build a multi-server proxy with middleware and hooks."
 ---
 
-This tutorial walks through a complete Panther setup: two servers, a proxy, middleware, and a custom hook.
+This tutorial walks through a complete Fentaris setup: two servers, a proxy, middleware, and a custom hook.
 
 ## 1. Create two MCP servers
 
 ```ts theme={null}
-import { McpServer, StdioTransport } from "@panther/core";
+import { McpServer, StdioTransport } from "@fentaris/core";
 
 const filesystem = new McpServer({
   name: "filesystem",
@@ -35,13 +35,13 @@ const diagnostics = new McpServer({
 ## 2. Start the proxy
 
 ```ts theme={null}
-import { McpProxy } from "@panther/core";
+import { McpProxy } from "@fentaris/core";
 
 const proxy = new McpProxy({
   servers: [filesystem, diagnostics],
   port: 3000,
   path: "/mcp",
-  name: "panther-proxy",
+  name: "fentaris-proxy",
   version: "0.1.0",
 });
 
@@ -91,7 +91,7 @@ Next, review the core concepts and reference pages to customize the proxy furthe
 
 <CardGroup cols={2}>
   <Card title="Architecture" icon="layers" href="/core/architecture">
-    How Panther routes and manages sessions.
+    How Fentaris routes and manages sessions.
   </Card>
   <Card title="Middleware" icon="shield" href="/guides/middleware">
     Patterns for policy enforcement.

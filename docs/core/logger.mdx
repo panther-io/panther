@@ -1,9 +1,9 @@
 ---
 title: "Logger"
-description: "How Panther logging works at a conceptual level."
+description: "How Fentaris logging works at a conceptual level."
 ---
 
-Panther includes a structured logger that is shared across the proxy, middleware, and hooks. It is designed for consistent, queryable logs rather than ad-hoc console output.
+Fentaris includes a structured logger that is shared across the proxy, middleware, and hooks. It is designed for consistent, queryable logs rather than ad-hoc console output.
 
 The logger is available on the middleware context as `context.log`. You can attach tags, emit structured events, and forward logs to a custom driver.
 

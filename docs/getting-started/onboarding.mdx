@@ -1,11 +1,11 @@
 ---
 title: "Onboarding"
-description: "Core concepts and architecture of Panther."
+description: "Core concepts and architecture of Fentaris."
 ---
 
-Panther is a centralized MCP proxy. It sits in front of your MCP servers and exposes a single HTTP endpoint with policy, routing, and observability built in.
+Fentaris is a centralized MCP proxy. It sits in front of your MCP servers and exposes a single HTTP endpoint with policy, routing, and observability built in.
 
-## When to use Panther
+## When to use Fentaris
 
 - You run multiple MCP servers and want a single entrypoint.
 - You need per-user policy or auditing without changing existing servers.
@@ -21,7 +21,7 @@ Panther is a centralized MCP proxy. It sits in front of your MCP servers and exp
 - A thin wrapper around an MCP transport.
 - Supports per-user environment injection via `env`.
 
-**PanterTransport**
+**FentarisTransport**
 - Interface that adapts a transport to list tools, call tools, and close.
 - `StdioTransport` is the easiest way to connect local MCP servers.
 
@@ -40,7 +40,7 @@ flowchart LR
 
 ## Tool naming
 
-Panther prefixes tool names to avoid collisions. Each tool becomes `server__tool`, and the displayed title includes the server `displayName`.
+Fentaris prefixes tool names to avoid collisions. Each tool becomes `server__tool`, and the displayed title includes the server `displayName`.
 
 ## What you will do next
 

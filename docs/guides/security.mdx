@@ -1,9 +1,9 @@
 ---
 title: "Security"
-description: "Security practices and patterns for Panther proxies."
+description: "Security practices and patterns for Fentaris proxies."
 ---
 
-Panther gives you centralized policy control. Use these practices to keep deployments safe, especially when your proxy is exposed publicly or serves multiple teams.
+Fentaris gives you centralized policy control. Use these practices to keep deployments safe, especially when your proxy is exposed publicly or serves multiple teams.
 
 Security is most effective when it is layered: hide tools, validate identity, and observe every decision.
 
@@ -40,7 +40,7 @@ const policy = new Policy({ name: "least-privilege" })
   });
 ```
 
-Use list permissions to control discovery, and direct-operation permissions such as `resource:read`, `prompt:get`, and `completion:complete` to prevent use before Panther forwards the request upstream.
+Use list permissions to control discovery, and direct-operation permissions such as `resource:read`, `prompt:get`, and `completion:complete` to prevent use before Fentaris forwards the request upstream.
 
 ## Scope tools per environment
 
@@ -95,7 +95,7 @@ import {
   SlidingWindowRateLimiter,
   headerIdentityStrategy,
   rateLimitMiddleware,
-} from "@panther/core";
+} from "@fentaris/core";
 
 const registry = new MemoryRegistry({
   users: {
@@ -138,7 +138,7 @@ proxy.use(rateLimitMiddleware());
 
 ## Harden network exposure
 
-- Run Panther behind a reverse proxy (NGINX, Envoy, or a cloud load balancer).
+- Run Fentaris behind a reverse proxy (NGINX, Envoy, or a cloud load balancer).
 - Terminate TLS at the edge and forward only HTTPS traffic.
 - Restrict inbound access using IP allow-lists or private networks.
 

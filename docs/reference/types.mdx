@@ -1,9 +1,9 @@
 ---
 title: "Types"
-description: "Core types used across Panther."
+description: "Core types used across Fentaris."
 ---
 
-Panther exposes a few core types to wire middleware, hooks, and transports.
+Fentaris exposes a few core types to wire middleware, hooks, and transports.
 
 ## UserContext
 
@@ -45,10 +45,10 @@ type ListToolsHook = (
 ) => ListToolsResult["tools"] | ListToolsResult | void | Promise<...>;
 ```
 
-## PanterTransport
+## FentarisTransport
 
 ```ts theme={null}
-type PanterTransport = {
+type FentarisTransport = {
   listTools(params?: ListToolsRequest["params"]): Promise<ListToolsResult>;
   callTool(params: CallToolRequest["params"]): Promise<CallToolResult>;
   listResources?(params?: ListResourcesParams): Promise<ListResourcesResponse>;
@@ -61,11 +61,11 @@ type PanterTransport = {
 };
 ```
 
-The resource, prompt, template, and completion methods are optional. Tool-only transports remain valid; Panther returns empty list responses for unsupported list operations and errors for unsupported read/get/complete operations.
+The resource, prompt, template, and completion methods are optional. Tool-only transports remain valid; Fentaris returns empty list responses for unsupported list operations and errors for unsupported read/get/complete operations.
 
 ## MCP server feature aliases
 
-Panther re-exports typed aliases for the new request and result shapes:
+Fentaris re-exports typed aliases for the new request and result shapes:
 
 ```ts theme={null}
 type ListResourcesParams = ListResourcesRequest["params"];
