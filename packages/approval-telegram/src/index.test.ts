@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { Logger } from "@panther/core";
+import { Logger } from "@fentaris/core";
 import {
   createInMemoryTelegramApprovalStore,
   handleTelegramApprovalCallback,
   telegramApproval,
   type TelegramApprovalDecision,
 } from "./index.js";
-import type { MiddlewareContext, ToolCallRequest } from "@panther/core";
+import type { MiddlewareContext, ToolCallRequest } from "@fentaris/core";
 
 function request(): ToolCallRequest {
   return {
@@ -14,7 +14,7 @@ function request(): ToolCallRequest {
     toolName: "delete_repo",
     proxyToolName: "github__delete_repo",
     arguments: {
-      owner: "panther",
+      owner: "fentaris",
       repo: "demo",
       token: "raw-token",
       nested: { password: "raw-password" },
@@ -79,8 +79,8 @@ describe("telegramApproval", () => {
     expect(body.text).toContain("delete_repo");
     expect(body.text).not.toContain("raw-token");
     expect(body.text).not.toContain("raw-password");
-    expect(body.reply_markup.inline_keyboard[0]?.[0]?.callback_data).toBe("panther:a:req-1");
-    expect(body.reply_markup.inline_keyboard[0]?.[1]?.callback_data).toBe("panther:d:req-1");
+    expect(body.reply_markup.inline_keyboard[0]?.[0]?.callback_data).toBe("fentaris:a:req-1");
+    expect(body.reply_markup.inline_keyboard[0]?.[1]?.callback_data).toBe("fentaris:d:req-1");
   });
 
   it("returns existing store decisions without sending another Telegram message", async () => {
@@ -112,7 +112,7 @@ describe("telegramApproval", () => {
     };
 
     const result = await handleTelegramApprovalCallback(
-      { callback_query: { id: "callback-1", data: "panther:d:req-3" } },
+      { callback_query: { id: "callback-1", data: "fentaris:d:req-3" } },
       { botToken: "bot-token", store, fetch: fetchMock, apiBaseUrl: "https://telegram.test" },
     );
 

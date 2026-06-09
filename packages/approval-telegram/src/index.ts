@@ -4,7 +4,7 @@ import type {
   MiddlewareContext,
   ToolCallRequest,
   ToolPermissionOptions,
-} from "@panther/core";
+} from "@fentaris/core";
 
 export type TelegramApprovalDecision = "approved" | "denied";
 
@@ -42,12 +42,12 @@ type TelegramCallbackUpdate = {
   };
 };
 
-const approvePrefix = "panther:a:";
-const denyPrefix = "panther:d:";
+const approvePrefix = "fentaris:a:";
+const denyPrefix = "fentaris:d:";
 const defaultApiBaseUrl = "https://api.telegram.org";
 
 /**
- * Create a Panther policy approval handler backed by Telegram inline buttons.
+ * Create a Fentaris policy approval handler backed by Telegram inline buttons.
  * @pk
  */
 export function telegramApproval(options: TelegramApprovalOptions): Pick<ToolPermissionOptions, "approval"> {
@@ -250,7 +250,7 @@ function formatApprovalMessage(
   context: MiddlewareContext,
   options: TelegramApprovalOptions,
 ): string {
-  const title = options.title ?? "Panther approval required";
+  const title = options.title ?? "Fentaris approval required";
   const lines = [
     `<b>${escapeHtml(title)}</b>`,
     `Request: <code>${escapeHtml(requestId)}</code>`,

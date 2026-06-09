@@ -1,7 +1,7 @@
 {
-  "name": "@panther/approval-telegram",
+  "name": "@fentaris/approval-telegram",
   "version": "0.1.0",
-  "description": "Telegram approval adapter for Panther policies",
+  "description": "Telegram approval adapter for Fentaris policies",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -14,19 +14,31 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@panther/core": "workspace:*"
+    "@fentaris/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
     "vitest": "^4.1.7"
   },
   "keywords": [
-    "panther",
+    "fentaris",
     "mcp",
     "approval",
     "telegram"
   ],
-  "author": "",
+  "author": "Gabriele Cipriani",
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fentaris-io/fentaris.git",
+    "directory": "packages/approval-telegram"
+  },
+  "homepage": "https://github.com/fentaris-io/fentaris#readme",
+  "bugs": {
+    "url": "https://github.com/fentaris-io/fentaris/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
