@@ -1,23 +1,23 @@
 ## Context
 
-Panther already has a `packages/cli` package, but the current executable only exposes low-level `panther auth ...` helpers for local encrypted credentials. The product needs a top-level CLI that makes the first project creation path fast and reliable while preserving the existing auth storage primitives.
+Fentaris already has a `packages/cli` package, but the current executable only exposes low-level `fentaris auth ...` helpers for local encrypted credentials. The product needs a top-level CLI that makes the first project creation path fast and reliable while preserving the existing auth storage primitives.
 
-The first supported command set is `panther init`, `panther dev`, `panther check`, `panther doctor`, `panther build`, and `panther secrets set`. `panther deploy` remains a later milestone. The generated project must demonstrate real Panther value immediately: proxy setup, stdio upstream, remote unauthenticated HTTP upstream, users, groups, policy, rate limiting, and local auth/secrets.
+The first supported command set is `fentaris init`, `fentaris dev`, `fentaris check`, `fentaris doctor`, `fentaris build`, and `fentaris secrets set`. `fentaris deploy` remains a later milestone. The generated project must demonstrate real Fentaris value immediately: proxy setup, stdio upstream, remote unauthenticated HTTP upstream, users, groups, policy, rate limiting, and local auth/secrets.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Provide a polished first-run workflow where `panther init [project-name]` creates a ready-to-run project with minimal prompts.
-- Keep `check` focused on the current Panther project and `doctor` focused on the local machine/runtime environment.
-- Preserve encrypted local credential support while exposing a simpler top-level `panther secrets set` command.
-- Generate projects that can run with `panther dev` and produce a local build artifact with `panther build`.
+- Provide a polished first-run workflow where `fentaris init [project-name]` creates a ready-to-run project with minimal prompts.
+- Keep `check` focused on the current Fentaris project and `doctor` focused on the local machine/runtime environment.
+- Preserve encrypted local credential support while exposing a simpler top-level `fentaris secrets set` command.
+- Generate projects that can run with `fentaris dev` and produce a local build artifact with `fentaris build`.
 - Use concise, colored, sectioned terminal output inspired by GitButler-style command feedback.
 - Initialize git and write a `.gitignore` for generated projects.
 
 **Non-Goals:**
 
-- No `panther deploy` implementation in this change.
+- No `fentaris deploy` implementation in this change.
 - No cloud provisioning, hosted secret storage, or remote project registry.
 - No invasive system package installation without explicit per-fix user approval.
 - No support for initializing into non-empty directories beyond a clean, actionable error.
@@ -33,7 +33,7 @@ Alternative considered: keep manual parsing. This is sufficient for the current 
 
 ### Init Order
 
-`panther init [project-name]` resolves the project name first, then checks the target directory, detects package managers, asks only when multiple viable managers are available, writes the template, installs dependencies, runs `doctor`, and prints next steps.
+`fentaris init [project-name]` resolves the project name first, then checks the target directory, detects package managers, asks only when multiple viable managers are available, writes the template, installs dependencies, runs `doctor`, and prints next steps.
 
 Package-manager selection happens before writing template files because generated scripts, lockfile expectations, and install commands depend on the selected manager.
 
@@ -42,9 +42,9 @@ Package-manager selection happens before writing template files because generate
 The default template will generate a TypeScript project with:
 
 - `src/index.ts` containing the runnable proxy example.
-- `panther.config.ts` or equivalent CLI-discoverable project metadata.
+- `fentaris.config.ts` or equivalent CLI-discoverable project metadata.
 - `package.json`, `tsconfig.json`, `.env.example`, and `.gitignore`.
-- `.panther/auth/credentials.enc.json` and `.panther/auth/upstream-auth.json` initialized through Panther's local auth primitives.
+- `.fentaris/auth/credentials.enc.json` and `.fentaris/auth/upstream-auth.json` initialized through Fentaris's local auth primitives.
 
 The example proxy includes one stdio MCP upstream, one remote unauthenticated HTTP MCP upstream at `https://mcp.specification.website/mcp`, two users, one group, a limited unauthenticated or low-privilege user path, a full-permission user outside the group, and a rate-limit example.
 
@@ -52,13 +52,13 @@ The example proxy includes one stdio MCP upstream, one remote unauthenticated HT
 
 The generated template must be clear about demo credentials and production rotation. It can generate local development API keys and print them once, but raw secrets must not be committed. `.gitignore` must exclude encrypted local credentials and local env files unless the implementation chooses a safe non-secret seed file.
 
-The template demonstrates one low-permission user and one full-permission user outside the limited group. The exact naming can be `guest` and `admin` unless implementation finds established Panther docs naming patterns worth reusing.
+The template demonstrates one low-permission user and one full-permission user outside the limited group. The exact naming can be `guest` and `admin` unless implementation finds established Fentaris docs naming patterns worth reusing.
 
 ### Check vs Doctor
 
-`panther check` validates the current Panther project: config, expected files, secrets references, MCP server declarations, connectivity where enabled, tool discovery, and policy/tool mismatches.
+`fentaris check` validates the current Fentaris project: config, expected files, secrets references, MCP server declarations, connectivity where enabled, tool discovery, and policy/tool mismatches.
 
-`panther doctor` validates the local environment: Node version, selected package manager, install availability, git, Docker warning readiness, port availability, CLI cache/write permissions, and other local prerequisites. It can run outside a Panther project.
+`fentaris doctor` validates the local environment: Node version, selected package manager, install availability, git, Docker warning readiness, port availability, CLI cache/write permissions, and other local prerequisites. It can run outside a Fentaris project.
 
 ### Doctor Fixes
 
@@ -66,9 +66,9 @@ The template demonstrates one low-permission user and one full-permission user o
 
 ### Dev and Build
 
-`panther dev` discovers the project entrypoint/config and runs the generated project locally. It should fail with a clear error if invoked outside a Panther project.
+`fentaris dev` discovers the project entrypoint/config and runs the generated project locally. It should fail with a clear error if invoked outside a Fentaris project.
 
-`panther build` produces a local deterministic artifact, initially under `.panther/build`, and may use the project's TypeScript/build tooling rather than a cloud service. The artifact should be suitable for a future `deploy` command or Docker packaging work.
+`fentaris build` produces a local deterministic artifact, initially under `.fentaris/build`, and may use the project's TypeScript/build tooling rather than a cloud service. The artifact should be suitable for a future `deploy` command or Docker packaging work.
 
 ## Risks / Trade-offs
 
@@ -81,7 +81,7 @@ The template demonstrates one low-permission user and one full-permission user o
 
 ## Migration Plan
 
-1. Introduce the new command router while preserving existing `panther auth ...` behavior or mapping it to the new secrets/auth internals.
+1. Introduce the new command router while preserving existing `fentaris auth ...` behavior or mapping it to the new secrets/auth internals.
 2. Add the default template and project discovery logic.
 3. Implement `init`, then `doctor`, then `check`, then `dev`, `build`, and `secrets set`.
 4. Update docs to present the CLI path as the recommended quickstart.
@@ -89,6 +89,6 @@ The template demonstrates one low-permission user and one full-permission user o
 
 ## Open Questions
 
-- Whether the project metadata file should be `panther.config.ts`, package.json metadata, or both.
-- Whether `panther dev` should directly run TypeScript through a runtime dependency or invoke the selected package manager script.
-- Whether compatibility `panther auth ...` commands remain documented or become hidden legacy commands.
+- Whether the project metadata file should be `fentaris.config.ts`, package.json metadata, or both.
+- Whether `fentaris dev` should directly run TypeScript through a runtime dependency or invoke the selected package manager script.
+- Whether compatibility `fentaris auth ...` commands remain documented or become hidden legacy commands.

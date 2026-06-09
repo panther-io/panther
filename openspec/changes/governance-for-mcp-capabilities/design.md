@@ -1,6 +1,6 @@
 ## Context
 
-Panther has policy, groups, rate limits, middleware, unified context, and events around tool operations. After adding resources, prompts, and completion, those operations need the same governance primitives because they can expose data, influence model behavior, or leak sensitive suggestions.
+Fentaris has policy, groups, rate limits, middleware, unified context, and events around tool operations. After adding resources, prompts, and completion, those operations need the same governance primitives because they can expose data, influence model behavior, or leak sensitive suggestions.
 
 This change generalizes governance without removing existing tool-oriented APIs.
 

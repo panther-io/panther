@@ -38,22 +38,22 @@ The system SHALL expose a contextual logger at `ctx.log` that enriches log entri
 
 #### Scenario: Handler logs without repeating metadata
 - **WHEN** a handler calls `ctx.log.info("validated")` during a tool call
-- **THEN** Panther records the log with safe metadata such as operation, subject id, server name, tool name, transport type, and session id where available
+- **THEN** Fentaris records the log with safe metadata such as operation, subject id, server name, tool name, transport type, and session id where available
 
 #### Scenario: Logger redacts sensitive values
 - **WHEN** a handler logs metadata that contains configured sensitive fields
-- **THEN** Panther redacts those fields according to logger configuration
+- **THEN** Fentaris redacts those fields according to logger configuration
 
 ### Requirement: Response helper aliases
 The system SHALL provide response helper methods on the unified context while preserving the response controller.
 
 #### Scenario: Handler denies through context alias
 - **WHEN** a handler returns `ctx.deny("blocked")`
-- **THEN** Panther returns an MCP tool error response equivalent to `ctx.response.deny("blocked")`
+- **THEN** Fentaris returns an MCP tool error response equivalent to `ctx.response.deny("blocked")`
 
 #### Scenario: Handler injects agent guidance
 - **WHEN** a handler calls `ctx.inject("Use read-only mode")` before continuing
-- **THEN** Panther adds that guidance to the eventual tool result according to response injection behavior
+- **THEN** Fentaris adds that guidance to the eventual tool result according to response injection behavior
 
 ### Requirement: Request-local state
 The system SHALL provide a mutable request-local `ctx.state` object shared across handlers for the same operation.
@@ -67,8 +67,8 @@ The system SHALL preserve compatibility aliases for existing context consumers.
 
 #### Scenario: Legacy user alias
 - **WHEN** existing code reads `ctx.user.id`
-- **THEN** Panther provides the compatible resolved user id during the migration period
+- **THEN** Fentaris provides the compatible resolved user id during the migration period
 
 #### Scenario: Legacy response alias
 - **WHEN** existing code calls `ctx.res.deny("blocked")`
-- **THEN** Panther handles it as an alias for the unified response controller
+- **THEN** Fentaris handles it as an alias for the unified response controller

@@ -1,6 +1,6 @@
 ## Context
 
-Panther already ships core proxy, transports (stdio), middleware, hooks, and a structured logger. The missing pieces are governance and operational primitives needed to realize the proposed syntax: policy enforcement, secrets registry, distributed rate limiting, identity resolution, isolation runtime, HTTP transport, and richer logging/autologging. The design must scale across multiple Panther instances and support multi-tenant usage without coupling governance to individual servers.
+Fentaris already ships core proxy, transports (stdio), middleware, hooks, and a structured logger. The missing pieces are governance and operational primitives needed to realize the proposed syntax: policy enforcement, secrets registry, distributed rate limiting, identity resolution, isolation runtime, HTTP transport, and richer logging/autologging. The design must scale across multiple Fentaris instances and support multi-tenant usage without coupling governance to individual servers.
 
 ## Goals / Non-Goals
 
@@ -41,7 +41,7 @@ Panther already ships core proxy, transports (stdio), middleware, hooks, and a s
    - Alternative: embed isolation in `McpServer` without abstraction. Rejected to keep transport/runtime decoupled.
 
 6. **HTTP transport as first-class adapter**
-   - Add `HttpTransport` implementing the PanterTransport interface.
+   - Add `HttpTransport` implementing the FentarisTransport interface.
    - Provide SSE adapter pattern but keep concrete SSE implementation optional.
 
 7. **Logging/auto-log pipeline**

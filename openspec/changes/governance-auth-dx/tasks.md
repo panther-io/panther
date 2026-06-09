@@ -26,7 +26,7 @@
 
 - [x] 4.1 Define encrypted credentials JSON schema for user API keys, user credentials, group credentials, and default credentials
 - [x] 4.2 Define upstream auth binding JSON schema for bearer, header, and env auth bindings
-- [x] 4.3 Implement `PantherAuth.local({ dir, key })` to load both local auth files behind one API
+- [x] 4.3 Implement `FentarisAuth.local({ dir, key })` to load both local auth files behind one API
 - [x] 4.4 Implement encryption/decryption and validation for the local credentials file
 - [x] 4.5 Add clear startup errors for missing files, invalid keys, invalid encrypted payloads, and invalid upstream bindings
 - [x] 4.6 Add tests for successful load, missing files, invalid decryption key, schema validation, and redacted diagnostics
@@ -60,7 +60,7 @@
 
 ## 8. Documentation And Tooling
 
-- [x] 8.1 Document the recommended DX with `PantherAuth.local`, `user`, `group`, `policy`, `mcp.*`, and `proxy.use`
+- [x] 8.1 Document the recommended DX with `FentarisAuth.local`, `user`, `group`, `policy`, `mcp.*`, and `proxy.use`
 - [x] 8.2 Document local auth file layout and explain which file is encrypted and which is safe to review
 - [x] 8.3 Document API-key identity and why spoofable user id headers are only for trusted internal setups
 - [x] 8.4 Document credential precedence and upstream auth binding examples for bearer, header, and env
@@ -68,7 +68,7 @@
 
 ## 9. Verification
 
-- [x] 9.1 Run `pnpm --filter @panther/core test`
-- [x] 9.2 Run `pnpm --filter @panther/core build`
+- [x] 9.1 Run `pnpm --filter @fentaris/core test`
+- [x] 9.2 Run `pnpm --filter @fentaris/core build`
 - [x] 9.3 Run repository lint/typecheck commands required by the project
 - [x] 9.4 Verify `openspec status --change "governance-auth-dx"` reports the change as apply-ready

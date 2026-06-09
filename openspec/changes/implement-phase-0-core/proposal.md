@@ -1,10 +1,10 @@
 ## Why
 
-Panther needs a working MCP proxy core before adding policy, approvals, registries, isolation, or scaling features. A minimal passthrough core creates the stable execution path that every future governance feature will extend.
+Fentaris needs a working MCP proxy core before adding policy, approvals, registries, isolation, or scaling features. A minimal passthrough core creates the stable execution path that every future governance feature will extend.
 
 ## What Changes
 
-- Add the first `@panther/core` public API for creating MCP upstream servers, transports, and a proxy gateway.
+- Add the first `@fentaris/core` public API for creating MCP upstream servers, transports, and a proxy gateway.
 - Introduce configurable object-style constructors for transports and servers.
 - Support stdio MCP upstreams through `StdioTransport`.
 - Expose a streamable HTTP MCP proxy endpoint that aggregates upstream tools.
@@ -23,5 +23,5 @@ Panther needs a working MCP proxy core before adding policy, approvals, registri
 
 - Adds source files under `packages/core/src`.
 - Adds runtime dependencies on the MCP TypeScript SDK and Node typings/build tooling needed by the core package.
-- Defines the initial public API exported by `@panther/core`.
+- Defines the initial public API exported by `@fentaris/core`.
 - Does not add RBAC policies, user registries, Redis, Docker isolation, approval integrations, or autoscaling in this change.

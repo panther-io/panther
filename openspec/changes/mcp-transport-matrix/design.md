@@ -1,8 +1,8 @@
 ## Context
 
-`@panther/core` currently separates upstream MCP servers behind `PanterTransport`, but `McpProxy.start()` owns the downstream HTTP server directly. Upstream stdio support is native through the MCP SDK, while HTTP/HTTPS support is a simple REST-like adapter that posts to `/listTools` and `/callTool`, not a full MCP Streamable HTTP client. SSE upstreams are documented as a custom adapter pattern but are not implemented.
+`@fentaris/core` currently separates upstream MCP servers behind `FentarisTransport`, but `McpProxy.start()` owns the downstream HTTP server directly. Upstream stdio support is native through the MCP SDK, while HTTP/HTTPS support is a simple REST-like adapter that posts to `/listTools` and `/callTool`, not a full MCP Streamable HTTP client. SSE upstreams are documented as a custom adapter pattern but are not implemented.
 
-This change introduces a transport matrix: Panther can connect to native MCP upstreams over stdio, Streamable HTTP/HTTPS, and SSE, and can expose the aggregated proxy over HTTP by default with optional stdio and SSE exposure. Governance features such as identity, policy, registry secrets, rate limiting, hooks, logging, and isolation must continue to operate at the proxy edge regardless of the chosen downstream transport.
+This change introduces a transport matrix: Fentaris can connect to native MCP upstreams over stdio, Streamable HTTP/HTTPS, and SSE, and can expose the aggregated proxy over HTTP by default with optional stdio and SSE exposure. Governance features such as identity, policy, registry secrets, rate limiting, hooks, logging, and isolation must continue to operate at the proxy edge regardless of the chosen downstream transport.
 
 ## Goals / Non-Goals
 
@@ -38,9 +38,9 @@ Alternative considered: replace `start()` with a new required transport API. Thi
 
 ### Model upstream and downstream transports separately
 
-Upstream transports implement the existing `PanterTransport` shape because they behave as MCP clients toward configured servers. Downstream proxy exposure transports will use a separate interface because they behave as MCP servers toward external clients and need different lifecycle and identity inputs.
+Upstream transports implement the existing `FentarisTransport` shape because they behave as MCP clients toward configured servers. Downstream proxy exposure transports will use a separate interface because they behave as MCP servers toward external clients and need different lifecycle and identity inputs.
 
-Alternative considered: reuse `PanterTransport` for both directions. That conflates client and server semantics and cannot represent downstream session creation cleanly.
+Alternative considered: reuse `FentarisTransport` for both directions. That conflates client and server semantics and cannot represent downstream session creation cleanly.
 
 ### Implement native MCP HTTP/HTTPS upstream with SDK protocol semantics
 
@@ -52,7 +52,7 @@ Alternative considered: evolve the current `HttpTransport` REST-like adapter. Th
 
 Add an SSE upstream transport that manages the SSE connection lifecycle, correlates requests/responses through the MCP SDK transport where possible, and closes open streams on proxy shutdown. It should reconnect only when the SDK transport or implementation can do so safely.
 
-Alternative considered: keep SSE as documentation-only custom transport. That blocks common MCP server deployments and weakens Panther as a central gateway.
+Alternative considered: keep SSE as documentation-only custom transport. That blocks common MCP server deployments and weakens Fentaris as a central gateway.
 
 ### Use a shared HTTP-family auth resolver
 
@@ -62,7 +62,7 @@ Alternative considered: define separate auth options per transport. That creates
 
 ### Treat stdio auth as environment configuration
 
-Stdio has no HTTP headers or OAuth exchange. Panther will support stdio credentials through `McpServer.env(user)`, registry-backed secrets/tokens, and env-aware transport copies. Per-user isolation remains controlled by `McpServer.isolation`.
+Stdio has no HTTP headers or OAuth exchange. Fentaris will support stdio credentials through `McpServer.env(user)`, registry-backed secrets/tokens, and env-aware transport copies. Per-user isolation remains controlled by `McpServer.isolation`.
 
 Alternative considered: add auth options directly to `StdioTransport`. That would duplicate `env` and imply protocol-level auth that stdio does not have.
 
@@ -86,4 +86,4 @@ Alternative considered: add auth options directly to `StdioTransport`. That woul
 
 - Should the existing `HttpTransport` be renamed to `SimpleHttpTransport`, deprecated, or left as-is with stronger documentation?
 - Should downstream stdio exposure support only a static user context, or also accept an async identity resolver configured outside HTTP headers?
-- Should downstream SSE exposure be implemented in this change if the MCP SDK does not provide a stable server-side SSE transport, or should it be a Panther-owned adapter?
+- Should downstream SSE exposure be implemented in this change if the MCP SDK does not provide a stable server-side SSE transport, or should it be a Fentaris-owned adapter?

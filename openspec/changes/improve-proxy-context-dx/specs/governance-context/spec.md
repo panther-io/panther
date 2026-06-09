@@ -16,7 +16,7 @@ The system SHALL allow handlers to ask whether the current subject can call a sp
 
 #### Scenario: Capability check uses current subject groups
 - **WHEN** `ctx.policy.can("github", "delete_repo")` is called for a grouped subject
-- **THEN** Panther evaluates the subject's effective group policies for the requested server/tool pair
+- **THEN** Fentaris evaluates the subject's effective group policies for the requested server/tool pair
 
 #### Scenario: Capability check uses global policy
 - **WHEN** no groups are configured but a global policy is configured

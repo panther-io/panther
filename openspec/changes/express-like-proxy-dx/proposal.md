@@ -1,6 +1,6 @@
 ## Why
 
-Panther's current proxy core is capable, but its developer surface is split across middleware, call hooks, list-tools hooks, lifecycle hooks, and separate request/context objects. Now that governance and transport work have established the runtime foundation, Panther needs a cohesive Express-like DX that makes proxy behavior easy to compose without leaking internal MCP routing details.
+Fentaris's current proxy core is capable, but its developer surface is split across middleware, call hooks, list-tools hooks, lifecycle hooks, and separate request/context objects. Now that governance and transport work have established the runtime foundation, Fentaris needs a cohesive Express-like DX that makes proxy behavior easy to compose without leaking internal MCP routing details.
 
 ## What Changes
 

@@ -52,14 +52,14 @@
 
 ## 6. Auth And Governance Domain Split
 
-- [ ] 6.1 Move local auth store, credential resolution, and API-key strategy code into `packages/core/src/auth`
-- [ ] 6.2 Move identity strategy helpers into the auth domain or an explicit identity submodule
-- [ ] 6.3 Split governance DSL, subjects/groups, approval helpers, policy declarations, and evaluation helpers into `packages/core/src/governance`
-- [ ] 6.4 Move policy engine and permission matching helpers into the governance domain or an explicit policy submodule
-- [ ] 6.5 Preserve compatibility barrels and public exports for existing auth, identity, governance, and policy imports
-- [ ] 6.6 Update internal imports and matching tests
-- [ ] 6.7 Run `pnpm --filter @fentaris/core test`
-- [ ] 6.8 Run `pnpm --filter @fentaris/core build`
+- [x] 6.1 Move local auth store, credential resolution, and API-key strategy code into `packages/core/src/auth`
+- [x] 6.2 Move identity strategy helpers into the auth domain or an explicit identity submodule
+- [x] 6.3 Split governance DSL, subjects/groups, approval helpers, policy declarations, and evaluation helpers into `packages/core/src/governance`
+- [x] 6.4 Move policy engine and permission matching helpers into the governance domain or an explicit policy submodule
+- [x] 6.5 Preserve compatibility barrels and public exports for existing auth, identity, governance, and policy imports
+- [x] 6.6 Update internal imports and matching tests
+- [x] 6.7 Run `pnpm --filter @fentaris/core test`
+- [x] 6.8 Run `pnpm --filter @fentaris/core build`
 
 ## 7. Proxy Decomposition
 

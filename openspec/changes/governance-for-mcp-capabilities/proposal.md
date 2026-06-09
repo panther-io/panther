@@ -1,6 +1,6 @@
 ## Why
 
-Panther's governance model is currently centered on tools, but MCP resources, prompts, and completion can expose sensitive data or shape model behavior. Once Panther proxies more MCP features, policy, middleware, context, events, and audit controls must apply consistently across every proxied capability.
+Fentaris's governance model is currently centered on tools, but MCP resources, prompts, and completion can expose sensitive data or shape model behavior. Once Fentaris proxies more MCP features, policy, middleware, context, events, and audit controls must apply consistently across every proxied capability.
 
 ## What Changes
 

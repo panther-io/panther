@@ -1,6 +1,6 @@
 ## 1. Protocol Types And Mapping
 
-- [x] 1.1 Add optional resource, prompt, resource-template, and completion methods to `PanterTransport`
+- [x] 1.1 Add optional resource, prompt, resource-template, and completion methods to `FentarisTransport`
 - [x] 1.2 Add SDK request/result type imports and public type aliases for new MCP server feature operations
 - [x] 1.3 Implement prompt name mapping helpers that round-trip `<server>__<prompt>` to server and upstream prompt name
 - [x] 1.4 Implement proxied resource URI and resource template URI mapping helpers with round-trip validation
@@ -37,11 +37,11 @@
 - [x] 5.1 Register downstream SDK request handlers for resources, resource templates, prompts, and completion
 - [x] 5.2 Compute downstream `resources`, `prompts`, and `completions` capabilities from configured upstream support
 - [x] 5.3 Keep `tools` capability and existing tool handlers unchanged
-- [x] 5.4 Add integration tests using an MCP client against Panther for list/read/get/complete flows
+- [x] 5.4 Add integration tests using an MCP client against Fentaris for list/read/get/complete flows
 
 ## 6. Documentation And Verification
 
-- [x] 6.1 Update reference docs for `PanterTransport`, `McpServer`, and `McpProxy`
+- [x] 6.1 Update reference docs for `FentarisTransport`, `McpServer`, and `McpProxy`
 - [x] 6.2 Update guide docs to describe proxied resources, prompts, and completion naming
-- [x] 6.3 Run `pnpm --filter @panther/core test`
-- [x] 6.4 Run `pnpm --filter @panther/core build`
+- [x] 6.3 Run `pnpm --filter @fentaris/core test`
+- [x] 6.4 Run `pnpm --filter @fentaris/core build`

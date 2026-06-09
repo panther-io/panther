@@ -1,6 +1,6 @@
 ## Context
 
-Panther already builds a `ProxyContext` for middleware, tool routes, and events. The context contains most of the needed data, but the developer-facing model is not yet strict enough for the desired DX: `ctx.subject`, `ctx.auth`, and `ctx.policy` should feel like stable domains, while legacy aliases remain available for existing code.
+Fentaris already builds a `ProxyContext` for middleware, tool routes, and events. The context contains most of the needed data, but the developer-facing model is not yet strict enough for the desired DX: `ctx.subject`, `ctx.auth`, and `ctx.policy` should feel like stable domains, while legacy aliases remain available for existing code.
 
 The current policy context exposes decision metadata but does not provide a direct capability helper such as `ctx.policy.can("github", "delete_repo")`. Developers must manually inspect matched permissions or re-run policy checks elsewhere.
 
@@ -17,7 +17,7 @@ The current policy context exposes decision metadata but does not provide a dire
 
 **Non-Goals:**
 
-- Do not introduce the larger `panther(...)`, `mcp.*`, `http(...)`, or `zodInput(...)` DSL in this change.
+- Do not introduce the larger `fentaris(...)`, `mcp.*`, `http(...)`, or `zodInput(...)` DSL in this change.
 - Do not replace group-owned `Policy` declarations with route-local authorization.
 - Do not change MCP tool name mapping or transport behavior.
 - Do not implement a remote approval workflow.

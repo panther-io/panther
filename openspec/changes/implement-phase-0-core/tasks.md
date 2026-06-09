@@ -1,6 +1,6 @@
 ## 1. Package Setup
 
-- [x] 1.1 Add MCP SDK and Node runtime dependencies needed by `@panther/core`
+- [x] 1.1 Add MCP SDK and Node runtime dependencies needed by `@fentaris/core`
 - [x] 1.2 Create the `packages/core/src` module structure and public entrypoint
 
 ## 2. Transport And Upstream Core

@@ -42,5 +42,5 @@
 
 - [x] 6.1 Update governance docs to explain operation-based capability permissions
 - [x] 6.2 Update migration docs showing current tool policies continuing to work
-- [x] 6.3 Run `pnpm --filter @panther/core test`
-- [x] 6.4 Run `pnpm --filter @panther/core build`
+- [x] 6.3 Run `pnpm --filter @fentaris/core test`
+- [x] 6.4 Run `pnpm --filter @fentaris/core build`

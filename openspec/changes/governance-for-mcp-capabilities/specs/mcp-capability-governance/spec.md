@@ -9,15 +9,15 @@ The system SHALL support policy permissions for proxied MCP operations across to
 
 #### Scenario: Resource read permission
 - **WHEN** a policy denies `resource:read` for a target resource
-- **THEN** Panther rejects the downstream `resources/read` request before forwarding it upstream
+- **THEN** Fentaris rejects the downstream `resources/read` request before forwarding it upstream
 
 #### Scenario: Prompt get permission
 - **WHEN** a policy denies `prompt:get` for a target prompt
-- **THEN** Panther rejects the downstream `prompts/get` request before forwarding it upstream
+- **THEN** Fentaris rejects the downstream `prompts/get` request before forwarding it upstream
 
 #### Scenario: Completion permission
 - **WHEN** a policy denies `completion:complete` for a referenced prompt or resource template
-- **THEN** Panther rejects the downstream `completion/complete` request before forwarding it upstream
+- **THEN** Fentaris rejects the downstream `completion/complete` request before forwarding it upstream
 
 ### Requirement: Governed list filtering
 The system SHALL filter list responses according to the subject's effective capability permissions.
@@ -54,34 +54,34 @@ The system SHALL allow middleware to observe, deny, fail, or inject behavior aro
 
 #### Scenario: Middleware denies resource read
 - **WHEN** middleware denies a `resource:read` operation
-- **THEN** Panther returns the middleware's structured MCP error and does not call the upstream server
+- **THEN** Fentaris returns the middleware's structured MCP error and does not call the upstream server
 
 #### Scenario: Middleware observes prompt get
 - **WHEN** middleware calls `next()` during `prompt:get`
-- **THEN** Panther continues through the remaining middleware and forwards the request if policy allows it
+- **THEN** Fentaris continues through the remaining middleware and forwards the request if policy allows it
 
 ### Requirement: Capability events
 The system SHALL emit typed events for non-tool MCP operations with operation context, result or error, and duration metadata.
 
 #### Scenario: Resource success event
 - **WHEN** a `resources/read` request succeeds
-- **THEN** Panther emits a resource success event containing `ctx`, result, and duration
+- **THEN** Fentaris emits a resource success event containing `ctx`, result, and duration
 
 #### Scenario: Prompt error event
 - **WHEN** a `prompts/get` request fails
-- **THEN** Panther emits a prompt error event containing `ctx`, error, and duration
+- **THEN** Fentaris emits a prompt error event containing `ctx`, error, and duration
 
 #### Scenario: Completion after event
 - **WHEN** a `completion/complete` request finishes
-- **THEN** Panther emits an after event regardless of success or failure
+- **THEN** Fentaris emits an after event regardless of success or failure
 
 ### Requirement: Capability audit logging
 The system SHALL include operation, subject, server, target, policy outcome, and credential source metadata in logs for governed MCP operations.
 
 #### Scenario: Denied resource log
 - **WHEN** policy denies a resource read
-- **THEN** Panther logs the denial with operation, subject id, server name, resource URI, and policy reason
+- **THEN** Fentaris logs the denial with operation, subject id, server name, resource URI, and policy reason
 
 #### Scenario: Successful prompt log
 - **WHEN** a prompt get succeeds
-- **THEN** Panther logs the success with operation, subject id, server name, prompt name, and duration
+- **THEN** Fentaris logs the success with operation, subject id, server name, prompt name, and duration
