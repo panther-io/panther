@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { SpawnOptions } from "node:child_process";
 import { describe, expect, it, vi } from "vitest";
-import { PantherAuth } from "@panther/core";
+import { FentarisAuth } from "@fentaris/core";
 import { discoverProject, ensureEmptyTargetDirectory, main, parseCommand, renderTemplate, resolveProjectName, selectPackageManager, type Prompt, type Runtime } from "./index.js";
 
 function prompt(values: string[] = []): Prompt {
@@ -19,7 +19,7 @@ function runtime(cwd: string, probes: Record<string, boolean> = {}): Runtime & {
   const calls: Array<{ command: string; args: string[]; cwd?: string | URL }> = [];
   return {
     cwd,
-    env: { PANTHER_AUTH_KEY: "test-key" },
+    env: { FENTARIS_AUTH_KEY: "test-key" },
     out: { log: vi.fn(), error: vi.fn() },
     runner: vi.fn(async (command: string, args: string[], options?: SpawnOptions) => {
       calls.push({ command, args, cwd: options?.cwd });
@@ -46,7 +46,7 @@ describe("command routing helpers", () => {
   });
 
   it("rejects non-empty target directories", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     await writeFile(join(dir, "existing.txt"), "content");
     await expect(ensureEmptyTargetDirectory(dir)).rejects.toThrow("new or empty");
   });
@@ -72,12 +72,12 @@ describe("project template", () => {
       ".env.example",
       ".gitignore",
       "demo-files/README.md",
+      "fentaris.config.json",
       "package.json",
-      "panther.config.json",
       "src/index.ts",
       "tsconfig.json",
     ]);
-    expect(rendered.files[".gitignore"]).toContain(".panther/auth/");
+    expect(rendered.files[".gitignore"]).toContain(".fentaris/auth/");
     expect(rendered.files["src/index.ts"]).toContain("https://mcp.specification.website/mcp");
     expect(rendered.files["src/index.ts"]).toContain("rateLimitMiddleware");
     expect(rendered.files["src/index.ts"]).toContain("admin-full-access");
@@ -86,30 +86,30 @@ describe("project template", () => {
 
 describe("project commands", () => {
   it("initializes a project with dry-run install and git commands", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const rt = runtime(dir, { pnpm: true, git: true, docker: false });
 
     await expect(main(["init", "demo", "--skip-install"], rt)).resolves.toBe(0);
 
-    const config = JSON.parse(await readFile(join(dir, "demo", "panther.config.json"), "utf8")) as { name: string };
+    const config = JSON.parse(await readFile(join(dir, "demo", "fentaris.config.json"), "utf8")) as { name: string };
     expect(config.name).toBe("demo");
     expect(rt.calls.some((call) => call.command === "git" && call.args[0] === "init")).toBe(true);
   });
 
   it("discovers projects from nested directories", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const srcDir = join(dir, "src", "nested");
     await mkdir(srcDir, { recursive: true });
     await writeFile(
-      join(dir, "panther.config.json"),
-      JSON.stringify({ name: "demo", packageManager: "pnpm", entrypoint: "src/index.ts", port: 4000, path: "/mcp", authDir: ".panther/auth" }),
+      join(dir, "fentaris.config.json"),
+      JSON.stringify({ name: "demo", packageManager: "pnpm", entrypoint: "src/index.ts", port: 4000, path: "/mcp", authDir: ".fentaris/auth" }),
     );
 
     await expect(discoverProject(srcDir)).resolves.toMatchObject({ root: dir });
   });
 
   it("runs dev through the discovered package manager", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const rt = runtime(dir, { pnpm: true, git: true, docker: true });
     await expect(main(["init", "demo", "--skip-install"], rt)).resolves.toBe(0);
 
@@ -120,20 +120,20 @@ describe("project commands", () => {
   });
 
   it("builds a deterministic local artifact", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const rt = runtime(dir, { pnpm: true, git: true, docker: true });
     await expect(main(["init", "demo", "--skip-install"], rt)).resolves.toBe(0);
 
     rt.cwd = join(dir, "demo");
     await expect(main(["build"], rt)).resolves.toBe(0);
 
-    const manifest = JSON.parse(await readFile(join(dir, "demo", ".panther", "build", "manifest.json"), "utf8")) as { entrypoint: string };
+    const manifest = JSON.parse(await readFile(join(dir, "demo", ".fentaris", "build", "manifest.json"), "utf8")) as { entrypoint: string };
     expect(manifest.entrypoint).toBe("src/index.ts");
     expect(rt.calls.some((call) => call.command === "pnpm" && call.args.join(" ") === "run build")).toBe(true);
   });
 
   it("validates check modes and strict warning exit behavior", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const rt = runtime(dir, { pnpm: true, git: true, docker: false });
     await expect(main(["init", "demo", "--skip-install"], rt)).resolves.toBe(0);
 
@@ -144,17 +144,17 @@ describe("project commands", () => {
   });
 
   it("prompts before applying doctor fixes", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const rt = runtime(dir, { pnpm: true, git: true, docker: true });
 
     await expect(main(["doctor", "--fix"], rt)).resolves.toBe(0);
 
     expect(rt.prompt.confirm).toHaveBeenCalledWith("Apply fix for CLI local directory?");
-    await expect(readdir(join(dir, ".panther"))).resolves.toEqual([]);
+    await expect(readdir(join(dir, ".fentaris"))).resolves.toEqual([]);
   });
 
   it("does not expose deploy before it is implemented", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const rt = runtime(dir);
     await expect(main(["deploy"], rt)).resolves.toBe(1);
     expect(rt.out.error).toHaveBeenCalledWith(expect.stringContaining('Unknown command "deploy"'));
@@ -162,25 +162,25 @@ describe("project commands", () => {
 });
 
 describe("secrets", () => {
-  it("stores redacted user secrets in PantherAuth-compatible credentials", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "panther-cli-"));
+  it("stores redacted user secrets in FentarisAuth-compatible credentials", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
     const project = join(dir, "project");
-    const authDir = join(project, ".panther", "auth");
+    const authDir = join(project, ".fentaris", "auth");
     await mkdir(authDir, { recursive: true });
     await writeFile(
-      join(project, "panther.config.json"),
-      JSON.stringify({ name: "demo", packageManager: "pnpm", entrypoint: "src/index.ts", port: 4000, path: "/mcp", authDir: ".panther/auth" }),
+      join(project, "fentaris.config.json"),
+      JSON.stringify({ name: "demo", packageManager: "pnpm", entrypoint: "src/index.ts", port: 4000, path: "/mcp", authDir: ".fentaris/auth" }),
     );
     await writeFile(
       join(authDir, "credentials.enc.json"),
-      JSON.stringify(PantherAuth.encryptCredentials({ users: {}, groups: {}, defaults: {} }, "test-key")),
+      JSON.stringify(FentarisAuth.encryptCredentials({ users: {}, groups: {}, defaults: {} }, "test-key")),
     );
     await writeFile(join(authDir, "upstream-auth.json"), JSON.stringify({ servers: {} }));
 
     const rt = runtime(project);
     await expect(main(["secrets", "set", "github.token", "--user", "alice"], rt)).resolves.toBe(0);
 
-    const credentials = PantherAuth.decryptCredentials(JSON.parse(await readFile(join(authDir, "credentials.enc.json"), "utf8")) as unknown, "test-key");
+    const credentials = FentarisAuth.decryptCredentials(JSON.parse(await readFile(join(authDir, "credentials.enc.json"), "utf8")) as unknown, "test-key");
     expect(credentials.users.alice?.credentials["github.token"]).toBe("secret-value");
     expect(rt.out.log).toHaveBeenCalledWith("Value: <redacted>");
   });
