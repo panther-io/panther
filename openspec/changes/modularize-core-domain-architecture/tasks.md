@@ -39,16 +39,16 @@
 
 ## 5. Simple Domain Moves
 
-- [ ] 5.1 Move logging implementation into `packages/core/src/logging`
-- [ ] 5.2 Move error mapping and error codes into `packages/core/src/errors`
-- [ ] 5.3 Move naming helpers into `packages/core/src/naming`
-- [ ] 5.4 Move registry implementations into `packages/core/src/registry`
-- [ ] 5.5 Move rate limiting implementations into `packages/core/src/rate-limit`
-- [ ] 5.6 Move isolation implementations into `packages/core/src/isolation`
-- [ ] 5.7 Preserve compatibility barrels and public exports for all moved domains
-- [ ] 5.8 Update internal imports and matching tests
-- [ ] 5.9 Run `pnpm --filter @fentaris/core test`
-- [ ] 5.10 Run `pnpm --filter @fentaris/core build`
+- [x] 5.1 Move logging implementation into `packages/core/src/logging`
+- [x] 5.2 Move error mapping and error codes into `packages/core/src/errors`
+- [x] 5.3 Move naming helpers into `packages/core/src/naming`
+- [x] 5.4 Move registry implementations into `packages/core/src/registry`
+- [x] 5.5 Move rate limiting implementations into `packages/core/src/rate-limit`
+- [x] 5.6 Move isolation implementations into `packages/core/src/isolation`
+- [x] 5.7 Preserve compatibility barrels and public exports for all moved domains
+- [x] 5.8 Update internal imports and matching tests
+- [x] 5.9 Run `pnpm --filter @fentaris/core test`
+- [x] 5.10 Run `pnpm --filter @fentaris/core build`
 
 ## 6. Auth And Governance Domain Split
 

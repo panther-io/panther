@@ -1,1 +1,1 @@
-export { DefaultErrorMapper, FentarisErrorCode } from "../errors.js";
+export { DefaultErrorMapper, FentarisErrorCode } from "./errors.js";

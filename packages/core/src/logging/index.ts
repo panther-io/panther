@@ -1,4 +1,4 @@
-export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "../logger.js";
+export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "./logger.js";
 export type {
   LogEntry,
   LoggerDriver,
@@ -7,4 +7,4 @@ export type {
   LogLevel,
   RedisLoggerClient,
   RedisLoggerDriverOptions,
-} from "../logger.js";
+} from "./logger.js";

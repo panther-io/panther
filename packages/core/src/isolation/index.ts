@@ -1,1 +1,1 @@
-export { InProcessIsolation } from "../isolation.js";
+export { InProcessIsolation } from "./isolation.js";
