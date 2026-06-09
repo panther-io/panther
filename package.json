@@ -1,11 +1,11 @@
 {
-  "name": "panther",
+  "name": "fentaris",
   "version": "0.1.0",
   "private": true,
-  "description": "Panther - Proxy MCP centralizzato",
+  "description": "Fentaris - Proxy MCP centralizzato",
   "scripts": {
-    "dev:core": "pnpm --filter @panther/core dev",
-    "dev:cli": "pnpm --filter @panther/cli dev",
+    "dev:core": "pnpm --filter @fentaris/core dev",
+    "dev:cli": "pnpm --filter @fentaris/cli dev",
     "docs:generate": "node scripts/generate-typedoc-mdx.cjs",
     "build": "pnpm -r build",
     "lint": "eslint packages/",
@@ -20,6 +20,16 @@
       "onFail": "download"
     }
   },
+  "author": "Gabriele Cipriani",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fentaris-io/fentaris.git"
+  },
+  "homepage": "https://github.com/fentaris-io/fentaris#readme",
+  "bugs": {
+    "url": "https://github.com/fentaris-io/fentaris/issues"
+  },
+  "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.4.0",
