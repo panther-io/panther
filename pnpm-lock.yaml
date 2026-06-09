@@ -228,7 +228,7 @@ importers:
 
   packages/approval-telegram:
     dependencies:
-      '@panther/core':
+      '@fentaris/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -241,7 +241,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@panther/core':
+      '@fentaris/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
