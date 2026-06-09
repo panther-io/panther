@@ -1,7 +1,7 @@
 <div align="center">
-  <a href="https://github.com/panther-io/panther">
+  <a href="https://github.com/fentaris-io/fentaris">
     <picture>
-      <img alt="Panther logo" src="./static/logo_white.svg" width="90%">
+      <img alt="Fentaris logo" src="./static/logo_white.svg" width="90%">
     </picture>
   </a>
 </div>
@@ -10,11 +10,11 @@
 
 <p align="center">
   <a href="./docs/index.mdx" alt="Documentation">
-    <img src="https://img.shields.io/badge/panther-docs-blue?labelColor=white" /></a>
+    <img src="https://img.shields.io/badge/fentaris-docs-blue?labelColor=white" /></a>
   <a href="./packages/core" alt="Core package">
-    <img src="https://img.shields.io/badge/core-%40panther%2Fcore-blue?labelColor=white" /></a>
+    <img src="https://img.shields.io/badge/core-%40fentaris%2Fcore-blue?labelColor=white" /></a>
   <a href="./packages/cli" alt="CLI package">
-    <img src="https://img.shields.io/badge/cli-%40panther%2Fcli-blue?labelColor=white" /></a>
+    <img src="https://img.shields.io/badge/cli-%40fentaris%2Fcli-blue?labelColor=white" /></a>
   <a href="./packages/approval-telegram" alt="Telegram approval package">
     <img src="https://img.shields.io/badge/approval-telegram-blue?labelColor=white" /></a>
   <br/>
@@ -28,20 +28,20 @@
 
 ## About
 
-<b>Panther</b> is a centralized MCP proxy for routing multiple MCP servers through one controlled endpoint.
+<b>Fentaris</b> is a centralized MCP proxy for routing multiple MCP servers through one controlled endpoint.
 
 - **Unify** stdio, Streamable HTTP, SSE, and HTTP upstream MCP servers behind one proxy.
 - **Protect** tool calls, resources, prompts, and completions with policy, identity, middleware, hooks, and rate limits.
 - **Observe** every proxied operation with structured logging, lifecycle events, and per-request context.
-- **Ship** generated proxy projects with the Panther CLI and local encrypted auth files.
+- **Ship** generated proxy projects with the Fentaris CLI and local encrypted auth files.
 
-Panther is designed for teams that want MCP servers to behave like production infrastructure: stable names, centralized governance, auditable calls, and predictable client-facing endpoints.
+Fentaris is designed for teams that want MCP servers to behave like production infrastructure: stable names, centralized governance, auditable calls, and predictable client-facing endpoints.
 
 ## Documentation
 
 Start with the [docs homepage](./docs/index.mdx), or jump directly to:
 
-- [Quickstart](./docs/getting-started/quickstart.mdx): create and run a Panther proxy project.
+- [Quickstart](./docs/getting-started/quickstart.mdx): create and run a Fentaris proxy project.
 - [Architecture](./docs/core/architecture.mdx): understand the runtime model.
 - [Proxy setup](./docs/guides/proxy-setup.mdx): production-ready configuration patterns.
 - [Governance auth](./docs/guides/governance-auth.mdx): users, groups, policy, API keys, and upstream credentials.
@@ -52,15 +52,15 @@ Start with the [docs homepage](./docs/index.mdx), or jump directly to:
 Install the core package in an existing project:
 
 ```bash
-pnpm add @panther/core
+pnpm add @fentaris/core
 ```
 
 Build a proxy in a few lines:
 
 ```ts
-import { panther, server, stdio } from "@panther/core";
+import { fentaris, server, stdio } from "@fentaris/core";
 
-const proxy = panther({
+const proxy = fentaris({
   port: 3000,
   path: "/mcp",
   servers: [
@@ -86,9 +86,9 @@ filesystem__list_directory
 Add another upstream without changing the client endpoint:
 
 ```ts
-import { panther, server, streamableHttp } from "@panther/core";
+import { fentaris, server, streamableHttp } from "@fentaris/core";
 
-const proxy = panther({
+const proxy = fentaris({
   servers: [
     server("docs", {
       transport: streamableHttp({
@@ -104,13 +104,13 @@ const proxy = panther({
 Add users, groups, and policy:
 
 ```ts
-import { group, panther, policy, user } from "@panther/core";
+import { group, fentaris, policy, user } from "@fentaris/core";
 
 const readOnly = policy("read-only")
   .server("filesystem")
   .allow("list_directory");
 
-const proxy = panther({
+const proxy = fentaris({
   servers: [filesystem],
   groups: [
     group({
@@ -135,7 +135,7 @@ proxy.server("filesystem").tool("write_file", (ctx, next) => {
 Ask for approval before dangerous tools:
 
 ```ts
-import { approval, policy } from "@panther/core";
+import { approval, policy } from "@fentaris/core";
 
 const deploy = policy("deploy")
   .server("github")
@@ -158,7 +158,7 @@ Modify a tool result:
 proxy.server("github").tool("search_issues", async (_ctx, next) => {
   const result = await next();
   if ("content" in result) {
-    result.content.push({ type: "text", text: "Filtered by Panther" });
+    result.content.push({ type: "text", text: "Filtered by Fentaris" });
   }
   return result;
 });
@@ -179,31 +179,31 @@ Policies can govern tool calls and MCP capabilities such as resources, prompts, 
 Create the same kind of proxy from one command:
 
 ```bash
-pnpm dlx @panther/cli init my-proxy
+pnpm dlx @fentaris/cli init my-proxy
 ```
 
 The generated project includes a runnable proxy, demo API keys, local encrypted auth files, policy rules, rate limiting, one stdio upstream, one remote HTTP MCP upstream, TypeScript config, package scripts, and project checks.
 
-Connect your MCP client to the generated endpoint, usually `http://localhost:4000/mcp`, and send the generated API key in the default Panther auth header:
+Connect your MCP client to the generated endpoint, usually `http://localhost:4000/mcp`, and send the generated API key in the default Fentaris auth header:
 
 ```txt
-x-panther-api-key: <guest-or-admin-api-key>
+x-fentaris-api-key: <guest-or-admin-api-key>
 ```
 
 ## Local Auth
 
-Panther can resolve caller identity and upstream credentials from local encrypted files:
+Fentaris can resolve caller identity and upstream credentials from local encrypted files:
 
 ```bash
-panther auth init --dir .panther/auth --key "$PANTHER_AUTH_KEY"
-panther auth set-api-key --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
-panther auth set-credential --dir .panther/auth --key "$PANTHER_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
+fentaris auth init --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY"
+fentaris auth set-api-key --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
+fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
 ```
 
-Or, inside a generated Panther project:
+Or, inside a generated Fentaris project:
 
 ```bash
-panther secrets set github.token --user alice
+fentaris secrets set github.token --user alice
 ```
 
 Credential values are not exposed to middleware, hooks, logs, or policy callbacks.
@@ -212,9 +212,9 @@ Credential values are not exposed to middleware, hooks, logs, or policy callback
 
 | Package | Description |
 | --- | --- |
-| [`@panther/core`](./packages/core) | Proxy runtime, MCP server wrapper, transports, policy, auth, logging, and middleware APIs. |
-| [`@panther/cli`](./packages/cli) | Project generator and local development commands. |
-| [`@panther/approval-telegram`](./packages/approval-telegram) | Telegram approval adapter for Panther policies. |
+| [`@fentaris/core`](./packages/core) | Proxy runtime, MCP server wrapper, transports, policy, auth, logging, and middleware APIs. |
+| [`@fentaris/cli`](./packages/cli) | Project generator and local development commands. |
+| [`@fentaris/approval-telegram`](./packages/approval-telegram) | Telegram approval adapter for Fentaris policies. |
 
 ## Development
 
@@ -235,9 +235,9 @@ Run checks:
 ```bash
 pnpm lint
 pnpm typecheck
-pnpm --filter @panther/core test
-pnpm --filter @panther/cli test
-pnpm --filter @panther/approval-telegram test
+pnpm --filter @fentaris/core test
+pnpm --filter @fentaris/cli test
+pnpm --filter @fentaris/approval-telegram test
 ```
 
 Generate docs reference:
@@ -248,4 +248,4 @@ pnpm docs:generate
 
 ## License
 
-MIT, as declared by the published Panther packages.
+MIT, as declared by the published Fentaris packages.
