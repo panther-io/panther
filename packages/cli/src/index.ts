@@ -13,7 +13,7 @@ import {
 import { createInterface } from "node:readline/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PantherAuth, type LocalCredentials } from "@panther/core";
+import { FentarisAuth, type LocalCredentials } from "@fentaris/core";
 
 type CliOptions = Record<string, string | boolean>;
 type CliCommand = {
@@ -68,8 +68,8 @@ type ProjectConfig = {
 type ProjectDiscovery = { root: string; configPath: string; config: ProjectConfig };
 
 const supportedPackageManagers: PackageManager[] = ["pnpm", "npm", "bun"];
-const authDir = ".panther/auth";
-const buildDir = ".panther/build";
+const authDir = ".fentaris/auth";
+const buildDir = ".fentaris/build";
 const remoteMcpUrl = "https://mcp.specification.website/mcp";
 const cliVersion = "0.1.0";
 
@@ -157,7 +157,7 @@ async function route(command: CliCommand, runtime: Runtime): Promise<void> {
     return;
   }
 
-  throw new Error(`Unknown command "${command.name}". Run panther help.`);
+  throw new Error(`Unknown command "${command.name}". Run fentaris help.`);
 }
 
 async function runInit(command: CliCommand, runtime: Runtime): Promise<void> {
@@ -171,7 +171,7 @@ async function runInit(command: CliCommand, runtime: Runtime): Promise<void> {
     packageManager,
     port: numberOption(command.options, "port", 4000),
     proxyPath: stringOption(command.options, "path", "/mcp"),
-    authKey: randomToken("panther-auth"),
+    authKey: randomToken("fentaris-auth"),
     guestApiKey: randomToken("guest"),
     adminApiKey: randomToken("admin"),
   });
@@ -200,7 +200,7 @@ async function runInit(command: CliCommand, runtime: Runtime): Promise<void> {
   section(runtime, "Next Steps");
   runtime.out.log(`Demo guest API key: ${template.guestApiKey}`);
   runtime.out.log(`Demo admin API key: ${template.adminApiKey}`);
-  runtime.out.log(nextSteps([`cd ${projectName}`, "panther dev"]));
+  runtime.out.log(nextSteps([`cd ${projectName}`, "fentaris dev"]));
 }
 
 export async function resolveProjectName(provided: string | undefined, prompt: Prompt): Promise<string> {
@@ -220,7 +220,7 @@ export async function ensureEmptyTargetDirectory(targetDir: string): Promise<voi
   try {
     const current = await readdir(targetDir);
     if (current.length > 0) {
-      throw new Error(`Panther can only initialize into a new or empty directory: ${targetDir}`);
+      throw new Error(`Fentaris can only initialize into a new or empty directory: ${targetDir}`);
     }
   } catch (error: unknown) {
     if (isNodeError(error, "ENOENT")) {
@@ -259,7 +259,7 @@ async function getDoctorResults(runtime: Runtime, shouldFix: boolean): Promise<H
       group: "Runtime",
       label: "Node.js",
       status: Number(process.versions.node.split(".")[0]) >= 20 ? "pass" : "fail",
-      detail: `Detected ${process.versions.node}; Panther requires Node 20 or newer.`,
+      detail: `Detected ${process.versions.node}; Fentaris requires Node 20 or newer.`,
     },
     ...supportedPackageManagers.map((manager): HealthResult => ({
       group: "Runtime",
@@ -309,7 +309,7 @@ async function getProjectCheckResults(project: ProjectDiscovery, offline: boolea
   const expectedFiles = [
     "package.json",
     "tsconfig.json",
-    "panther.config.json",
+    "fentaris.config.json",
     ".env.example",
     ".gitignore",
     project.config.entrypoint,
@@ -332,7 +332,7 @@ async function getProjectCheckResults(project: ProjectDiscovery, offline: boolea
     group: "Package",
     label: "package metadata",
     status: hasPackageMetadata(packageJson) ? "pass" : "fail",
-    detail: hasPackageMetadata(packageJson) ? "Panther scripts and dependency are present." : "Expected @panther/core dependency and dev/build scripts.",
+    detail: hasPackageMetadata(packageJson) ? "Fentaris scripts and dependency are present." : "Expected @fentaris/core dependency and dev/build scripts.",
   });
 
   results.push({
@@ -372,7 +372,7 @@ async function runBuild(_command: CliCommand, runtime: Runtime): Promise<void> {
   const results = await getProjectCheckResults(project, true);
   if (hasFailure(results)) {
     printHealthResults(runtime, results);
-    throw new Error("Build requires a valid Panther project.");
+    throw new Error("Build requires a valid Fentaris project.");
   }
 
   section(runtime, "Build");
@@ -386,7 +386,7 @@ async function runBuild(_command: CliCommand, runtime: Runtime): Promise<void> {
       {
         name: project.config.name,
         entrypoint: project.config.entrypoint,
-        createdBy: `panther ${cliVersion}`,
+        createdBy: `fentaris ${cliVersion}`,
       },
       null,
       2,
@@ -399,7 +399,7 @@ async function runBuild(_command: CliCommand, runtime: Runtime): Promise<void> {
 async function runSecrets(command: CliCommand, runtime: Runtime): Promise<void> {
   const [action, reference] = command.args;
   if (action !== "set" || !reference) {
-    throw new Error("Usage: panther secrets set <reference> [--user <id> | --group <id>]");
+    throw new Error("Usage: fentaris secrets set <reference> [--user <id> | --group <id>]");
   }
 
   if (typeof command.options.user === "string" && typeof command.options.group === "string") {
@@ -446,7 +446,7 @@ async function setApiKey(options: CliOptions, runtime: Runtime): Promise<void> {
   const apiKey = required(options, "api-key");
   const credentials = await readCredentials(dir, key);
   const user = credentials.users[userId] ?? { apiKeys: [], credentials: {} };
-  const hashed = PantherAuth.hashApiKey(apiKey);
+  const hashed = FentarisAuth.hashApiKey(apiKey);
   credentials.users[userId] = {
     ...user,
     apiKeys: user.apiKeys.includes(hashed) ? user.apiKeys : [...user.apiKeys, hashed],
@@ -528,7 +528,7 @@ export function renderTemplate(input: TemplateInput): { files: Record<string, st
           },
           dependencies: {
             "@modelcontextprotocol/server-filesystem": "latest",
-            "@panther/core": "latest",
+            "@fentaris/core": "latest",
             tsx: "latest",
           },
           devDependencies: {
@@ -555,7 +555,7 @@ export function renderTemplate(input: TemplateInput): { files: Record<string, st
         null,
         2,
       ),
-      "panther.config.json": JSON.stringify(
+      "fentaris.config.json": JSON.stringify(
         {
           name: input.projectName,
           packageManager: input.packageManager,
@@ -581,11 +581,11 @@ export function renderTemplate(input: TemplateInput): { files: Record<string, st
         2,
       ),
       ".env.example": [
-        `PANTHER_AUTH_KEY=${input.authKey}`,
-        `PANTHER_GUEST_API_KEY=${input.guestApiKey}`,
-        `PANTHER_ADMIN_API_KEY=${input.adminApiKey}`,
-        `PANTHER_PORT=${input.port}`,
-        `PANTHER_PATH=${input.proxyPath}`,
+        `FENTARIS_AUTH_KEY=${input.authKey}`,
+        `FENTARIS_GUEST_API_KEY=${input.guestApiKey}`,
+        `FENTARIS_ADMIN_API_KEY=${input.adminApiKey}`,
+        `FENTARIS_PORT=${input.port}`,
+        `FENTARIS_PATH=${input.proxyPath}`,
         "",
       ].join("\n"),
       ".gitignore": [
@@ -594,13 +594,13 @@ export function renderTemplate(input: TemplateInput): { files: Record<string, st
         ".env",
         ".env.*",
         "!.env.example",
-        ".panther/auth/",
-        ".panther/build/",
+        ".fentaris/auth/",
+        ".fentaris/build/",
         "*.log",
         "",
       ].join("\n"),
       "src/index.ts": renderEntrypoint(input),
-      "demo-files/README.md": "# Panther demo files\n\nThis directory is intentionally scoped for the demo filesystem MCP server.\n",
+      "demo-files/README.md": "# Fentaris demo files\n\nThis directory is intentionally scoped for the demo filesystem MCP server.\n",
     },
   };
 }
@@ -610,7 +610,7 @@ function renderEntrypoint(input: TemplateInput): string {
   McpProxy,
   McpServer,
   MemoryRateLimitStore,
-  PantherAuth,
+  FentarisAuth,
   Policy,
   SlidingWindowRateLimiter,
   StdioTransport,
@@ -618,14 +618,14 @@ function renderEntrypoint(input: TemplateInput): string {
   group,
   rateLimitMiddleware,
   user,
-} from "@panther/core";
+} from "@fentaris/core";
 
-const port = Number(process.env.PANTHER_PORT ?? ${input.port});
-const proxyPath = process.env.PANTHER_PATH ?? "${input.proxyPath}";
-const authKey = process.env.PANTHER_AUTH_KEY ?? "${input.authKey}";
+const port = Number(process.env.FENTARIS_PORT ?? ${input.port});
+const proxyPath = process.env.FENTARIS_PATH ?? "${input.proxyPath}";
+const authKey = process.env.FENTARIS_AUTH_KEY ?? "${input.authKey}";
 
-const auth = await PantherAuth.local({
-  dir: ".panther/auth",
+const auth = await FentarisAuth.local({
+  dir: ".fentaris/auth",
   key: authKey,
 });
 
@@ -675,8 +675,8 @@ const proxy = new McpProxy({
 proxy.use(rateLimitMiddleware({ limiter }));
 
 await proxy.start(() => {
-  console.log(\`Panther proxy listening at http://localhost:\${port}\${proxyPath}\`);
-  console.log("Use x-panther-api-key with the generated guest or admin key.");
+  console.log(\`Fentaris proxy listening at http://localhost:\${port}\${proxyPath}\`);
+  console.log("Use x-fentaris-api-key with the generated guest or admin key.");
 });
 `;
 }
@@ -693,8 +693,8 @@ async function initTemplateAuth(dir: string, key: string, guestApiKey: string, a
   await mkdir(dir, { recursive: true });
   await writeCredentials(dir, key, {
     users: {
-      guest: { apiKeys: [PantherAuth.hashApiKey(guestApiKey)], credentials: {} },
-      admin: { apiKeys: [PantherAuth.hashApiKey(adminApiKey)], credentials: {} },
+      guest: { apiKeys: [FentarisAuth.hashApiKey(guestApiKey)], credentials: {} },
+      admin: { apiKeys: [FentarisAuth.hashApiKey(adminApiKey)], credentials: {} },
     },
     groups: { limited: {} },
     defaults: {},
@@ -705,7 +705,7 @@ async function initTemplateAuth(dir: string, key: string, guestApiKey: string, a
 export async function discoverProject(fromDir: string): Promise<ProjectDiscovery> {
   let current = path.resolve(fromDir);
   while (true) {
-    const configPath = path.join(current, "panther.config.json");
+    const configPath = path.join(current, "fentaris.config.json");
     if (await exists(configPath)) {
       const config = validateProjectConfig(await readJson(configPath), configPath);
       return { root: current, configPath, config };
@@ -713,7 +713,7 @@ export async function discoverProject(fromDir: string): Promise<ProjectDiscovery
 
     const parent = path.dirname(current);
     if (parent === current) {
-      throw new Error("No Panther project found. Run this command inside a generated Panther project.");
+      throw new Error("No Fentaris project found. Run this command inside a generated Fentaris project.");
     }
     current = parent;
   }
@@ -721,12 +721,12 @@ export async function discoverProject(fromDir: string): Promise<ProjectDiscovery
 
 function validateProjectConfig(value: unknown, configPath: string): ProjectConfig {
   if (!value || typeof value !== "object") {
-    throw new Error(`Invalid Panther config at ${configPath}`);
+    throw new Error(`Invalid Fentaris config at ${configPath}`);
   }
 
   const config = value as Partial<ProjectConfig>;
   if (!config.name || !config.packageManager || !config.entrypoint || !config.port || !config.path || !config.authDir) {
-    throw new Error(`Invalid Panther config at ${configPath}`);
+    throw new Error(`Invalid Fentaris config at ${configPath}`);
   }
 
   if (!supportedPackageManagers.includes(config.packageManager)) {
@@ -770,7 +770,7 @@ async function writableResult(dir: string): Promise<HealthResult> {
 }
 
 async function cliDirectoryResult(cwd: string): Promise<HealthResult> {
-  const cliDir = path.join(cwd, ".panther");
+  const cliDir = path.join(cwd, ".fentaris");
   const present = await exists(cliDir);
   return {
     group: "Filesystem",
@@ -849,7 +849,7 @@ function hasPackageMetadata(value: unknown): boolean {
     return false;
   }
   const packageJson = value as { dependencies?: Record<string, string>; scripts?: Record<string, string> };
-  return Boolean(packageJson.dependencies?.["@panther/core"] && packageJson.scripts?.dev && packageJson.scripts?.build);
+  return Boolean(packageJson.dependencies?.["@fentaris/core"] && packageJson.scripts?.dev && packageJson.scripts?.build);
 }
 
 function section(runtime: Runtime, title: string): void {
@@ -894,8 +894,8 @@ async function authKeyFromRuntime(runtime: Runtime, options: CliOptions): Promis
   if (typeof options.key === "string") {
     return options.key;
   }
-  if (typeof runtime.env.PANTHER_AUTH_KEY === "string" && runtime.env.PANTHER_AUTH_KEY.trim()) {
-    return runtime.env.PANTHER_AUTH_KEY;
+  if (typeof runtime.env.FENTARIS_AUTH_KEY === "string" && runtime.env.FENTARIS_AUTH_KEY.trim()) {
+    return runtime.env.FENTARIS_AUTH_KEY;
   }
   return runtime.prompt.text("Local auth encryption key", { secret: true });
 }
@@ -911,11 +911,11 @@ function secretScope(options: CliOptions): string {
 }
 
 async function readCredentials(dir: string, key: string): Promise<LocalCredentials> {
-  return PantherAuth.decryptCredentials(JSON.parse(await readFile(path.join(dir, "credentials.enc.json"), "utf8")) as unknown, key);
+  return FentarisAuth.decryptCredentials(JSON.parse(await readFile(path.join(dir, "credentials.enc.json"), "utf8")) as unknown, key);
 }
 
 async function writeCredentials(dir: string, key: string, credentials: LocalCredentials): Promise<void> {
-  await writeFile(path.join(dir, "credentials.enc.json"), JSON.stringify(PantherAuth.encryptCredentials(credentials, key), null, 2));
+  await writeFile(path.join(dir, "credentials.enc.json"), JSON.stringify(FentarisAuth.encryptCredentials(credentials, key), null, 2));
 }
 
 function defaultRuntime(): Runtime {
@@ -1023,18 +1023,18 @@ function isNodeError(error: unknown, code: string): boolean {
 
 function printHelp(runtime: Runtime): void {
   runtime.out.log(`Usage:
-  panther init [project-name] [--skip-install]
-  panther dev
-  panther check [--offline] [--strict]
-  panther doctor [--fix]
-  panther build
-  panther secrets set <reference> [--user <id> | --group <id>]
+  fentaris init [project-name] [--skip-install]
+  fentaris dev
+  fentaris check [--offline] [--strict]
+  fentaris doctor [--fix]
+  fentaris build
+  fentaris secrets set <reference> [--user <id> | --group <id>]
 
 Legacy local auth:
-  panther auth init --dir .panther/auth --key <key>
-  panther auth set-api-key --dir .panther/auth --key <key> --user <id> --api-key <secret>
-  panther auth set-credential --dir .panther/auth --key <key> --ref <name> --value <secret> [--user <id> | --group <id>]
-  panther auth inspect --dir .panther/auth --key <key>`);
+  fentaris auth init --dir .fentaris/auth --key <key>
+  fentaris auth set-api-key --dir .fentaris/auth --key <key> --user <id> --api-key <secret>
+  fentaris auth set-credential --dir .fentaris/auth --key <key> --ref <name> --value <secret> [--user <id> | --group <id>]
+  fentaris auth inspect --dir .fentaris/auth --key <key>`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

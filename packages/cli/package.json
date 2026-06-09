@@ -1,11 +1,11 @@
 {
-  "name": "@panther/cli",
+  "name": "@fentaris/cli",
   "version": "0.1.0",
-  "description": "Panther MCP Proxy - CLI",
+  "description": "Fentaris MCP Proxy - CLI",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "panther": "./dist/index.js"
+    "fentaris": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -17,14 +17,32 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@panther/core": "workspace:*"
+    "@fentaris/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
     "vitest": "^4.1.7"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "fentaris",
+    "mcp",
+    "proxy",
+    "cli",
+    "create"
+  ],
+  "author": "Gabriele Cipriani",
   "license": "MIT",
-  "type": "module"
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fentaris-io/fentaris.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/fentaris-io/fentaris#readme",
+  "bugs": {
+    "url": "https://github.com/fentaris-io/fentaris/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
