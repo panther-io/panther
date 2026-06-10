@@ -26,7 +26,7 @@ import {
   type ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { IdentityMetadata, ResolvedSubject, UserContext } from "../types/shared.js";
-import type { McpServer } from "../McpServer.js";
+import type { McpServer } from "../server/McpServer.js";
 
 export interface SdkServerDeps {
   name: string;

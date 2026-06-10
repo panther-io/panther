@@ -1,12 +1,12 @@
 import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer } from "node:http";
-import { compileToolPattern, matchesToolPattern, type RouteEntry } from "./proxy/routes.js";
-import { createContextualLogger, createProxyContext, createPolicyCan, createCapabilityContext } from "./proxy/context.js";
-import { isCapabilityAllowed } from "./proxy/capabilities.js";
-import { dispatchRouteHandler } from "./proxy/middleware.js";
-import { routeCompletion, completionTarget, capabilityToolRequest, isStructuredPolicyErrorResult, toStructuredError } from "./proxy/operations.js";
-import { operationEventName, matchesCallHook, matchesEventFilter, dispatchCallHooks, emitProxyEvent, type EventEntry } from "./proxy/events.js";
-import { emitLifecycle } from "./proxy/lifecycle.js";
-import { createSdkServer } from "./proxy/sdkServer.js";
+import { compileToolPattern, matchesToolPattern, type RouteEntry } from "./routes.js";
+import { createContextualLogger, createProxyContext, createPolicyCan, createCapabilityContext } from "./context.js";
+import { isCapabilityAllowed } from "./capabilities.js";
+import { dispatchRouteHandler } from "./middleware.js";
+import { routeCompletion, completionTarget, capabilityToolRequest, isStructuredPolicyErrorResult, toStructuredError } from "./operations.js";
+import { operationEventName, matchesCallHook, matchesEventFilter, dispatchCallHooks, emitProxyEvent, type EventEntry } from "./events.js";
+import { emitLifecycle } from "./lifecycle.js";
+import { createSdkServer } from "./sdkServer.js";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -34,9 +34,9 @@ import {
   type ReadResourceRequest,
   type ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { DefaultErrorMapper, FentarisErrorCode } from "./errors.js";
-import { Logger } from "./logger.js";
-import { McpServer } from "./McpServer.js";
+import { DefaultErrorMapper, FentarisErrorCode } from "../errors.js";
+import { Logger } from "../logger.js";
+import { McpServer } from "../server/McpServer.js";
 import {
   fromProxyPromptName,
   fromProxyResourceTemplateUri,
@@ -46,21 +46,21 @@ import {
   toProxyResourceTemplateUri,
   toProxyResourceUri,
   toProxyToolName,
-} from "./nameMapping.js";
-import { filterToolsByPolicy, getToolPermission } from "./policy.js";
-import { getCapabilityPermission, toCapabilityPermissions } from "./policy.js";
-import type { FentarisAuth } from "./auth.js";
+} from "../nameMapping.js";
+import { filterToolsByPolicy, getToolPermission } from "../policy.js";
+import { getCapabilityPermission, toCapabilityPermissions } from "../policy.js";
+import type { FentarisAuth } from "../auth.js";
 import {
   buildSubjectIndex,
   evaluateGroupPolicies,
   filterToolsByGroupPolicies,
   type Group,
   type SubjectIndex,
-} from "./governance.js";
-import { HttpProxyExposureTransport } from "./transports/exposure/HttpProxyExposureTransport.js";
-import { ResponseController } from "./types/middleware.js";
-import type { CapabilityOperationRequest, ToolCallRequest } from "./types/mcp-operation.js";
-import type { CredentialSourceMetadata, IdentityMetadata, ResolvedSubject, UserContext } from "./types/shared.js";
+} from "../governance.js";
+import { HttpProxyExposureTransport } from "../transports/exposure/HttpProxyExposureTransport.js";
+import { ResponseController } from "../types/middleware.js";
+import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
+import type { CredentialSourceMetadata, IdentityMetadata, ResolvedSubject, UserContext } from "../types/shared.js";
 import type {
   ListToolsHook,
   Middleware,
@@ -72,9 +72,9 @@ import type {
   ProxyMiddleware,
   ToolCallHook,
   ToolCallHookFilter,
-} from "./types/middleware.js";
-import type { ProxyOperationResult } from "./types/mcp-operation.js";
-import type { CapabilityPermission, ErrorMapper, IdentityStrategy, Policy, Registry } from "./types/policy.js";
+} from "../types/middleware.js";
+import type { ProxyOperationResult } from "../types/mcp-operation.js";
+import type { CapabilityPermission, ErrorMapper, IdentityStrategy, Policy, Registry } from "../types/policy.js";
 import type {
   ProxyContext,
   ProxyEventFilter,
@@ -87,7 +87,7 @@ import type {
   ProxyOperationHandler,
   ProxyToolHandler,
   ProxyToolPattern,
-} from "./types/proxy.js";
+} from "../types/proxy.js";
 
 class PolicyDeniedError extends Error {
   readonly code: number;

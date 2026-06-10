@@ -16,10 +16,10 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { assertValidServerName } from "./nameMapping.js";
-import type { FentarisTransport } from "./types/transport.js";
-import type { Isolation } from "./types/policy.js";
-import type { UserContext } from "./types/shared.js";
+import { assertValidServerName } from "../nameMapping.js";
+import type { FentarisTransport } from "../types/transport.js";
+import type { Isolation } from "../types/policy.js";
+import type { UserContext } from "../types/shared.js";
 
 /**
  * Resolve environment variables per user.

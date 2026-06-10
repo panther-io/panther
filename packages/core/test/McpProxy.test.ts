@@ -14,8 +14,8 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Logger } from "../src/logger.js";
-import { McpProxy } from "../src/McpProxy.js";
-import { McpServer } from "../src/McpServer.js";
+import { McpProxy } from "../src/proxy/McpProxy.js";
+import { McpServer } from "../src/server/McpServer.js";
 import { FentarisErrorCode } from "../src/errors.js";
 import { Policy } from "../src/governance.js";
 import {

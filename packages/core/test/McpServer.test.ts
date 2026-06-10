@@ -12,7 +12,7 @@ import type {
   ReadResourceRequest,
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { McpServer } from "../src/McpServer.js";
+import { McpServer } from "../src/server/McpServer.js";
 import type { Isolation, FentarisTransport } from "../src/types.js";
 
 class EnvAwareTransport implements FentarisTransport {

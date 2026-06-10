@@ -8,7 +8,7 @@ import { getToolPermission, getCapabilityPermission } from "../policy.js";
 import { type Group, type SubjectIndex } from "../governance.js";
 import { capabilityPermissionsForPolicy } from "./capabilities.js";
 import type { Logger } from "../logger.js";
-import type { McpServer } from "../McpServer.js";
+import type { McpServer } from "../server/McpServer.js";
 
 // Utility function we'll use internally
 function stringMetadata(metadata: Record<string, unknown> | undefined, key: string): string | undefined {

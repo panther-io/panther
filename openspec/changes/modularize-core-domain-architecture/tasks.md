@@ -87,9 +87,9 @@
 
 ## 9. Final Verification
 
-- [ ] 9.1 Verify existing public exports from `@fentaris/core` still resolve through `packages/core/src/index.ts`
-- [ ] 9.2 Inspect the final `packages/core/src` tree for domain ownership and remove accidental flat leftover implementation files
-- [ ] 9.3 Inspect the final `packages/core/test` tree for mirrored test placement
-- [ ] 9.4 Run `pnpm --filter @fentaris/core test`
-- [ ] 9.5 Run `pnpm --filter @fentaris/core build`
-- [ ] 9.6 Update task notes or architecture docs with any deviations from the proposed target layout
+- [x] 9.1 Verify existing public exports from `@fentaris/core` still resolve through `packages/core/src/index.ts`
+- [x] 9.2 Inspect the final `packages/core/src` tree for domain ownership and remove accidental flat leftover implementation files
+- [x] 9.3 Inspect the final `packages/core/test` tree for mirrored test placement
+- [x] 9.4 Run `pnpm --filter @fentaris/core test`
+- [x] 9.5 Run `pnpm --filter @fentaris/core build`
+- [x] 9.6 Update task notes or architecture docs with any deviations from the proposed target layout
