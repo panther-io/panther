@@ -65,10 +65,10 @@
 
 - [x] 7.1 Create focused proxy modules for options, context, routes, middleware, operations, capabilities, events, lifecycle, runtime, SDK server setup, and internal errors
 - [x] 7.2 Extract route entry types, pattern compilation, validation, and matching into `proxy/routes`
-- [ ] 7.3 Extract proxy context construction and contextual logger creation into `proxy/context`
+- [x] 7.3 Extract proxy context construction and contextual logger creation into `proxy/context`
 - [ ] 7.4 Extract middleware dispatch and legacy middleware adapter behavior into `proxy/middleware`
 - [ ] 7.5 Extract MCP operation forwarding and proxied name/URI rewriting into `proxy/operations`
-- [ ] 7.6 Extract capability policy context and enforcement helpers into `proxy/capabilities`
+- [x] 7.6 Extract capability policy context and enforcement helpers into `proxy/capabilities`
 - [ ] 7.7 Extract call hook, proxy event, and lifecycle dispatch into `proxy/events` and `proxy/lifecycle`
 - [ ] 7.8 Extract downstream SDK server registration into `proxy/sdkServer`
 - [ ] 7.9 Keep `proxy/McpProxy.ts` as the public orchestration class with the same public methods

@@ -1,5 +1,7 @@
 import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServer } from "node:http";
 import { compileToolPattern, matchesToolPattern, type RouteEntry } from "./proxy/routes.js";
+import { createContextualLogger, createProxyContext, createPolicyCan, createCapabilityContext } from "./proxy/context.js";
+import { isCapabilityAllowed } from "./proxy/capabilities.js";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -416,13 +418,13 @@ export class McpProxy {
     );
 
     let tools: ListToolsResult["tools"] = results.flat();
-    const log = this.createContextualLogger({
+    const log = createContextualLogger({ logger: this.logger }, {
       operation: "tools:list",
       user: resolvedUser,
       subject: resolvedSubject,
       identity,
     });
-    const context = this.createProxyContext({
+    const context = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "tools:list",
       user: resolvedUser,
       subject: resolvedSubject,
@@ -478,7 +480,7 @@ export class McpProxy {
       arguments: params.arguments,
       raw: params,
     };
-    const log = this.createContextualLogger({
+    const log = createContextualLogger({ logger: this.logger }, {
       operation: "tool:call",
       user: resolvedUser,
       subject: resolvedSubject,
@@ -487,7 +489,7 @@ export class McpProxy {
       toolName,
       proxyToolName: params.name,
     });
-    const context = this.createProxyContext({
+    const context = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "tool:call",
       user: resolvedUser,
       subject: resolvedSubject,
@@ -511,7 +513,7 @@ export class McpProxy {
       metadata: context.policyDecision?.metadata,
       policy: this.policy,
       decision: context.policyDecision,
-      can: this.createPolicyCan(resolvedSubject),
+      can: createPolicyCan({ groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, resolvedSubject),
     };
 
     const startedAt = Date.now();
@@ -596,7 +598,7 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const context = this.createCapabilityContext({
+        const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
           operation: "resources:list",
           serverName: server.name,
           targetKind: "resource",
@@ -606,7 +608,7 @@ export class McpProxy {
           identity: _identity,
         });
         if (
-          !this.isCapabilityAllowed(
+          !isCapabilityAllowed({ groups: this.groups, policy: this.policy, subjectIndex: this.subjectIndex }, 
             { serverName: server.name, operation: "resources:list", targetKind: "resource" },
             resolvedSubject,
             userGroups,
@@ -621,7 +623,7 @@ export class McpProxy {
           const upstream = await server.listResources(params, userForServer);
           return {
             resources: upstream.resources.filter((resource) =>
-              this.isCapabilityAllowed(
+              isCapabilityAllowed({ groups: this.groups, policy: this.policy, subjectIndex: this.subjectIndex }, 
                 {
                   serverName: server.name,
                   operation: "resource:read",
@@ -709,7 +711,7 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const context = this.createCapabilityContext({
+        const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
           operation: "resource-templates:list",
           serverName: server.name,
           targetKind: "resourceTemplate",
@@ -719,7 +721,7 @@ export class McpProxy {
           identity: _identity,
         });
         if (
-          !this.isCapabilityAllowed(
+          !isCapabilityAllowed({ groups: this.groups, policy: this.policy, subjectIndex: this.subjectIndex }, 
             { serverName: server.name, operation: "resource-templates:list", targetKind: "resourceTemplate" },
             resolvedSubject,
             userGroups,
@@ -734,7 +736,7 @@ export class McpProxy {
           const upstream = await server.listResourceTemplates(params, userForServer);
           return {
             resourceTemplates: upstream.resourceTemplates.filter((template) =>
-              this.isCapabilityAllowed(
+              isCapabilityAllowed({ groups: this.groups, policy: this.policy, subjectIndex: this.subjectIndex }, 
                 {
                   serverName: server.name,
                   operation: "resource-templates:list",
@@ -773,7 +775,7 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const context = this.createCapabilityContext({
+        const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
           operation: "prompts:list",
           serverName: server.name,
           targetKind: "prompt",
@@ -782,7 +784,7 @@ export class McpProxy {
           subject: resolvedSubject,
           identity: _identity,
         });
-        if (!this.isCapabilityAllowed({ serverName: server.name, operation: "prompts:list", targetKind: "prompt" }, resolvedSubject, userGroups)) {
+        if (!isCapabilityAllowed({ groups: this.groups, policy: this.policy, subjectIndex: this.subjectIndex }, { serverName: server.name, operation: "prompts:list", targetKind: "prompt" }, resolvedSubject, userGroups)) {
           return [];
         }
         const result = await this.dispatchOperationRoutes(context, async () => {
@@ -792,7 +794,7 @@ export class McpProxy {
           const upstream = await server.listPrompts(params, userForServer);
           return {
             prompts: upstream.prompts.filter((prompt) =>
-              this.isCapabilityAllowed(
+              isCapabilityAllowed({ groups: this.groups, policy: this.policy, subjectIndex: this.subjectIndex }, 
                 {
                   serverName: server.name,
                   operation: "prompt:get",
@@ -966,12 +968,12 @@ export class McpProxy {
    */
   async emitSessionStart(context: Parameters<LifecycleHook>[1]): Promise<void> {
     await this.emitLifecycle("sessionStart", context);
-    const proxyContext = this.createProxyContext({
+    const proxyContext = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "session:start",
       user: context.user,
       subject: context.subject,
       identity: context.identity,
-      log: this.createContextualLogger({
+      log: createContextualLogger({ logger: this.logger }, {
         operation: "session:start",
         user: context.user,
         subject: context.subject,
@@ -991,12 +993,12 @@ export class McpProxy {
    */
   async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
     await this.emitLifecycle("sessionEnd", context);
-    const proxyContext = this.createProxyContext({
+    const proxyContext = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "session:end",
       user: context.user,
       subject: context.subject,
       identity: context.identity,
-      log: this.createContextualLogger({
+      log: createContextualLogger({ logger: this.logger }, {
         operation: "session:end",
         user: context.user,
         subject: context.subject,
@@ -1061,240 +1063,6 @@ export class McpProxy {
     };
   }
 
-  private createContextualLogger(options: {
-    operation: ProxyContext["operation"];
-    user: UserContext;
-    subject?: ResolvedSubject;
-    identity?: IdentityMetadata;
-    serverName?: string;
-    toolName?: string;
-    proxyToolName?: string;
-    target?: string;
-    targetKind?: string;
-    sessionId?: string;
-  }): Logger {
-    return this.logger.child({
-      operation: options.operation,
-      userId: options.user.id,
-      subjectId: options.subject?.id ?? options.user.id,
-      serverName: options.serverName,
-      toolName: options.toolName,
-      proxyToolName: options.proxyToolName,
-      target: options.target,
-      targetKind: options.targetKind,
-      transportType: "unknown",
-      sessionId: options.sessionId,
-      identityStrategy: options.identity?.strategy,
-      authenticated: options.identity?.authenticated,
-    });
-  }
-
-  private createProxyContext(options: {
-    operation: ProxyContext["operation"];
-    user: UserContext;
-    subject?: ResolvedSubject;
-    identity?: IdentityMetadata;
-    log: Logger;
-    request?: ToolCallRequest;
-    capability?: CapabilityOperationRequest & {
-      proxyTarget?: string;
-      completionRefType?: "ref/prompt" | "ref/resource";
-      argumentName?: string;
-    };
-    raw?: ProxyContext["raw"];
-    transport?: ProxyContext["transport"];
-    policy?: Policy;
-  }): ProxyContext {
-    const response = new ResponseController();
-    const state: Record<string, unknown> = {};
-    const policyDecision = undefined as ProxyContext["policyDecision"];
-    const legacyContext: MiddlewareContext = {
-      user: options.user,
-      subject: options.subject,
-      identity: options.identity,
-      log: options.log,
-      res: response,
-      policy: options.policy,
-      registry: this.registry,
-      policyDecision,
-    };
-    const context = legacyContext as ProxyContext;
-    context.operation = options.operation;
-    context.transport = options.transport ?? {
-      type: "unknown",
-      sessionId: stringMetadata(options.identity?.metadata, "sessionId"),
-      requestId: stringMetadata(options.identity?.metadata, "requestId"),
-    };
-    context.auth = {
-      strategy: options.identity?.strategy,
-      authenticated: options.identity?.authenticated ?? Boolean(options.user.id),
-      userId: options.identity?.userId ?? options.user.id,
-      metadata: options.identity?.metadata,
-    };
-    context.policy = {
-      matchedGroups: [],
-      matchedPermissions: [],
-      policy: options.policy,
-      can: this.createPolicyCan(options.subject),
-    };
-    context.credentials = { sources: [] };
-    context.response = response;
-    context.res = response;
-    context.state = state;
-    context.raw = options.raw;
-    if (options.request) {
-      const server = this.serverByName.get(options.request.serverName);
-      context.server = {
-        name: options.request.serverName,
-        displayName: server?.displayName,
-      };
-      context.tool = {
-        name: options.request.toolName,
-        proxyName: options.request.proxyToolName,
-      };
-      context.args = options.request.arguments;
-    }
-    if (options.capability) {
-      const server = this.serverByName.get(options.capability.serverName);
-      context.server = {
-        name: options.capability.serverName,
-        displayName: server?.displayName,
-      };
-      if (options.capability.targetKind === "resource") {
-        context.resource = {
-          uri: options.capability.target,
-          proxyUri: options.capability.proxyTarget,
-        };
-      } else if (options.capability.targetKind === "resourceTemplate") {
-        context.resource = {
-          uriTemplate: options.capability.target,
-          proxyUriTemplate: options.capability.proxyTarget,
-        };
-      } else if (options.capability.targetKind === "prompt" && options.capability.target) {
-        context.prompt = {
-          name: options.capability.target,
-          proxyName: options.capability.proxyTarget ?? options.capability.target,
-        };
-      } else if (options.capability.targetKind === "completion" && options.capability.target) {
-        context.completion = {
-          refType: options.capability.completionRefType ?? "ref/prompt",
-          target: options.capability.target,
-          proxyTarget: options.capability.proxyTarget,
-          argumentName: options.capability.argumentName ?? "",
-        };
-      }
-    }
-    context.deny = response.deny.bind(response);
-    context.fail = response.fail.bind(response);
-    context.continue = response.continue.bind(response);
-    context.inject = response.injectToAgent.bind(response);
-    context.error = response.fail.bind(response);
-    return context;
-  }
-
-  private createPolicyCan(subject: ResolvedSubject | undefined): ProxyContext["policy"]["can"] {
-    return (serverName: string, toolName: string): boolean => {
-      if (this.groups.length > 0) {
-        const groups = subject ? this.subjectIndex?.groupsFor(subject.id) ?? [] : [];
-        let allowed = false;
-
-        for (const group of groups) {
-          const permission = getToolPermission(group.policy.getPermissions(serverName), toolName);
-          if (!permission) {
-            continue;
-          }
-
-          if (permission.effect === "deny") {
-            return false;
-          }
-
-          allowed = true;
-        }
-
-        return allowed;
-      }
-
-      if (this.policy) {
-        const permission = getToolPermission(this.policy.getPermissions(serverName), toolName);
-        if (!permission) {
-          return false;
-        }
-
-        return permission.effect !== "deny";
-      }
-
-      return true;
-    };
-  }
-
-  private isCapabilityAllowed(
-    request: CapabilityOperationRequest,
-    subject: ResolvedSubject | undefined,
-    userGroups: Group[] = subject ? this.subjectIndex?.groupsFor(subject.id) ?? [] : [],
-  ): boolean {
-    if (this.groups.length > 0) {
-      let allowed = false;
-
-      for (const group of userGroups) {
-        const permission = getCapabilityPermission(capabilityPermissionsForPolicy(group.policy, request.serverName), request);
-        if (!permission) {
-          continue;
-        }
-
-        if (permission.effect === "deny") {
-          return false;
-        }
-
-        allowed = true;
-      }
-
-      return allowed;
-    }
-
-    if (this.policy) {
-      const permission = getCapabilityPermission(capabilityPermissionsForPolicy(this.policy, request.serverName), request);
-      if (!permission) {
-        return false;
-      }
-
-      return permission.effect !== "deny";
-    }
-
-    return true;
-  }
-
-  private createCapabilityContext(
-    request: CapabilityOperationRequest & {
-      proxyTarget?: string;
-      completionRefType?: "ref/prompt" | "ref/resource";
-      argumentName?: string;
-    } & {
-      user: UserContext;
-      subject?: ResolvedSubject;
-      identity?: IdentityMetadata;
-    },
-  ): ProxyContext {
-    const log = this.createContextualLogger({
-      operation: request.operation,
-      user: request.user,
-      subject: request.subject,
-      identity: request.identity,
-      serverName: request.serverName,
-      target: request.target,
-      targetKind: request.targetKind,
-    });
-    return this.createProxyContext({
-      operation: request.operation,
-      user: request.user,
-      subject: request.subject,
-      identity: request.identity,
-      log,
-      capability: request,
-      raw: request.raw as ProxyContext["raw"],
-      policy: this.policy,
-    });
-  }
-
   private async enforceCapabilityPolicy(
     request: CapabilityOperationRequest & {
       proxyTarget?: string;
@@ -1305,7 +1073,7 @@ export class McpProxy {
     subject: ResolvedSubject | undefined,
     identity: IdentityMetadata | undefined,
   ): Promise<ProxyContext> {
-    const context = this.createCapabilityContext({
+    const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       ...request,
       user,
       subject,
@@ -1329,7 +1097,7 @@ export class McpProxy {
       metadata: decision?.metadata,
       policy: this.policy,
       decision,
-      can: this.createPolicyCan(subject),
+      can: createPolicyCan({ groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, subject),
     };
 
     if (decision && !decision.allowed) {
@@ -2032,9 +1800,7 @@ function operationEventName(
   return `tool:${phase}`;
 }
 
-function capabilityPermissionsForPolicy(policy: Policy, serverName: string): CapabilityPermission[] {
-  return policy.getCapabilityPermissions?.(serverName) ?? toCapabilityPermissions(serverName, policy.getPermissions(serverName));
-}
+
 
 /**
  * Match a call hook filter against a request.
