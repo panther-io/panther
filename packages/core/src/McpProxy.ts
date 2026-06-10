@@ -2,6 +2,7 @@ import { type IncomingHttpHeaders, type IncomingMessage, type Server as HttpServ
 import { compileToolPattern, matchesToolPattern, type RouteEntry } from "./proxy/routes.js";
 import { createContextualLogger, createProxyContext, createPolicyCan, createCapabilityContext } from "./proxy/context.js";
 import { isCapabilityAllowed } from "./proxy/capabilities.js";
+import { dispatchRouteHandler } from "./proxy/middleware.js";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -1838,30 +1839,7 @@ function matchesEventFilter(filter: ProxyEventFilter, context: ProxyContext): bo
   return true;
 }
 
-function isLegacyMiddleware(handler: Middleware | ProxyToolHandler): handler is LegacyMiddleware {
-  return handler.length >= 3;
-}
 
-async function dispatchRouteHandler(
-  handler: Middleware | ProxyToolHandler | ProxyOperationHandler,
-  request: ToolCallRequest,
-  context: ProxyContext,
-  next: () => Promise<ProxyOperationResult>,
-): Promise<ProxyOperationResult | void> {
-  if (isLegacyMiddleware(handler)) {
-    return (handler as LegacyMiddleware)(request, context, next as () => Promise<CallToolResult>);
-  }
-
-  try {
-    return await (handler as ProxyMiddleware)(context, next);
-  } catch (error) {
-    if (handler.length === 2 && isLikelyLegacyTwoArgMiddlewareError(error)) {
-      return (handler as unknown as LegacyMiddleware)(request, context, next as () => Promise<CallToolResult>);
-    }
-
-    throw error;
-  }
-}
 
 function capabilityToolRequest(context: ProxyContext): ToolCallRequest {
   return {
@@ -1887,11 +1865,4 @@ function toStructuredError(error: unknown): { code?: number; message?: string } 
   return { code, message };
 }
 
-function isLikelyLegacyTwoArgMiddlewareError(error: unknown): boolean {
-  if (!(error instanceof TypeError)) {
-    return false;
-  }
-
-  return /reading '(res|deny|fail|continue|inject|error|user|subject|identity|log|policy|policyDecision|credentialSources)'/.test(error.message);
-}
 
