@@ -78,12 +78,12 @@
 
 ## 8. Plugin-Ready Boundary
 
-- [ ] 8.1 Create `packages/core/src/plugins` with module boundaries for manifest, registry, loader, lifecycle, capabilities, and types
-- [ ] 8.2 Add only structural contracts needed to reserve plugin ownership boundaries
-- [ ] 8.3 Ensure no executable plugin loading, installation, discovery, sandboxing, or third-party code execution is introduced
-- [ ] 8.4 Add placeholder tests or type-level assertions only if concrete contracts are added
-- [ ] 8.5 Run `pnpm --filter @fentaris/core test`
-- [ ] 8.6 Run `pnpm --filter @fentaris/core build`
+- [x] 8.1 Create `packages/core/src/plugins` with module boundaries for manifest, registry, loader, lifecycle, capabilities, and types
+- [x] 8.2 Add only structural contracts needed to reserve plugin ownership boundaries
+- [x] 8.3 Ensure no executable plugin loading, installation, discovery, sandboxing, or third-party code execution is introduced
+- [x] 8.4 Add placeholder tests or type-level assertions only if concrete contracts are added
+- [x] 8.5 Run `pnpm --filter @fentaris/core test`
+- [x] 8.6 Run `pnpm --filter @fentaris/core build`
 
 ## 9. Final Verification
 
