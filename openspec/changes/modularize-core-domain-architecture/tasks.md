@@ -63,8 +63,8 @@
 
 ## 7. Proxy Decomposition
 
-- [ ] 7.1 Create focused proxy modules for options, context, routes, middleware, operations, capabilities, events, lifecycle, runtime, SDK server setup, and internal errors
-- [ ] 7.2 Extract route entry types, pattern compilation, validation, and matching into `proxy/routes`
+- [x] 7.1 Create focused proxy modules for options, context, routes, middleware, operations, capabilities, events, lifecycle, runtime, SDK server setup, and internal errors
+- [x] 7.2 Extract route entry types, pattern compilation, validation, and matching into `proxy/routes`
 - [ ] 7.3 Extract proxy context construction and contextual logger creation into `proxy/context`
 - [ ] 7.4 Extract middleware dispatch and legacy middleware adapter behavior into `proxy/middleware`
 - [ ] 7.5 Extract MCP operation forwarding and proxied name/URI rewriting into `proxy/operations`
