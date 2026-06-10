@@ -3,6 +3,10 @@ import { compileToolPattern, matchesToolPattern, type RouteEntry } from "./proxy
 import { createContextualLogger, createProxyContext, createPolicyCan, createCapabilityContext } from "./proxy/context.js";
 import { isCapabilityAllowed } from "./proxy/capabilities.js";
 import { dispatchRouteHandler } from "./proxy/middleware.js";
+import { routeCompletion, completionTarget, capabilityToolRequest, isStructuredPolicyErrorResult, toStructuredError } from "./proxy/operations.js";
+import { operationEventName, matchesCallHook, matchesEventFilter, dispatchCallHooks, emitProxyEvent, type EventEntry } from "./proxy/events.js";
+import { emitLifecycle } from "./proxy/lifecycle.js";
+import { createSdkServer } from "./proxy/sdkServer.js";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -147,11 +151,6 @@ export type McpProxyStartOptions = {
   path?: string;
 };
 
-type EventEntry = {
-  eventName: ProxyEventName;
-  filter: ProxyEventFilter;
-  handler: ProxyEventHandler;
-};
 
 /**
  * HTTP proxy for multiple MCP servers.
@@ -451,7 +450,7 @@ export class McpProxy {
       }
     }
 
-    const eventResult = await this.emitProxyEvent("tools:list:after", { ctx: context, tools });
+    const eventResult = await emitProxyEvent(this.eventHandlers, "tools:list:after", { ctx: context, tools });
     if (Array.isArray(eventResult)) {
       tools = eventResult;
     } else if (eventResult?.tools) {
@@ -529,9 +528,9 @@ export class McpProxy {
       }
 
       if (!context.policyDecision || context.policyDecision.allowed) {
-        await this.emitProxyEvent("tool:start", { ctx: context, durationMs: 0 });
+        await emitProxyEvent(this.eventHandlers, "tool:start", { ctx: context, durationMs: 0 });
       }
-      const hookResult = await this.dispatchCallHooks(request, context);
+      const hookResult = await dispatchCallHooks(this.callHooks, request, context);
       const result =
         hookResult ??
         (await this.dispatchRoutes(0, request, context, () => {
@@ -556,14 +555,14 @@ export class McpProxy {
         }));
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
-      await this.emitProxyEvent("tool:success", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
-      await this.emitProxyEvent("tool:after", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
+      await emitProxyEvent(this.eventHandlers, "tool:success", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
+      await emitProxyEvent(this.eventHandlers, "tool:after", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
       return response;
     } catch (error) {
       const normalizedError = normalizeError(error);
       const mappedError = this.errorMapper.mapError(normalizedError, { serverName, toolName });
       this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
-      await this.emitLifecycle("toolFailure", {
+      await emitLifecycle(this.lifecycleHooks, "toolFailure", {
         user: resolvedUser,
         subject: resolvedSubject,
         identity,
@@ -571,15 +570,15 @@ export class McpProxy {
         error: normalizedError,
         log,
       });
-      await this.emitProxyEvent("tool:error", { ctx: context, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
+      await emitProxyEvent(this.eventHandlers, "tool:error", { ctx: context, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
       await context.res.notifyError(normalizedError);
       const injectedResult = context.res.injectedErrorResult();
       if (injectedResult) {
-        await this.emitProxyEvent("tool:after", { ctx: context, result: injectedResult, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
+        await emitProxyEvent(this.eventHandlers, "tool:after", { ctx: context, result: injectedResult, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
         return injectedResult;
       }
       const failed = context.res.fail(mappedError.code, mappedError.message);
-      await this.emitProxyEvent("tool:after", { ctx: context, result: failed, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
+      await emitProxyEvent(this.eventHandlers, "tool:after", { ctx: context, result: failed, error: normalizedError, durationMs: Date.now() - startedAt, success: false });
       return failed;
     }
   }
@@ -907,44 +906,6 @@ export class McpProxy {
    * Handle an MCP HTTP request for session setup or routing.
    * @pk
    */
-  /**
-   * Create the MCP SDK server and attach handlers.
-   * @pk
-   */
-  createSdkServer(user: UserContext = {}, identity?: IdentityMetadata, subject?: ResolvedSubject): McpSdkServer {
-    const capabilities = this.createServerCapabilities();
-    const server = new McpSdkServer(
-      { name: this.name, version: this.version },
-      {
-        capabilities,
-        instructions:
-          "Fentaris MCP proxy. Tool and prompt names are prefixed as <server>__<name>; resources use fentaris:// proxy URIs.",
-      },
-    );
-
-    server.setRequestHandler(ListToolsRequestSchema, async (request) => this.listTools(request.params, user, identity, subject));
-    server.setRequestHandler(CallToolRequestSchema, async (request) => this.callTool(request.params, user, identity, subject));
-    if (capabilities.resources) {
-      server.setRequestHandler(ListResourcesRequestSchema, async (request) =>
-        this.listResources(request.params, user, identity, subject));
-      server.setRequestHandler(ReadResourceRequestSchema, async (request) =>
-        this.readResource(request.params, user, identity, subject));
-      server.setRequestHandler(ListResourceTemplatesRequestSchema, async (request) =>
-        this.listResourceTemplates(request.params, user, identity, subject));
-    }
-    if (capabilities.prompts) {
-      server.setRequestHandler(ListPromptsRequestSchema, async (request) =>
-        this.listPrompts(request.params, user, identity, subject));
-      server.setRequestHandler(GetPromptRequestSchema, async (request) =>
-        this.getPrompt(request.params, user, identity, subject));
-    }
-    if (capabilities.completions) {
-      server.setRequestHandler(CompleteRequestSchema, async (request) =>
-        this.complete(request.params, user, identity, subject));
-    }
-
-    return server;
-  }
 
   /**
    * Resolve user context from an HTTP downstream request.
@@ -968,7 +929,7 @@ export class McpProxy {
    * @pk
    */
   async emitSessionStart(context: Parameters<LifecycleHook>[1]): Promise<void> {
-    await this.emitLifecycle("sessionStart", context);
+    await emitLifecycle(this.lifecycleHooks, "sessionStart", context);
     const proxyContext = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "session:start",
       user: context.user,
@@ -985,7 +946,7 @@ export class McpProxy {
       transport: { sessionId: context.sessionId },
       policy: this.policy,
     });
-    await this.emitProxyEvent("session:start", { ctx: proxyContext });
+    await emitProxyEvent(this.eventHandlers, "session:start", { ctx: proxyContext });
   }
 
   /**
@@ -993,7 +954,7 @@ export class McpProxy {
    * @pk
    */
   async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
-    await this.emitLifecycle("sessionEnd", context);
+    await emitLifecycle(this.lifecycleHooks, "sessionEnd", context);
     const proxyContext = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "session:end",
       user: context.user,
@@ -1010,7 +971,7 @@ export class McpProxy {
       transport: { sessionId: context.sessionId },
       policy: this.policy,
     });
-    await this.emitProxyEvent("session:end", { ctx: proxyContext });
+    await emitProxyEvent(this.eventHandlers, "session:end", { ctx: proxyContext });
   }
 
   registerServerMiddleware(serverName: string, handler: Middleware): void {
@@ -1038,29 +999,13 @@ export class McpProxy {
 
   private createRuntime(): ProxyRuntime {
     return {
-      createSdkServer: (user, identity, subject) => this.createSdkServer(user, identity, subject),
+      createSdkServer: (user, identity, subject) => createSdkServer(this as unknown as Parameters<typeof createSdkServer>[0], user, identity, subject),
       resolveHttpUser: (request) => this.resolveHttpUser(request as IncomingMessage),
       resolveStdioUser: () => this.resolveStdioUser(),
       emitSessionStart: (context) => this.emitSessionStart(context),
       emitSessionEnd: (context) => this.emitSessionEnd(context),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
-    };
-  }
-
-  private createServerCapabilities(): {
-    tools: object;
-    logging: object;
-    resources?: object;
-    prompts?: object;
-    completions?: object;
-  } {
-    return {
-      tools: {},
-      logging: {},
-      ...(this.servers.some((server) => server.supportsResources()) ? { resources: {} } : {}),
-      ...(this.servers.some((server) => server.supportsPrompts()) ? { prompts: {} } : {}),
-      ...(this.servers.some((server) => server.supportsCompletions()) ? { completions: {} } : {}),
     };
   }
 
@@ -1235,22 +1180,22 @@ export class McpProxy {
     terminal: () => Promise<ProxyOperationResult>,
   ): Promise<ProxyOperationResult> {
     const startedAt = Date.now();
-    await this.emitProxyEvent(operationEventName(context.operation, "start"), { ctx: context, durationMs: 0 });
+    await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "start"), { ctx: context, durationMs: 0 });
     this.writeCapabilityAuditLog("start", context, startedAt);
 
     try {
       const result = await terminal();
       const durationMs = Date.now() - startedAt;
       this.writeCapabilityAuditLog("success", context, startedAt, result);
-      await this.emitProxyEvent(operationEventName(context.operation, "success"), { ctx: context, result, durationMs, success: true });
-      await this.emitProxyEvent(operationEventName(context.operation, "after"), { ctx: context, result, durationMs, success: true });
+      await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "success"), { ctx: context, result, durationMs, success: true });
+      await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "after"), { ctx: context, result, durationMs, success: true });
       return result;
     } catch (error) {
       const normalizedError = normalizeError(error);
       const durationMs = Date.now() - startedAt;
       this.writeCapabilityAuditLog("failure", context, startedAt, undefined, normalizedError);
-      await this.emitProxyEvent(operationEventName(context.operation, "error"), { ctx: context, error: normalizedError, durationMs, success: false });
-      await this.emitProxyEvent(operationEventName(context.operation, "after"), { ctx: context, error: normalizedError, durationMs, success: false });
+      await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "error"), { ctx: context, error: normalizedError, durationMs, success: false });
+      await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "after"), { ctx: context, error: normalizedError, durationMs, success: false });
       throw error;
     }
   }
@@ -1262,13 +1207,13 @@ export class McpProxy {
 
     const startedAt = Date.now();
     this.writeCapabilityAuditLog("failure", error.context, startedAt, undefined, error);
-    await this.emitProxyEvent(operationEventName(error.context.operation, "error"), {
+    await emitProxyEvent(this.eventHandlers, operationEventName(error.context.operation, "error"), {
       ctx: error.context,
       error,
       durationMs: 0,
       success: false,
     });
-    await this.emitProxyEvent(operationEventName(error.context.operation, "after"), {
+    await emitProxyEvent(this.eventHandlers, operationEventName(error.context.operation, "after"), {
       ctx: error.context,
       error,
       durationMs: 0,
@@ -1579,41 +1524,6 @@ export class McpProxy {
       context.log.info("MCP capability operation", metadata);
     }
   }
-
-  private async emitLifecycle(
-    event: LifecycleHookEvent,
-    context: Parameters<LifecycleHook>[1],
-  ): Promise<void> {
-    for (const hook of this.lifecycleHooks) {
-      await hook(event, context);
-    }
-  }
-
-  private async emitProxyEvent(
-    eventName: ProxyEventName,
-    payload: Parameters<ProxyEventHandler>[0],
-  ): Promise<ListToolsResult["tools"] | ListToolsResult | void> {
-    let transformedTools: ListToolsResult["tools"] | ListToolsResult | undefined = undefined;
-    for (const entry of this.eventHandlers) {
-      if (entry.eventName !== eventName || !matchesEventFilter(entry.filter, payload.ctx)) {
-        continue;
-      }
-
-      const result = await entry.handler({
-        ...payload,
-        tools: transformedTools
-          ? Array.isArray(transformedTools)
-            ? transformedTools
-            : transformedTools.tools
-          : payload.tools,
-      });
-      if (eventName === "tools:list:after" && (Array.isArray(result) || result?.tools)) {
-        transformedTools = result;
-      }
-    }
-
-    return transformedTools;
-  }
 }
 
 /**
@@ -1747,122 +1657,24 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
   };
 }
 
-function routeCompletion(params: CompleteRequest["params"]): {
-  serverName: string;
-  params: CompleteRequest["params"];
-} {
-  if (params.ref.type === "ref/prompt") {
-    const { serverName, promptName } = fromProxyPromptName(params.ref.name);
-    return {
-      serverName,
-      params: {
-        ...params,
-        ref: {
-          ...params.ref,
-          name: promptName,
-        },
-      },
-    };
-  }
-
-  const { serverName, uriTemplate } = fromProxyResourceTemplateUri(params.ref.uri);
-  return {
-    serverName,
-    params: {
-      ...params,
-      ref: {
-        ...params.ref,
-        uri: uriTemplate,
-      },
-    },
-  };
-}
-
-function completionTarget(params: CompleteRequest["params"]): string {
-  return params.ref.type === "ref/prompt" ? params.ref.name : params.ref.uri;
-}
-
-function operationEventName(
-  operation: ProxyContext["operation"],
-  phase: "start" | "success" | "error" | "after",
-): ProxyEventName {
-  if (operation === "resource:read") {
-    return `resource:${phase}`;
-  }
-
-  if (operation === "prompt:get") {
-    return `prompt:${phase}`;
-  }
-
-  if (operation === "completion:complete") {
-    return `completion:${phase}`;
-  }
-
-  return `tool:${phase}`;
-}
 
 
 
-/**
- * Match a call hook filter against a request.
- * @pk
- */
-function matchesCallHook(filter: ToolCallHookFilter, request: ToolCallRequest): boolean {
-  if (filter.server && filter.server !== request.serverName) {
-    return false;
-  }
-
-  if (filter.tool && filter.tool !== request.toolName) {
-    return false;
-  }
-
-  if (filter.proxyTool && filter.proxyTool !== request.proxyToolName) {
-    return false;
-  }
-
-  return true;
-}
-
-function matchesEventFilter(filter: ProxyEventFilter, context: ProxyContext): boolean {
-  if (filter.server && filter.server !== context.server?.name) {
-    return false;
-  }
-
-  if (filter.tool && filter.tool !== context.tool?.name) {
-    return false;
-  }
-
-  if (filter.proxyTool && filter.proxyTool !== context.tool?.proxyName) {
-    return false;
-  }
-
-  return true;
-}
 
 
 
-function capabilityToolRequest(context: ProxyContext): ToolCallRequest {
-  return {
-    serverName: context.server?.name ?? "",
-    toolName: context.operation,
-    proxyToolName: context.operation,
-    arguments: undefined,
-    raw: { name: context.operation },
-  };
-}
 
-function isStructuredPolicyErrorResult(result: ProxyOperationResult): result is CallToolResult {
-  return "isError" in result && result.isError === true && Boolean(result._meta?.error);
-}
 
-function toStructuredError(error: unknown): { code?: number; message?: string } | undefined {
-  if (!error || typeof error !== "object") {
-    return undefined;
-  }
 
-  const code = "code" in error && typeof error.code === "number" ? error.code : undefined;
-  const message = "message" in error && typeof error.message === "string" ? error.message : undefined;
-  return { code, message };
-}
+
+
+
+
+
+
+
+
+
+
 
 

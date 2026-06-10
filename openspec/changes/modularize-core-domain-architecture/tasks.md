@@ -67,14 +67,14 @@
 - [x] 7.2 Extract route entry types, pattern compilation, validation, and matching into `proxy/routes`
 - [x] 7.3 Extract proxy context construction and contextual logger creation into `proxy/context`
 - [x] 7.4 Extract middleware dispatch and legacy middleware adapter behavior into `proxy/middleware`
-- [ ] 7.5 Extract MCP operation forwarding and proxied name/URI rewriting into `proxy/operations`
+- [x] 7.5 Extract MCP operation forwarding and proxied name/URI rewriting into `proxy/operations`
 - [x] 7.6 Extract capability policy context and enforcement helpers into `proxy/capabilities`
-- [ ] 7.7 Extract call hook, proxy event, and lifecycle dispatch into `proxy/events` and `proxy/lifecycle`
-- [ ] 7.8 Extract downstream SDK server registration into `proxy/sdkServer`
-- [ ] 7.9 Keep `proxy/McpProxy.ts` as the public orchestration class with the same public methods
-- [ ] 7.10 Update tests only where imports or file paths changed
-- [ ] 7.11 Run `pnpm --filter @fentaris/core test`
-- [ ] 7.12 Run `pnpm --filter @fentaris/core build`
+- [x] 7.7 Extract call hook, proxy event, and lifecycle dispatch into `proxy/events` and `proxy/lifecycle`
+- [x] 7.8 Extract downstream SDK server registration into `proxy/sdkServer`
+- [x] 7.9 Keep `proxy/McpProxy.ts` as the public orchestration class with the same public methods
+- [x] 7.10 Update tests only where imports or file paths changed
+- [x] 7.11 Run `pnpm --filter @fentaris/core test`
+- [x] 7.12 Run `pnpm --filter @fentaris/core build`
 
 ## 8. Plugin-Ready Boundary
 
