@@ -1,10 +1,22 @@
-import { mkdtemp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, readFile, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { SpawnOptions } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { FentarisAuth } from "@fentaris/core";
-import { discoverProject, ensureEmptyTargetDirectory, main, parseCommand, renderTemplate, resolveProjectName, selectPackageManager, type Prompt, type Runtime } from "../src/index.js";
+import {
+  discoverProject,
+  ensureEmptyTargetDirectory,
+  isDirectCliInvocation,
+  main,
+  parseCommand,
+  renderTemplate,
+  resolveProjectName,
+  selectPackageManager,
+  type Prompt,
+  type Runtime,
+} from "../src/index.js";
 
 function prompt(values: string[] = []): Prompt {
   return {
@@ -53,6 +65,16 @@ describe("command routing helpers", () => {
 
   it("selects a package manager without prompting when only one exists", async () => {
     await expect(selectPackageManager((command) => command === "pnpm", prompt())).resolves.toBe("pnpm");
+  });
+
+  it("recognizes installed bin symlinks as direct CLI invocations", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "fentaris-cli-"));
+    const entrypoint = join(dir, "dist-index.js");
+    const bin = join(dir, "fentaris");
+    await writeFile(entrypoint, "");
+    await symlink(entrypoint, bin);
+
+    expect(isDirectCliInvocation(pathToFileURL(entrypoint).href, bin)).toBe(true);
   });
 });
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { main as runMain } from "./app/main.js";
 import { discoverProject, ensureEmptyTargetDirectory, resolveProjectName, selectPackageManager } from "./domain/project/project.js";
@@ -14,7 +15,19 @@ export function main(argv: string[], runtime: Runtime = defaultRuntime()): Promi
   return runMain(argv, runtime);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+function resolveEntrypointPath(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+}
+
+export function isDirectCliInvocation(entrypointUrl: string = import.meta.url, argvPath: string | undefined = process.argv[1]): boolean {
+  return typeof argvPath === "string" && resolveEntrypointPath(fileURLToPath(entrypointUrl)) === resolveEntrypointPath(argvPath);
+}
+
+if (isDirectCliInvocation()) {
   runMain(process.argv.slice(2), defaultRuntime()).then((code) => {
     process.exitCode = code;
   });
