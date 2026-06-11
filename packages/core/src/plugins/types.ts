@@ -5,6 +5,4 @@ export * from "./lifecycle.js";
 export * from "./capabilities.js";
 
 // Any shared type definitions for plugins go here.
-export interface PluginContext {
-  // Context provided to plugins
-}
+export type PluginContext = Record<string, never>;
