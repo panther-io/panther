@@ -51,13 +51,12 @@ export async function getProjectCheckResults(project: ProjectDiscovery, offline:
   const expectedFiles = [
     "package.json",
     "tsconfig.json",
-    "fentaris.config.json",
+    "fentaris.json",
     ".env.example",
     ".gitignore",
     "README.md",
     project.config.entrypoint,
     path.join(project.config.authDir, "credentials.enc.json"),
-    path.join(project.config.authDir, "upstream-auth.json"),
   ];
   const results: HealthResult[] = [];
 
@@ -85,21 +84,6 @@ export async function getProjectCheckResults(project: ProjectDiscovery, offline:
     status: project.config.authDir === authDir ? "pass" : "warn",
     detail: `Using ${project.config.authDir}`,
   });
-
-  for (const upstream of project.config.upstreams ?? []) {
-    if (offline) {
-      results.push({ group: "MCP", label: upstream.name, status: "warn", detail: "Skipped connectivity in offline mode." });
-    } else if (upstream.type === "http" && upstream.url) {
-      results.push(await httpUpstreamResult(upstream.name, upstream.url));
-    } else {
-      results.push({
-        group: "MCP",
-        label: upstream.name,
-        status: upstream.command ? "pass" : "fail",
-        detail: upstream.command ? `Configured stdio command ${upstream.command}` : "Missing stdio command.",
-      });
-    }
-  }
 
   return results;
 }
@@ -151,35 +135,4 @@ async function portResult(port: number): Promise<HealthResult> {
     status: "pass",
     detail: "Port check is deferred to runtime startup.",
   };
-}
-
-async function httpUpstreamResult(name: string, url: string): Promise<HealthResult> {
-  if (!url.startsWith("https://")) {
-    return {
-      group: "MCP",
-      label: name,
-      status: "warn",
-      detail: `Configured non-HTTPS HTTP upstream ${url}.`,
-    };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5_000);
-    const response = await fetch(url, { method: "HEAD", signal: controller.signal });
-    clearTimeout(timeout);
-    return {
-      group: "MCP",
-      label: name,
-      status: response.ok || response.status === 405 ? "pass" : "fail",
-      detail: `Connectivity checked for ${url}; tool discovery will run when the project starts.`,
-    };
-  } catch (error: unknown) {
-    return {
-      group: "MCP",
-      label: name,
-      status: "fail",
-      detail: `Unable to reach ${url}: ${error instanceof Error ? error.message : String(error)}`,
-    };
-  }
 }

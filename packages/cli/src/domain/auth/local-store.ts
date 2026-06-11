@@ -9,7 +9,6 @@ export async function initLocalAuth(options: CliOptions): Promise<void> {
   const key = required(options, "key");
   await mkdir(dir, { recursive: true });
   await writeCredentials(dir, key, { users: {}, groups: {}, defaults: {} });
-  await writeFile(path.join(dir, "upstream-auth.json"), JSON.stringify({ servers: {} }, null, 2));
 }
 
 export async function storeCredential(dir: string, key: string, reference: string, value: string, options: CliOptions): Promise<void> {
@@ -40,7 +39,6 @@ export async function addUserApiKey(dir: string, key: string, userId: string, ap
 
 export async function inspectAuthFiles(dir: string, key: string): Promise<unknown> {
   const credentials = await readCredentials(dir, key);
-  const upstreamAuth = JSON.parse(await readFile(path.join(dir, "upstream-auth.json"), "utf8")) as unknown;
 
   return {
     credentials: {
@@ -56,7 +54,6 @@ export async function inspectAuthFiles(dir: string, key: string): Promise<unknow
       groups: Object.fromEntries(Object.entries(credentials.groups).map(([groupId, values]) => [groupId, redactRecord(values)])),
       defaults: redactRecord(credentials.defaults),
     },
-    upstreamAuth,
   };
 }
 

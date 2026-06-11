@@ -59,7 +59,6 @@ export type ProjectConfig = {
   port: number;
   path: string;
   authDir: string;
-  upstreams?: Array<{ name: string; type: "stdio" | "http"; url?: string; command?: string; args?: string[] }>;
 };
 
 export type ProjectDiscovery = { root: string; configPath: string; config: ProjectConfig };
