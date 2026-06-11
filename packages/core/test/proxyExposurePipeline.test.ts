@@ -2,8 +2,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { describe, expect, it, vi } from "vitest";
 import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { McpProxy } from "../src/McpProxy.js";
-import { McpServer } from "../src/McpServer.js";
+import { McpProxy } from "../src/proxy/McpProxy.js";
+import { McpServer } from "../src/server/McpServer.js";
 import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../src/types.js";
 import type {
   CallToolRequest,
