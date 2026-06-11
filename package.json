@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Fentaris - Proxy MCP centralizzato",
+  "packageManager": "pnpm@11.4.0",
   "scripts": {
     "dev:core": "pnpm --filter @fentaris/core dev",
     "dev:cli": "pnpm --filter @fentaris/cli dev",
@@ -15,13 +16,6 @@
     "lint:fix": "eslint packages/ --fix",
     "typecheck": "tsc --build",
     "clean": "pnpm -r clean"
-  },
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.0.9",
-      "onFail": "download"
-    }
   },
   "author": "Gabriele Cipriani",
   "repository": {
