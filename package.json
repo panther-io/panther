@@ -20,11 +20,11 @@
   "author": "Gabriele Cipriani",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fentaris-io/fentaris.git"
+    "url": "git+https://github.com/fentaris/fentaris.git"
   },
-  "homepage": "https://github.com/fentaris-io/fentaris#readme",
+  "homepage": "https://github.com/fentaris/fentaris#readme",
   "bugs": {
-    "url": "https://github.com/fentaris-io/fentaris/issues"
+    "url": "https://github.com/fentaris/fentaris/issues"
   },
   "license": "MIT",
   "devDependencies": {
