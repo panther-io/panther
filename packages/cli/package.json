@@ -12,8 +12,8 @@
   ],
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc",
-    "test": "vitest run src",
+    "build": "pnpm run clean && tsc",
+    "test": "vitest run --dir test",
     "clean": "rm -rf dist"
   },
   "dependencies": {

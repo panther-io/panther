@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import type { SpawnOptions } from "node:child_process";
 import { describe, expect, it, vi } from "vitest";
 import { FentarisAuth } from "@fentaris/core";
-import { discoverProject, ensureEmptyTargetDirectory, main, parseCommand, renderTemplate, resolveProjectName, selectPackageManager, type Prompt, type Runtime } from "./index.js";
+import { discoverProject, ensureEmptyTargetDirectory, main, parseCommand, renderTemplate, resolveProjectName, selectPackageManager, type Prompt, type Runtime } from "../src/index.js";
 
 function prompt(values: string[] = []): Prompt {
   return {
@@ -71,6 +71,7 @@ describe("project template", () => {
     expect(Object.keys(rendered.files).sort()).toEqual([
       ".env.example",
       ".gitignore",
+      "README.md",
       "demo-files/README.md",
       "fentaris.config.json",
       "package.json",
@@ -78,7 +79,9 @@ describe("project template", () => {
       "tsconfig.json",
     ]);
     expect(rendered.files[".gitignore"]).toContain(".fentaris/auth/");
+    expect(rendered.files["README.md"]).toContain("Quick start");
     expect(rendered.files["src/index.ts"]).toContain("https://mcp.specification.website/mcp");
+    expect(rendered.files["src/index.ts"]).toContain("app.server(");
     expect(rendered.files["src/index.ts"]).toContain("rateLimitMiddleware");
     expect(rendered.files["src/index.ts"]).toContain("admin-full-access");
   });
