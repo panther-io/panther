@@ -73,15 +73,16 @@ describe("project template", () => {
       ".gitignore",
       "README.md",
       "demo-files/README.md",
-      "fentaris.config.json",
+      "fentaris.json",
       "package.json",
       "src/index.ts",
       "tsconfig.json",
     ]);
-    expect(rendered.files[".gitignore"]).toContain(".fentaris/auth/");
+    expect(rendered.files[".gitignore"]).toContain(".fentaris/");
     expect(rendered.files["README.md"]).toContain("Quick start");
     expect(rendered.files["src/index.ts"]).toContain("https://mcp.specification.website/mcp");
     expect(rendered.files["src/index.ts"]).toContain("app.server(");
+    expect(rendered.files["src/index.ts"]).toContain("credentialJson");
     expect(rendered.files["src/index.ts"]).toContain("rateLimitMiddleware");
     expect(rendered.files["src/index.ts"]).toContain("admin-full-access");
   });
@@ -94,7 +95,7 @@ describe("project commands", () => {
 
     await expect(main(["init", "demo", "--skip-install"], rt)).resolves.toBe(0);
 
-    const config = JSON.parse(await readFile(join(dir, "demo", "fentaris.config.json"), "utf8")) as { name: string };
+    const config = JSON.parse(await readFile(join(dir, "demo", "fentaris.json"), "utf8")) as { name: string };
     expect(config.name).toBe("demo");
     expect(rt.calls.some((call) => call.command === "git" && call.args[0] === "init")).toBe(true);
   });
@@ -104,8 +105,8 @@ describe("project commands", () => {
     const srcDir = join(dir, "src", "nested");
     await mkdir(srcDir, { recursive: true });
     await writeFile(
-      join(dir, "fentaris.config.json"),
-      JSON.stringify({ name: "demo", packageManager: "pnpm", entrypoint: "src/index.ts", port: 4000, path: "/mcp", authDir: ".fentaris/auth" }),
+      join(dir, "fentaris.json"),
+      JSON.stringify({ name: "demo", packageManager: "pnpm", entrypoint: "src/index.ts", port: 4000, path: "/mcp", authDir: ".fentaris" }),
     );
 
     await expect(discoverProject(srcDir)).resolves.toMatchObject({ root: dir });
@@ -142,7 +143,7 @@ describe("project commands", () => {
 
     rt.cwd = join(dir, "demo");
     await expect(main(["check", "--offline"], rt)).resolves.toBe(0);
-    await expect(main(["check", "--offline", "--strict"], rt)).resolves.toBe(1);
+    await expect(main(["check", "--offline", "--strict"], rt)).resolves.toBe(0);
     await expect(main(["doctor", "--strict"], rt)).resolves.toBe(1);
   });
 

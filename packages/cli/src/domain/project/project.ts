@@ -48,10 +48,16 @@ export async function selectPackageManager(probe: ExecProbe, prompt: Prompt): Pr
 export async function discoverProject(fromDir: string): Promise<ProjectDiscovery> {
   let current = path.resolve(fromDir);
   while (true) {
-    const configPath = path.join(current, "fentaris.config.json");
+    const configPath = path.join(current, "fentaris.json");
     if (await exists(configPath)) {
       const config = validateProjectConfig(await readJson(configPath), configPath);
       return { root: current, configPath, config };
+    }
+
+    const legacyConfigPath = path.join(current, "fentaris.config.json");
+    if (await exists(legacyConfigPath)) {
+      const config = validateProjectConfig(await readJson(legacyConfigPath), legacyConfigPath);
+      return { root: current, configPath: legacyConfigPath, config };
     }
 
     const parent = path.dirname(current);
@@ -98,6 +104,5 @@ function validateProjectConfig(value: unknown, configPath: string): ProjectConfi
     port: config.port,
     path: config.path,
     authDir: config.authDir,
-    upstreams: Array.isArray(config.upstreams) ? config.upstreams : [],
   };
 }
