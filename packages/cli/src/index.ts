@@ -1037,8 +1037,6 @@ Legacy local auth:
   fentaris auth inspect --dir .fentaris/auth --key <key>`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  main(process.argv.slice(2)).then((code) => {
-    process.exitCode = code;
-  });
-}
+main(process.argv.slice(2)).then((code) => {
+  process.exitCode = code;
+});
