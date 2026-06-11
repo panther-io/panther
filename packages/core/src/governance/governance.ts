@@ -1,4 +1,5 @@
 import { getCapabilityPermission, normalizeApprovalResult, toCapabilityPermissions, toCapabilityRequest } from "../policy/index.js";
+import type { CredentialSource, CredentialSourceMap } from "../credentials/index.js";
 import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
 import type { MiddlewareContext } from "../types/middleware.js";
 import type { CapabilityPermission, Policy as PolicyContract, PolicyDecision, ToolPermission } from "../types/policy.js";
@@ -15,8 +16,10 @@ export class User {
   readonly tenantId?: string;
   readonly tenant?: Record<string, unknown>;
   readonly metadata?: Record<string, unknown>;
+  readonly apiKeys: CredentialSource[];
+  readonly credentials: CredentialSourceMap;
 
-  constructor(id: string, metadata: SubjectMetadata = {}) {
+  constructor(id: string, metadata: UserOptions = {}) {
     if (!id.trim()) {
       throw new Error("User id cannot be empty");
     }
@@ -27,6 +30,8 @@ export class User {
     this.tenantId = metadata.tenantId;
     this.tenant = metadata.tenant;
     this.metadata = metadata.metadata;
+    this.apiKeys = [...(metadata.apiKeys ?? [])];
+    this.credentials = { ...(metadata.credentials ?? {}) };
   }
 }
 
@@ -39,6 +44,7 @@ export class Group {
   readonly name?: string;
   readonly users: User[];
   readonly policy: PolicyContract;
+  readonly credentials: CredentialSourceMap;
   readonly metadata?: Record<string, unknown>;
 
   constructor(options: {
@@ -46,6 +52,7 @@ export class Group {
     name?: string;
     users: User[];
     policy: PolicyContract;
+    credentials?: CredentialSourceMap;
     metadata?: Record<string, unknown>;
   }) {
     if (!options.id.trim()) {
@@ -59,9 +66,19 @@ export class Group {
     this.name = options.name;
     this.users = [...options.users];
     this.policy = options.policy;
+    this.credentials = { ...(options.credentials ?? {}) };
     this.metadata = options.metadata;
   }
 }
+
+/**
+ * User declaration options.
+ * @pk
+ */
+export type UserOptions = SubjectMetadata & {
+  apiKeys?: CredentialSource[];
+  credentials?: CredentialSourceMap;
+};
 
 /**
  * Fluent policy declaration.
@@ -289,7 +306,7 @@ export type CapabilityPermissionOptions = Omit<CapabilityPermission, "effect"> &
  * Helper to declare a user.
  * @pk
  */
-export function user(id: string, metadata: SubjectMetadata = {}): User {
+export function user(id: string, metadata: UserOptions = {}): User {
   return new User(id, metadata);
 }
 
