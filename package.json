@@ -6,6 +6,9 @@
   "scripts": {
     "dev:core": "pnpm --filter @fentaris/core dev",
     "dev:cli": "pnpm --filter @fentaris/cli dev",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish",
     "docs:generate": "node scripts/generate-typedoc-mdx.cjs",
     "build": "pnpm -r build",
     "lint": "eslint packages/",
@@ -31,6 +34,7 @@
   },
   "license": "MIT",
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
     "eslint": "^10.4.0",
     "typedoc": "^0.28.19",
