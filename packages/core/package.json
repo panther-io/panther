@@ -1,6 +1,6 @@
 {
   "name": "@fentaris/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Fentaris MCP Proxy - Core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,12 +24,12 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/panther-io/panther.git",
+    "url": "git+https://github.com/fentaris-io/fentaris.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/panther-io/panther#readme",
+  "homepage": "https://github.com/fentaris-io/fentaris#readme",
   "bugs": {
-    "url": "https://github.com/panther-io/panther/issues"
+    "url": "https://github.com/fentaris-io/fentaris/issues"
   },
   "publishConfig": {
     "access": "public"
