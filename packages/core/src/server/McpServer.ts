@@ -17,6 +17,7 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { assertValidServerName } from "../nameMapping.js";
+import { isCredentialReference, type CredentialReference } from "../credentials/index.js";
 import type { FentarisTransport } from "../types/transport.js";
 import type { Isolation } from "../types/policy.js";
 import type { UserContext } from "../types/shared.js";
@@ -25,7 +26,35 @@ import type { UserContext } from "../types/shared.js";
  * Resolve environment variables per user.
  * @pk
  */
-export type EnvResolver = Record<string, string> | ((user: UserContext) => Record<string, string>);
+export type EnvValue = string | CredentialReference;
+
+/**
+ * Resolve environment variables per user.
+ * @pk
+ */
+export type EnvResolver = Record<string, EnvValue> | ((user: UserContext) => Record<string, string>);
+
+/**
+ * Server credential application configuration.
+ * @pk
+ */
+export type McpServerAuth = BearerCredentialAuth | HeaderCredentialAuth;
+
+export type BearerCredentialAuth = {
+  type: "bearer";
+  credential: CredentialReference;
+};
+
+export type HeaderCredentialAuth = {
+  type: "header";
+  header: string;
+  credential: CredentialReference;
+};
+
+export type ServerCredentialBinding =
+  | { type: "bearer"; credential: CredentialReference }
+  | { type: "header"; header: string; credential: CredentialReference }
+  | { type: "env"; env: string; credential: CredentialReference };
 
 /**
  * Configuration for an MCP server wrapper.
@@ -35,6 +64,7 @@ export type McpServerOptions = {
   name: string;
   displayName?: string;
   transport: FentarisTransport;
+  auth?: McpServerAuth;
   env?: EnvResolver;
   isolation?: Isolation;
   isolationTimeout?: number;
@@ -57,6 +87,7 @@ export class McpServer {
   readonly displayName: string;
 
   private readonly transport: FentarisTransport;
+  private readonly auth?: McpServerAuth;
   private readonly env?: EnvResolver;
   private readonly isolation?: Isolation;
   private readonly isolationTimeout?: number;
@@ -72,6 +103,7 @@ export class McpServer {
     this.name = options.name;
     this.displayName = options.displayName ?? options.name;
     this.transport = options.transport;
+    this.auth = options.auth;
     this.env = options.env;
     this.isolation = options.isolation;
     this.isolationTimeout = options.isolationTimeout;
@@ -217,6 +249,29 @@ export class McpServer {
     await this.transport.close();
   }
 
+  /**
+   * Credential bindings declared with this server.
+   * @pk
+   */
+  getCredentialBindings(): ServerCredentialBinding[] {
+    const bindings: ServerCredentialBinding[] = [];
+    if (this.auth?.type === "bearer") {
+      bindings.push({ type: "bearer", credential: this.auth.credential });
+    } else if (this.auth?.type === "header") {
+      bindings.push({ type: "header", header: this.auth.header, credential: this.auth.credential });
+    }
+
+    if (this.env && typeof this.env !== "function") {
+      for (const [name, value] of Object.entries(this.env)) {
+        if (isCredentialReference(value)) {
+          bindings.push({ type: "env", env: name, credential: value });
+        }
+      }
+    }
+
+    return bindings;
+  }
+
   private transportFor(user: UserContext): FentarisTransport {
     const upstreamEnv = isStringRecord(user.__fentarisUpstreamEnv) ? user.__fentarisUpstreamEnv : undefined;
     const supportsUserContext = isUserAwareTransport(this.transport);
@@ -226,7 +281,7 @@ export class McpServer {
 
     const configuredEnv = typeof this.env === "function" ? this.env(user) : this.env;
     const resolvedEnv = {
-      ...(configuredEnv ?? {}),
+      ...stringEnv(configuredEnv ?? {}),
       ...(upstreamEnv ?? {}),
     };
     const key = `${user.id ?? "default"}:${JSON.stringify(Object.entries(resolvedEnv).sort(([left], [right]) => left.localeCompare(right)))}`;
@@ -262,6 +317,34 @@ export function server(name: string, options: Omit<McpServerOptions, "name">): M
 }
 
 /**
+ * Create an upstream MCP server declaration.
+ * @pk
+ */
+export function mcp(name: string, options: Omit<McpServerOptions, "name">): McpServer {
+  return server(name, options);
+}
+
+/**
+ * Apply a credential as an Authorization bearer token.
+ * @pk
+ */
+export function bearer(credential: CredentialReference): BearerCredentialAuth {
+  return { type: "bearer", credential };
+}
+
+/**
+ * Apply a credential as a named request header.
+ * @pk
+ */
+export function header(name: string, credential: CredentialReference): HeaderCredentialAuth {
+  if (!name.trim()) {
+    throw new Error("Credential header name cannot be empty");
+  }
+
+  return { type: "header", header: name, credential };
+}
+
+/**
  * Type guard for env-aware transports.
  * @pk
  */
@@ -275,6 +358,10 @@ function isUserAwareTransport(transport: FentarisTransport): transport is UserAw
 
 function isStringRecord(value: unknown): value is Record<string, string> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringEnv(value: Record<string, EnvValue>): Record<string, string> {
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 }
 
 function unsupportedCapability(serverName: string, capability: "resources" | "prompts" | "completions"): Error {

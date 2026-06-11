@@ -36,7 +36,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, FentarisErrorCode } from "../errors.js";
 import { Logger } from "../logger.js";
-import { McpServer } from "../server/McpServer.js";
+import { McpServer, type ServerCredentialBinding } from "../server/McpServer.js";
 import {
   fromProxyPromptName,
   fromProxyResourceTemplateUri,
@@ -49,7 +49,8 @@ import {
 } from "../nameMapping.js";
 import { filterToolsByPolicy, getToolPermission } from "../policy.js";
 import { getCapabilityPermission, toCapabilityPermissions } from "../policy.js";
-import type { FentarisAuth } from "../auth.js";
+import { FentarisAuth } from "../auth.js";
+import { resolveCredentialSource, type CredentialSourceMap } from "../credentials/index.js";
 import {
   buildSubjectIndex,
   evaluateGroupPolicies,
@@ -114,6 +115,9 @@ export type McpProxyOptions = {
   identity?: IdentityStrategy | IdentityResolverOptions;
   policy?: Policy;
   groups?: Group[];
+  defaults?: {
+    credentials?: CredentialSourceMap;
+  };
   auth?: FentarisAuth;
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
@@ -170,6 +174,7 @@ export class McpProxy {
   private readonly identityOptions?: IdentityResolverOptions;
   private readonly policy?: Policy;
   private readonly groups: Group[];
+  private readonly defaultCredentials: CredentialSourceMap;
   private readonly subjectIndex?: SubjectIndex;
   private readonly auth?: FentarisAuth;
   private readonly registry?: Registry;
@@ -191,9 +196,13 @@ export class McpProxy {
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
     this.auth = options.auth;
-    this.identityOptions = normalizeIdentityOptions(options.identity ?? options.auth?.identityStrategy(), Boolean(options.auth));
     this.policy = options.policy;
     this.groups = options.groups ?? [];
+    this.defaultCredentials = { ...(options.defaults?.credentials ?? {}) };
+    this.identityOptions = normalizeIdentityOptions(
+      options.identity ?? options.auth?.identityStrategy() ?? declaredApiKeyIdentityStrategy(this.groups),
+      Boolean(options.auth) || hasDeclaredApiKeys(this.groups),
+    );
     this.subjectIndex = this.groups.length > 0 ? buildSubjectIndex(this.groups) : undefined;
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
@@ -403,7 +412,7 @@ export class McpProxy {
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
     const results = await Promise.all(
       this.servers.map(async (server) => {
-        const { user: userForServer } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+        const { user: userForServer } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
         const result = await server.listTools(params, userForServer);
         const tools = this.groups.length > 0
           ? filterToolsByGroupPolicies(result.tools, server.name, userGroups)
@@ -480,6 +489,7 @@ export class McpProxy {
       arguments: params.arguments,
       raw: params,
     };
+    const server = this.serverByName.get(serverName);
     const log = createContextualLogger({ logger: this.logger }, {
       operation: "tool:call",
       user: resolvedUser,
@@ -520,8 +530,8 @@ export class McpProxy {
     this.writeAutoLog("start", log, request, context, startedAt);
     try {
       let upstreamUser = resolvedUser;
-      if (!context.policyDecision || context.policyDecision.allowed) {
-        const upstream = this.applyUpstreamAuth(serverName, resolvedUser, resolvedSubject);
+      if (server && (!context.policyDecision || context.policyDecision.allowed)) {
+        const upstream = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
         upstreamUser = upstream.user;
         context.credentialSources = upstream.credentialSource ? [upstream.credentialSource] : undefined;
         context.credentials.sources = context.credentialSources ?? [];
@@ -617,7 +627,7 @@ export class McpProxy {
           return [];
         }
         const result = await this.dispatchOperationRoutes(context, async () => {
-          const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+          const { user: userForServer, credentialSource } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
           context.credentialSources = credentialSource ? [credentialSource] : undefined;
           context.credentials.sources = context.credentialSources ?? [];
           const upstream = await server.listResources(params, userForServer);
@@ -681,7 +691,7 @@ export class McpProxy {
       throw error;
     }
     return this.runCapabilityOperation(context, async () => {
-      const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      const { user: userForServer, credentialSource } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
       context.credentialSources = credentialSource ? [credentialSource] : undefined;
       context.credentials.sources = context.credentialSources ?? [];
       const result = await this.dispatchOperationRoutes(context, async () => server.readResource({ ...params, uri }, userForServer)) as ReadResourceResult;
@@ -730,7 +740,7 @@ export class McpProxy {
           return [];
         }
         const result = await this.dispatchOperationRoutes(context, async () => {
-          const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+          const { user: userForServer, credentialSource } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
           context.credentialSources = credentialSource ? [credentialSource] : undefined;
           context.credentials.sources = context.credentialSources ?? [];
           const upstream = await server.listResourceTemplates(params, userForServer);
@@ -788,7 +798,7 @@ export class McpProxy {
           return [];
         }
         const result = await this.dispatchOperationRoutes(context, async () => {
-          const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+          const { user: userForServer, credentialSource } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
           context.credentialSources = credentialSource ? [credentialSource] : undefined;
           context.credentials.sources = context.credentialSources ?? [];
           const upstream = await server.listPrompts(params, userForServer);
@@ -852,7 +862,7 @@ export class McpProxy {
       throw error;
     }
     return this.runCapabilityOperation(context, async () => {
-      const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      const { user: userForServer, credentialSource } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
       context.credentialSources = credentialSource ? [credentialSource] : undefined;
       context.credentials.sources = context.credentialSources ?? [];
       return this.dispatchOperationRoutes(context, async () => server.getPrompt({ ...params, name: promptName }, userForServer)) as Promise<GetPromptResult>;
@@ -895,7 +905,7 @@ export class McpProxy {
       throw error;
     }
     return this.runCapabilityOperation(context, async () => {
-      const { user: userForServer, credentialSource } = this.applyUpstreamAuth(server.name, resolvedUser, resolvedSubject);
+      const { user: userForServer, credentialSource } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
       context.credentialSources = credentialSource ? [credentialSource] : undefined;
       context.credentials.sources = context.credentialSources ?? [];
       return this.dispatchOperationRoutes(context, async () => server.complete(routed.params, userForServer)) as Promise<CompleteResult>;
@@ -1423,41 +1433,77 @@ export class McpProxy {
     return resolved;
   }
 
-  private applyUpstreamAuth(
-    serverName: string,
+  private async applyUpstreamAuth(
+    server: McpServer,
     user: UserContext,
     subject: ResolvedSubject | undefined,
-  ): { user: UserContext; credentialSource?: CredentialSourceMetadata } {
-    const binding = this.auth?.getBinding(serverName);
-    if (!binding) {
+  ): Promise<{ user: UserContext; credentialSource?: CredentialSourceMetadata }> {
+    const bindings = server.getCredentialBindings();
+    const legacyBinding = bindings.length === 0 ? this.auth?.getBinding(server.name) : undefined;
+    const effectiveBindings: ServerCredentialBinding[] = legacyBinding
+      ? [{ ...legacyBinding, credential: { reference: legacyBinding.credential } as ServerCredentialBinding["credential"] }]
+      : bindings;
+    if (effectiveBindings.length === 0) {
       return { user };
     }
 
     if (!subject) {
-      throw new Error(`Upstream auth for server "${serverName}" requires an authenticated subject`);
+      throw new Error(`Upstream auth for server "${server.name}" requires an authenticated subject`);
     }
 
-    const credential = this.auth?.resolveCredential(binding.credential, subject);
-    if (!credential) {
-      throw new Error(`Missing upstream credential "${binding.credential}" for server "${serverName}"`);
-    }
+    let resolvedUser = user;
+    let firstCredentialSource: CredentialSourceMetadata | undefined;
+    for (const binding of effectiveBindings) {
+      const credential = await this.resolveCredential(binding.credential.reference, subject);
+      if (!credential) {
+        throw new Error(`Missing upstream credential "${binding.credential.reference}" for server "${server.name}"`);
+      }
 
-    const env = toUpstreamEnv(binding, credential.value);
-    return {
-      user: {
-        ...user,
-        __fentarisUpstreamEnv: {
-          ...(isRecord(user.__fentarisUpstreamEnv) ? user.__fentarisUpstreamEnv : {}),
-          ...env,
-        },
-      },
-      credentialSource: {
+      firstCredentialSource ??= {
         reference: credential.reference,
         source: credential.source,
         userId: credential.userId,
         groupId: credential.groupId,
-      },
+      };
+      resolvedUser = {
+        ...resolvedUser,
+        __fentarisUpstreamEnv: {
+          ...(isRecord(resolvedUser.__fentarisUpstreamEnv) ? resolvedUser.__fentarisUpstreamEnv : {}),
+          ...toUpstreamEnv(binding, credential.value),
+        },
+      };
+    }
+
+    return {
+      user: resolvedUser,
+      credentialSource: firstCredentialSource,
     };
+  }
+
+  private async resolveCredential(
+    reference: string,
+    subject: ResolvedSubject,
+  ): Promise<(CredentialSourceMetadata & { value: string }) | null> {
+    const user = this.groups.flatMap((group) => group.users).find((candidate) => candidate.id === subject.id);
+    const userSource = user?.credentials[reference];
+    if (userSource) {
+      return { reference, value: await resolveCredentialSource(userSource), source: "user", userId: subject.id };
+    }
+
+    for (const membership of subject.groups) {
+      const group = this.groups.find((candidate) => candidate.id === membership.id);
+      const source = group?.credentials[reference];
+      if (source) {
+        return { reference, value: await resolveCredentialSource(source), source: "group", groupId: group.id };
+      }
+    }
+
+    const defaultSource = this.defaultCredentials[reference];
+    if (defaultSource) {
+      return { reference, value: await resolveCredentialSource(defaultSource), source: "default" };
+    }
+
+    return this.auth?.resolveCredential(reference, subject) ?? null;
   }
 
   private writeAutoLog(
@@ -1605,7 +1651,38 @@ function normalizeIdentityOptions(
   return "strategy" in identity ? { required, ...identity } : { strategy: identity, required };
 }
 
-function toUpstreamEnv(binding: NonNullable<ReturnType<FentarisAuth["getBinding"]>>, credential: string): Record<string, string> {
+function hasDeclaredApiKeys(groups: Group[]): boolean {
+  return groups.some((group) => group.users.some((user) => user.apiKeys.length > 0));
+}
+
+function declaredApiKeyIdentityStrategy(groups: Group[]): IdentityStrategy | undefined {
+  if (!hasDeclaredApiKeys(groups)) {
+    return undefined;
+  }
+
+  return {
+    name: "declared-api-key",
+    async resolve(request) {
+      const apiKey = request.headers?.["x-fentaris-api-key"];
+      if (!apiKey) {
+        return null;
+      }
+
+      for (const user of groups.flatMap((group) => group.users)) {
+        for (const source of user.apiKeys) {
+          const candidate = await resolveCredentialSource(source);
+          if (candidate === apiKey || candidate === FentarisAuth.hashApiKey(apiKey)) {
+            return { id: user.id };
+          }
+        }
+      }
+
+      return null;
+    },
+  };
+}
+
+function toUpstreamEnv(binding: ServerCredentialBinding, credential: string): Record<string, string> {
   if (binding.type === "bearer") {
     return { AUTHORIZATION: `Bearer ${credential}` };
   }
@@ -1656,13 +1733,6 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
     failureLevel: options.failureLevel ?? "error",
   };
 }
-
-
-
-
-
-
-
 
 
 

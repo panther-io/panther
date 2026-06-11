@@ -59,6 +59,7 @@ export type LocalAuthOptions = {
   key: string | Buffer;
   credentialsFile?: string;
   upstreamAuthFile?: string;
+  upstreamAuth?: UpstreamAuthBindings;
 };
 
 export type CredentialResolution = CredentialSourceMetadata & {
@@ -86,10 +87,8 @@ export class FentarisAuth {
     const credentialsPath = path.join(options.dir, options.credentialsFile ?? "credentials.enc.json");
     const upstreamAuthPath = path.join(options.dir, options.upstreamAuthFile ?? "upstream-auth.json");
 
-    const [encryptedCredentials, upstreamBindings] = await Promise.all([
-      readJson(credentialsPath, "encrypted credentials"),
-      readJson(upstreamAuthPath, "upstream auth bindings"),
-    ]);
+    const encryptedCredentials = await readJson(credentialsPath, "encrypted credentials");
+    const upstreamBindings = options.upstreamAuth ?? (await readOptionalJson(upstreamAuthPath, { servers: {} }));
 
     const envelope = parseWithError(encryptedCredentialsSchema, encryptedCredentials, "Invalid encrypted credentials file");
     const decrypted = decryptLocalCredentials(envelope, options.key);
@@ -251,6 +250,18 @@ async function readJson(filePath: string, label: string): Promise<unknown> {
     }
 
     throw new Error(`Unable to read ${label} file at ${filePath}`, { cause: error });
+  }
+}
+
+async function readOptionalJson(filePath: string, fallback: unknown): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(filePath, "utf8")) as unknown;
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return fallback;
+    }
+
+    throw new Error(`Unable to read upstream auth bindings file at ${filePath}`, { cause: error });
   }
 }
 

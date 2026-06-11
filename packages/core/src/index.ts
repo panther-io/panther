@@ -40,12 +40,20 @@ export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxy
  * MCP server wrapper.
  * @pk
  */
-export { McpServer, server } from "./server/index.js";
+export { McpServer, bearer, header, mcp, server } from "./server/index.js";
 /**
  * MCP server option types.
  * @pk
  */
-export type { EnvResolver, McpServerOptions } from "./server/index.js";
+export type {
+  BearerCredentialAuth,
+  EnvResolver,
+  EnvValue,
+  HeaderCredentialAuth,
+  McpServerAuth,
+  McpServerOptions,
+  ServerCredentialBinding,
+} from "./server/index.js";
 /**
  * Stdio transport for MCP clients.
  * @pk
@@ -211,7 +219,20 @@ export {
   sensitive,
   user,
 } from "./governance/index.js";
-export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "./governance/index.js";
+export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions, UserOptions } from "./governance/index.js";
+/**
+ * Credential declaration helpers.
+ * @pk
+ */
+export { credential, credentialEnv, credentialJson } from "./credentials/index.js";
+export type {
+  CredentialEnvSource,
+  CredentialJsonOptions,
+  CredentialJsonSource,
+  CredentialReference,
+  CredentialSource,
+  CredentialSourceMap,
+} from "./credentials/index.js";
 /**
  * Local auth and API-key identity APIs.
  * @pk

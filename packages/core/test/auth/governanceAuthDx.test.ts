@@ -1,7 +1,7 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CallToolRequest, CallToolResult, ListToolsResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   Group,
@@ -13,7 +13,12 @@ import {
   allow,
   apiKeyIdentityStrategy,
   approval,
+  bearer,
+  credential,
+  credentialEnv,
   group,
+  header,
+  mcp,
   policy,
   sensitive,
   user,
@@ -50,6 +55,10 @@ class EnvTransport implements FentarisTransport {
 
   async close(): Promise<void> {}
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("governance auth DX", () => {
   it("declares users and groups, resolves multi-group subjects, and validates conflicts", async () => {
@@ -212,6 +221,62 @@ describe("governance auth DX", () => {
       { userSecret: undefined, credentialReference: "github.token" },
       { userSecret: undefined, credentialReference: "github.token" },
     ]);
+  });
+
+  it("declares API keys, credential sources, and server auth bindings in code", async () => {
+    vi.stubEnv("ALICE_API_KEY", "alice-key");
+    vi.stubEnv("SUPPORT_GITHUB_TOKEN", "support-token");
+    vi.stubEnv("DEFAULT_STRIPE_KEY", "stripe-default");
+    vi.stubEnv("DEFAULT_GITHUB_TOKEN", "internal-default");
+
+    const proxy = new McpProxy({
+      defaults: {
+        credentials: {
+          "stripe.apiKey": credentialEnv("DEFAULT_STRIPE_KEY"),
+          "internal.token": credentialEnv("DEFAULT_GITHUB_TOKEN"),
+        },
+      },
+      groups: [
+        group({
+          id: "support",
+          users: [
+            user("alice", {
+              apiKeys: [credentialEnv("ALICE_API_KEY")],
+            }),
+          ],
+          credentials: {
+            "github.token": credentialEnv("SUPPORT_GITHUB_TOKEN"),
+          },
+          policy: Policy.allowAll("support"),
+        }),
+      ],
+      servers: [
+        mcp("github", {
+          transport: new EnvTransport(),
+          auth: bearer(credential("github.token")),
+        }),
+        mcp("stripe", {
+          transport: new EnvTransport(),
+          auth: header("x-api-key", credential("stripe.apiKey")),
+        }),
+        mcp("internal", {
+          transport: new EnvTransport(),
+          env: {
+            GITHUB_TOKEN: credential("internal.token"),
+          },
+        }),
+      ],
+    });
+
+    await expect(proxy.callTool({ name: "github__read" }, { id: "alice" })).resolves.toMatchObject({
+      content: [{ text: "read:Bearer support-token" }],
+    });
+    await expect(proxy.callTool({ name: "stripe__read" }, { id: "alice" })).resolves.toMatchObject({
+      content: [{ text: "read:stripe-default" }],
+    });
+    await expect(proxy.callTool({ name: "internal__read" }, { id: "alice" })).resolves.toMatchObject({
+      content: [{ text: "read:internal-default" }],
+    });
   });
 
   it("reports local auth validation and missing credential errors without secret values", async () => {

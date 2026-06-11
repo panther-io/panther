@@ -18,4 +18,4 @@ export {
   sensitive,
   user,
 } from "./governance/index.js";
-export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions } from "./governance/index.js";
+export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions, UserOptions } from "./governance/index.js";
