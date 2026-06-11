@@ -9,45 +9,67 @@ Use the governance auth DX when one proxy serves multiple callers and upstream s
 
 ```ts theme={null}
 import {
-  Group,
-  McpProxy,
-  FentarisAuth,
-  Policy,
-  User,
+  bearer,
+  credential,
+  credentialEnv,
+  credentialJson,
+  fentaris,
+  group,
+  mcp,
+  policy,
   approval,
   sensitive,
+  streamableHttp,
+  user,
 } from "@fentaris/core";
 
-const auth = await FentarisAuth.local({
-  dir: ".fentaris/auth",
-  key: process.env.FENTARIS_AUTH_KEY ?? "",
-});
-
-const readOnly = new Policy({ name: "read-only" })
+const readOnly = policy("read-only")
   .server("github")
   .allow("search_issues");
 
-const maintainers = new Policy({ name: "maintainers" })
+const maintainers = policy("maintainers")
   .server("github")
   .allow("*")
   .server("github")
   .deny("delete_repo", sensitive({ reason: "destructive" }));
 
-const proxy = new McpProxy({
-  auth,
+const proxy = fentaris({
   groups: [
-    new Group({
+    group({
       id: "support",
-      users: [new User("alice", { email: "alice@example.com", tenantId: "acme" })],
+      users: [
+        user("alice", {
+          email: "alice@example.com",
+          tenantId: "acme",
+          apiKeys: [credentialJson("users.alice.apiKeys.0")],
+        }),
+      ],
+      credentials: {
+        "github.token": credentialEnv("SUPPORT_GITHUB_TOKEN"),
+      },
       policy: readOnly,
     }),
-    new Group({
+    group({
       id: "maintainers",
-      users: [new User("bob", { email: "bob@example.com", tenantId: "acme" })],
+      users: [
+        user("bob", {
+          email: "bob@example.com",
+          tenantId: "acme",
+          apiKeys: [credentialJson("users.bob.apiKeys.0")],
+        }),
+      ],
+      credentials: {
+        "github.token": credentialJson("groups.maintainers.github.token"),
+      },
       policy: maintainers,
     }),
   ],
-  servers: [github],
+  servers: [
+    mcp("github", {
+      transport: streamableHttp({ url: "https://github.example/mcp" }),
+      auth: bearer(credential("github.token")),
+    }),
+  ],
 });
 
 proxy.use((ctx, next) => {
@@ -58,35 +80,31 @@ proxy.use((ctx, next) => {
 });
 ```
 
-The same API is available through helpers such as `user(...)`, `group(...)`, `policy(...)`, `approval(...)`, and `sensitive(...)` when you prefer a function style.
+The same API is available through classes when you prefer object construction, but the helper style keeps users, groups, server bindings, and credential references close together.
 
 ## Local auth files
 
-`FentarisAuth.local({ dir, key })` reads two files from the configured directory:
+The generated local credential store uses one encrypted file by default:
 
 ```txt theme={null}
-.fentaris/auth/
+.fentaris/
   credentials.enc.json
-  upstream-auth.json
 ```
 
 `credentials.enc.json` is encrypted and stores user API keys plus user, group, and default credential values. Keep it private and rotate the encryption key using your deployment secret process.
 
-`upstream-auth.json` is non-sensitive. It stores server bindings that reference credential names, so it can be reviewed without revealing raw credential values.
+Server bindings live next to the MCP server declaration in TypeScript:
 
-```json theme={null}
-{
-  "servers": {
-    "github": { "type": "bearer", "credential": "github.token" },
-    "stripe": { "type": "header", "header": "x-api-key", "credential": "stripe.apiKey" },
-    "internal": { "type": "env", "env": "INTERNAL_TOKEN", "credential": "internal.token" }
-  }
-}
+```ts theme={null}
+mcp("github", {
+  transport: streamableHttp({ url: "https://github.example/mcp" }),
+  auth: bearer(credential("github.token")),
+});
 ```
 
 ## API-key identity
 
-When `auth` is passed to `McpProxy`, Fentaris uses API-key identity by default and requires the configured header. The default header is `x-fentaris-api-key`.
+When users declare `apiKeys`, Fentaris uses API-key identity by default and requires the configured header. The default header is `x-fentaris-api-key`.
 
 API keys resolve to declared user ids from encrypted local auth storage. Raw API keys are not exposed to middleware, hooks, logs, or policy callbacks.
 
@@ -100,7 +118,7 @@ For an upstream binding such as `github -> bearer github.token`, Fentaris resolv
 2. Group credential from the subject's matching groups.
 3. Default credential.
 
-If multiple groups provide the same credential reference, the default behavior follows configured group order. Set `credentialConflict` to `"error"` in `upstream-auth.json` to fail closed instead.
+If multiple groups provide the same credential reference, the default behavior follows configured group order.
 
 Middleware receives credential source metadata through `ctx.credentials.sources`, such as `{ reference: "github.token", source: "group", groupId: "support" }`, never the decrypted credential value.
 
@@ -225,25 +243,25 @@ Fentaris adapts those declarations internally to `tool:call` capability permissi
 Initialize local auth files:
 
 ```bash theme={null}
-fentaris auth init --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY"
+fentaris auth init --dir .fentaris --key "$FENTARIS_AUTH_KEY"
 ```
 
 Store a user API key:
 
 ```bash theme={null}
-fentaris auth set-api-key --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
+fentaris auth set-api-key --dir .fentaris --key "$FENTARIS_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
 ```
 
 Store a credential:
 
 ```bash theme={null}
-fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
-fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --group support --ref github.token --value "$SUPPORT_GITHUB_TOKEN"
-fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --ref github.token --value "$DEFAULT_GITHUB_TOKEN"
+fentaris auth set-credential --dir .fentaris --key "$FENTARIS_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
+fentaris auth set-credential --dir .fentaris --key "$FENTARIS_AUTH_KEY" --group support --ref github.token --value "$SUPPORT_GITHUB_TOKEN"
+fentaris auth set-credential --dir .fentaris --key "$FENTARIS_AUTH_KEY" --ref github.token --value "$DEFAULT_GITHUB_TOKEN"
 ```
 
 Inspect redacted local auth:
 
 ```bash theme={null}
-fentaris auth inspect --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY"
+fentaris auth inspect --dir .fentaris --key "$FENTARIS_AUTH_KEY"
 ```

@@ -198,9 +198,9 @@ x-fentaris-api-key: <guest-or-admin-api-key>
 Fentaris can resolve caller identity and upstream credentials from local encrypted files:
 
 ```bash
-fentaris auth init --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY"
-fentaris auth set-api-key --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
-fentaris auth set-credential --dir .fentaris/auth --key "$FENTARIS_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
+fentaris auth init --dir .fentaris --key "$FENTARIS_AUTH_KEY"
+fentaris auth set-api-key --dir .fentaris --key "$FENTARIS_AUTH_KEY" --user alice --api-key "$ALICE_API_KEY"
+fentaris auth set-credential --dir .fentaris --key "$FENTARIS_AUTH_KEY" --user alice --ref github.token --value "$GITHUB_TOKEN"
 ```
 
 Or, inside a generated Fentaris project:
