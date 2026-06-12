@@ -1,0 +1,152 @@
+import {
+  McpProxy,
+  McpServer,
+  ConsoleLoggerDriver,
+  Logger,
+  fentaris,
+  group,
+  mcp,
+  policy,
+  server,
+  stdio,
+  user,
+} from "@fentaris/core";
+import type {
+  FentarisTransport,
+  LoggerDriver,
+  LogEntry,
+  Middleware,
+  Policy,
+  PolicyDecision,
+  ProxyEventHandler,
+  ProxyExposureHandle,
+  ProxyExposureTransport,
+  ProxyMiddleware,
+  ProxyRuntime,
+  RateLimiter,
+  Registry,
+  ToolCallRequest,
+} from "@fentaris/core/extensions";
+
+class CustomTransport implements FentarisTransport {
+  async listTools() {
+    return {
+      tools: [
+        {
+          name: "search",
+          inputSchema: { type: "object" as const },
+        },
+      ],
+    };
+  }
+
+  async callTool() {
+    return {
+      content: [{ type: "text" as const, text: "ok" }],
+    };
+  }
+
+  async close() {}
+}
+
+class CustomExposureTransport implements ProxyExposureTransport<ProxyExposureHandle> {
+  async listen(runtime: ProxyRuntime): Promise<ProxyExposureHandle> {
+    runtime.logger.info("custom exposure started", { identityRequired: runtime.identityRequired });
+    return {
+      async close() {},
+    };
+  }
+}
+
+class CustomPolicy implements Policy {
+  readonly name = "custom";
+
+  getPermissions() {
+    return [{ tool: "*", effect: "allow" as const }];
+  }
+
+  evaluate(request: ToolCallRequest): PolicyDecision {
+    return {
+      allowed: request.toolName !== "dangerous",
+      reason: request.toolName === "dangerous" ? "blocked" : undefined,
+    };
+  }
+}
+
+class CustomRegistry implements Registry {
+  async getUser(userId: string) {
+    return { id: userId, plan: "team" };
+  }
+
+  async getSecrets() {
+    return { token: "redacted" };
+  }
+
+  async getTokens() {
+    return null;
+  }
+}
+
+class CustomRateLimiter implements RateLimiter {
+  async checkLimit() {
+    return true;
+  }
+
+  async recordCall() {}
+
+  async getRemainingCalls() {
+    return 99;
+  }
+}
+
+class CustomLoggerDriver implements LoggerDriver {
+  write(entry: LogEntry): void {
+    if (entry.level === "error") {
+      console.error(entry.message);
+    }
+  }
+}
+
+const middleware: ProxyMiddleware = async (ctx, next) => {
+  const remaining = ctx.rateLimiter ? await ctx.rateLimiter.getRemainingCalls(ctx.subject?.id ?? "anonymous") : undefined;
+  ctx.log.info("middleware", { operation: ctx.operation });
+  ctx.log.debug("rate limit", { remaining });
+  return next();
+};
+
+const typedMiddleware: Middleware = middleware;
+
+const eventHandler: ProxyEventHandler = ({ ctx, durationMs }) => {
+  ctx.log.info("event", { operation: ctx.operation, durationMs });
+};
+
+const application = fentaris({
+  servers: [
+    mcp("github", {
+      transport: stdio({ command: "github-mcp-server" }),
+    }),
+    server("custom", { transport: new CustomTransport() }),
+  ],
+  groups: [
+    group({
+      id: "admins",
+      users: [user("u_123")],
+      policy: policy("admins").server("*").allow("*"),
+    }),
+  ],
+});
+
+const proxy = new McpProxy({
+  servers: [new McpServer({ name: "custom", transport: new CustomTransport() })],
+  policy: new CustomPolicy(),
+  registry: new CustomRegistry(),
+  logger: new Logger({ driver: new CustomLoggerDriver() }),
+});
+
+proxy.use(typedMiddleware);
+proxy.on("tool:after", eventHandler);
+proxy.listen(new CustomExposureTransport());
+
+new ConsoleLoggerDriver();
+new CustomRateLimiter();
+void application;
