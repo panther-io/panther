@@ -107,6 +107,12 @@ describe("project template", () => {
     expect(rendered.files["src/index.ts"]).toContain("credentialJson");
     expect(rendered.files["src/index.ts"]).toContain("rateLimitMiddleware");
     expect(rendered.files["src/index.ts"]).toContain("admin-full-access");
+
+    const packageJson = JSON.parse(rendered.files["package.json"] ?? "{}") as { devDependencies?: Record<string, string> };
+    expect(packageJson.devDependencies).toMatchObject({
+      "@types/node": "latest",
+      typescript: "latest",
+    });
   });
 });
 

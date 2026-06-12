@@ -29,6 +29,7 @@ export function renderTemplate(input: TemplateInput): { files: Record<string, st
             tsx: "latest",
           },
           devDependencies: {
+            "@types/node": "latest",
             typescript: "latest",
           },
         },
