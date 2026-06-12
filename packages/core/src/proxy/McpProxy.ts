@@ -53,7 +53,6 @@ import { getCapabilityPermission, toCapabilityPermissions } from "../policy.js";
 import { FentarisAuth } from "../auth.js";
 import { resolveCredentialSource, type CredentialSourceMap } from "../credentials/index.js";
 import {
-  buildSubjectIndex,
   evaluateGroupPolicies,
   filterToolsByGroupPolicies,
   type Group,
@@ -61,6 +60,8 @@ import {
 } from "../governance.js";
 import { HttpProxyExposureTransport } from "../transports/exposure/HttpProxyExposureTransport.js";
 import { ResponseController } from "../types/middleware.js";
+import { FentarisConfigError, assertValidFentarisConfig } from "../config/index.js";
+import { resolveFentarisConfig } from "../config/resolve.js";
 import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
 import type { CredentialSourceMetadata, IdentityMetadata, ResolvedSubject, UserContext } from "../types/shared.js";
 import type {
@@ -195,18 +196,19 @@ export class McpProxy {
    * @pk
    */
   constructor(options: McpProxyOptions) {
-    this.servers = [...(options.servers ?? [])];
+    const resolved = resolveFentarisConfig(options);
+    this.servers = resolved.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
     this.auth = options.auth;
     this.policy = options.policy;
-    this.groups = options.groups ?? [];
-    this.defaultCredentials = { ...(options.defaults?.credentials ?? {}) };
+    this.groups = resolved.groups;
+    this.defaultCredentials = resolved.defaults.credentials;
     this.identityOptions = normalizeIdentityOptions(
       options.identity ?? options.auth?.identityStrategy() ?? declaredApiKeyIdentityStrategy(this.groups),
       Boolean(options.auth) || hasDeclaredApiKeys(this.groups),
     );
-    this.subjectIndex = this.groups.length > 0 ? buildSubjectIndex(this.groups) : undefined;
+    this.subjectIndex = resolved.subjectIndex;
     this.serverCatalog = new ServerCatalog({ servers: this.servers, groups: this.groups, subjectIndex: this.subjectIndex });
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
@@ -265,6 +267,19 @@ export class McpProxy {
       }
     }
 
+    if (!server && !this.serverByName.has(name)) {
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_SERVER",
+          title: "Scoped server handle references an unknown server",
+          message: `Server handle "${name}" does not match a configured MCP server.`,
+          path: ["proxy", "server", name],
+          hint: "Configure the server first or pass the MCP server when registering the handle.",
+        },
+      ]);
+    }
+
     return new McpProxyServerHandle(this, name);
   }
 
@@ -274,7 +289,16 @@ export class McpProxy {
    */
   group(groupId: string): ProxyGroupHandle {
     if (!this.groups.some((group) => group.id === groupId)) {
-      throw new Error(`Unknown group "${groupId}"`);
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_GROUP",
+          title: "Scoped group handle references an unknown group",
+          message: `Group handle "${groupId}" does not match a configured group.`,
+          path: ["proxy", "group", groupId],
+          hint: "Declare the group in config.groups before registering scoped routes.",
+        },
+      ]);
     }
 
     return new McpProxyGroupHandle(this, groupId);
@@ -1007,18 +1031,22 @@ export class McpProxy {
   }
 
   registerServerMiddleware(serverName: string, handler: Middleware, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.routes.push({ kind: "middleware", scopeServer: serverName, scopeGroup: groupId, handler });
   }
 
   registerServerTool(serverName: string, pattern: ProxyToolPattern, handler: ProxyToolHandler, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.routes.push({ kind: "tool", scopeServer: serverName, scopeGroup: groupId, pattern: compileToolPattern(pattern, serverName), handler });
   }
 
   registerServerOperation(serverName: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.routes.push({ kind: "operation", scopeServer: serverName, scopeGroup: groupId, operation, handler });
   }
 
   registerServerEvent(serverName: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.eventHandlers.push({
       eventName,
       filter: {
@@ -1031,14 +1059,17 @@ export class McpProxy {
   }
 
   registerGroupMiddleware(groupId: string, handler: Middleware): void {
+    this.assertGroupHandleKnown(groupId);
     this.routes.push({ kind: "middleware", scopeGroup: groupId, handler });
   }
 
   registerGroupOperation(groupId: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler): void {
+    this.assertGroupHandleKnown(groupId);
     this.routes.push({ kind: "operation", scopeGroup: groupId, operation, handler });
   }
 
   registerGroupEvent(groupId: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): void {
+    this.assertGroupHandleKnown(groupId);
     this.eventHandlers.push({
       eventName,
       filter: {
@@ -1047,6 +1078,58 @@ export class McpProxy {
       },
       handler,
     });
+  }
+
+  assertServerHandleVisible(serverName: string, groupId?: string): void {
+    if (!this.serverByName.has(serverName)) {
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_SERVER",
+          title: "Scoped server handle references an unknown server",
+          message: `Server handle "${serverName}" does not match a configured MCP server.`,
+          path: groupId ? ["proxy", "group", groupId, "server", serverName] : ["proxy", "server", serverName],
+          hint: "Configure the server before registering scoped routes.",
+        },
+      ]);
+    }
+
+    if (groupId && !this.groupCanSeeServer(groupId, serverName)) {
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_SERVER_NOT_VISIBLE",
+          title: "Scoped server handle is not visible to the group",
+          message: `Server "${serverName}" is not visible to group "${groupId}".`,
+          path: ["proxy", "group", groupId, "server", serverName],
+          hint: "Declare the server globally or in the same group.",
+        },
+      ]);
+    }
+  }
+
+  assertGroupHandleKnown(groupId: string): void {
+    if (this.groups.some((group) => group.id === groupId)) {
+      return;
+    }
+    throw new FentarisConfigError([
+      {
+        severity: "error",
+        code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_GROUP",
+        title: "Scoped group handle references an unknown group",
+        message: `Group handle "${groupId}" does not match a configured group.`,
+        path: ["proxy", "group", groupId],
+      },
+    ]);
+  }
+
+  private groupCanSeeServer(groupId: string, serverName: string): boolean {
+    const group = this.groups.find((entry) => entry.id === groupId);
+    if (!group) {
+      return false;
+    }
+
+    return this.servers.some((server) => server.name === serverName) || group.servers.some((server) => server.name === serverName);
   }
 
   private createRuntime(): ProxyRuntime {
@@ -1628,6 +1711,7 @@ export class McpProxy {
  * @pk
  */
 export function createProxy(options: McpProxyOptions): McpProxy {
+  assertValidFentarisConfig(options);
   return new McpProxy(options);
 }
 
@@ -1822,9 +1906,6 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
     failureLevel: options.failureLevel ?? "error",
   };
 }
-
-
-
 
 
 
