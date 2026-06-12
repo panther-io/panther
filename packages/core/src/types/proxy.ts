@@ -209,6 +209,7 @@ export type ProxyEventName =
  */
 export type ProxyEventFilter = {
   server?: string;
+  group?: string;
   tool?: string;
   proxyTool?: string;
 };
@@ -245,6 +246,19 @@ export type ProxyServerHandle = {
   operation(operation: ProxyOperation, handler: ProxyOperationHandler): ProxyServerHandle;
   on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyServerHandle;
   on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyServerHandle;
+};
+
+/**
+ * Scoped group handle returned by `proxy.group(id)`.
+ * @pk
+ */
+export type ProxyGroupHandle = {
+  readonly id: string;
+  server(name: string): ProxyServerHandle;
+  use(handler: Middleware): ProxyGroupHandle;
+  operation(operation: ProxyOperation, handler: ProxyOperationHandler): ProxyGroupHandle;
+  on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyGroupHandle;
+  on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyGroupHandle;
 };
 
 /**

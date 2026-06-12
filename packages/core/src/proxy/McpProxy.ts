@@ -7,6 +7,7 @@ import { routeCompletion, completionTarget, capabilityToolRequest, isStructuredP
 import { operationEventName, matchesCallHook, matchesEventFilter, dispatchCallHooks, emitProxyEvent, type EventEntry } from "./events.js";
 import { emitLifecycle } from "./lifecycle.js";
 import { createSdkServer } from "./sdkServer.js";
+import { ServerCatalog } from "./serverCatalog.js";
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -84,6 +85,7 @@ import type {
   ProxyExposureHandle,
   ProxyExposureTransport,
   ProxyRuntime,
+  ProxyGroupHandle,
   ProxyServerHandle,
   ProxyOperationHandler,
   ProxyToolHandler,
@@ -107,7 +109,7 @@ class PolicyDeniedError extends Error {
  * @pk
  */
 export type McpProxyOptions = {
-  servers: McpServer[];
+  servers?: McpServer[];
   port?: number;
   path?: string;
   logger?: Logger;
@@ -162,6 +164,7 @@ export type McpProxyStartOptions = {
  */
 export class McpProxy {
   private readonly servers: McpServer[];
+  private readonly serverCatalog: ServerCatalog;
   private readonly serverByName = new Map<string, McpServer>();
   private readonly middleware: Middleware[] = [];
   private readonly routes: RouteEntry[] = [];
@@ -192,7 +195,7 @@ export class McpProxy {
    * @pk
    */
   constructor(options: McpProxyOptions) {
-    this.servers = options.servers;
+    this.servers = [...(options.servers ?? [])];
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
     this.auth = options.auth;
@@ -204,6 +207,7 @@ export class McpProxy {
       Boolean(options.auth) || hasDeclaredApiKeys(this.groups),
     );
     this.subjectIndex = this.groups.length > 0 ? buildSubjectIndex(this.groups) : undefined;
+    this.serverCatalog = new ServerCatalog({ servers: this.servers, groups: this.groups, subjectIndex: this.subjectIndex });
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
@@ -212,10 +216,7 @@ export class McpProxy {
     this.defaultPort = options.port;
     this.defaultPath = options.path ?? "/mcp";
 
-    for (const server of this.servers) {
-      if (this.serverByName.has(server.name)) {
-        throw new Error(`Duplicate MCP server name "${server.name}"`);
-      }
+    for (const server of this.serverCatalog.allServers()) {
       this.serverByName.set(server.name, server);
     }
   }
@@ -259,11 +260,24 @@ export class McpProxy {
       }
       if (!this.serverByName.has(name)) {
         this.servers.push(server);
+        this.serverCatalog.addGlobalServer(server);
         this.serverByName.set(name, server);
       }
     }
 
     return new McpProxyServerHandle(this, name);
+  }
+
+  /**
+   * Register or retrieve a scoped group handle.
+   * @pk
+   */
+  group(groupId: string): ProxyGroupHandle {
+    if (!this.groups.some((group) => group.id === groupId)) {
+      throw new Error(`Unknown group "${groupId}"`);
+    }
+
+    return new McpProxyGroupHandle(this, groupId);
   }
 
   /**
@@ -394,7 +408,7 @@ export class McpProxy {
     await Promise.all([...this.exposureHandles].map((handle) => handle.close()));
     this.exposureHandles.clear();
     this.httpServer = null;
-    await Promise.all(this.servers.map((server) => server.close()));
+    await Promise.all(this.serverCatalog.allServers().map((server) => server.close()));
   }
 
   /**
@@ -410,8 +424,9 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
+    const bindings = this.serverCatalog.resolve({ user: resolvedUser, subject: resolvedSubject, operation: "tools:list" });
     const results = await Promise.all(
-      this.servers.map(async (server) => {
+      bindings.map(async ({ server }) => {
         const { user: userForServer } = await this.applyUpstreamAuth(server, resolvedUser, resolvedSubject);
         const result = await server.listTools(params, userForServer);
         const tools = this.groups.length > 0
@@ -489,7 +504,7 @@ export class McpProxy {
       arguments: params.arguments,
       raw: params,
     };
-    const server = this.serverByName.get(serverName);
+    const server = this.serverCatalog.serverForContext(serverName, { user: resolvedUser, subject: resolvedSubject, operation: "tool:call" });
     const log = createContextualLogger({ logger: this.logger }, {
       operation: "tool:call",
       user: resolvedUser,
@@ -561,7 +576,11 @@ export class McpProxy {
             });
           }
 
-          return this.forwardToolCall(params, upstreamUser);
+          if (!server) {
+            return Promise.resolve(new ResponseController().deny(`Unknown MCP server "${serverName}"`));
+          }
+
+          return this.forwardToolCall(params, upstreamUser, server);
         }));
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
@@ -606,8 +625,9 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
+    const bindings = this.serverCatalog.resolve({ user: resolvedUser, subject: resolvedSubject, operation: "resources:list" });
     const results = await Promise.all(
-      this.servers.map(async (server) => {
+      bindings.map(async ({ server }) => {
         const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
           operation: "resources:list",
           serverName: server.name,
@@ -670,7 +690,7 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const { serverName, uri } = fromProxyResourceUri(params.uri);
-    const server = this.requireServer(serverName);
+    const server = this.requireServer(serverName, resolvedUser, resolvedSubject, "resource:read");
     let context: ProxyContext;
     try {
       context = await this.enforceCapabilityPolicy(
@@ -719,8 +739,9 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
+    const bindings = this.serverCatalog.resolve({ user: resolvedUser, subject: resolvedSubject, operation: "resource-templates:list" });
     const results = await Promise.all(
-      this.servers.map(async (server) => {
+      bindings.map(async ({ server }) => {
         const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
           operation: "resource-templates:list",
           serverName: server.name,
@@ -783,8 +804,9 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const userGroups = resolvedSubject ? this.subjectIndex?.groupsFor(resolvedSubject.id) ?? [] : [];
+    const bindings = this.serverCatalog.resolve({ user: resolvedUser, subject: resolvedSubject, operation: "prompts:list" });
     const results = await Promise.all(
-      this.servers.map(async (server) => {
+      bindings.map(async ({ server }) => {
         const context = createCapabilityContext({ logger: this.logger, registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
           operation: "prompts:list",
           serverName: server.name,
@@ -841,7 +863,7 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const { serverName, promptName } = fromProxyPromptName(params.name);
-    const server = this.requireServer(serverName);
+    const server = this.requireServer(serverName, resolvedUser, resolvedSubject, "prompt:get");
     let context: ProxyContext;
     try {
       context = await this.enforceCapabilityPolicy(
@@ -882,7 +904,7 @@ export class McpProxy {
     const resolvedUser = await this.resolveRegistryUser(user);
     const resolvedSubject = this.resolveSubject(resolvedUser, subject);
     const routed = routeCompletion(params);
-    const server = this.requireServer(routed.serverName);
+    const server = this.requireServer(routed.serverName, resolvedUser, resolvedSubject, "completion:complete");
     let context: ProxyContext;
     try {
       context = await this.enforceCapabilityPolicy(
@@ -984,24 +1006,44 @@ export class McpProxy {
     await emitProxyEvent(this.eventHandlers, "session:end", { ctx: proxyContext });
   }
 
-  registerServerMiddleware(serverName: string, handler: Middleware): void {
-    this.routes.push({ kind: "middleware", scopeServer: serverName, handler });
+  registerServerMiddleware(serverName: string, handler: Middleware, groupId?: string): void {
+    this.routes.push({ kind: "middleware", scopeServer: serverName, scopeGroup: groupId, handler });
   }
 
-  registerServerTool(serverName: string, pattern: ProxyToolPattern, handler: ProxyToolHandler): void {
-    this.routes.push({ kind: "tool", scopeServer: serverName, pattern: compileToolPattern(pattern, serverName), handler });
+  registerServerTool(serverName: string, pattern: ProxyToolPattern, handler: ProxyToolHandler, groupId?: string): void {
+    this.routes.push({ kind: "tool", scopeServer: serverName, scopeGroup: groupId, pattern: compileToolPattern(pattern, serverName), handler });
   }
 
-  registerServerOperation(serverName: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler): void {
-    this.routes.push({ kind: "operation", scopeServer: serverName, operation, handler });
+  registerServerOperation(serverName: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler, groupId?: string): void {
+    this.routes.push({ kind: "operation", scopeServer: serverName, scopeGroup: groupId, operation, handler });
   }
 
-  registerServerEvent(serverName: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): void {
+  registerServerEvent(serverName: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler, groupId?: string): void {
     this.eventHandlers.push({
       eventName,
       filter: {
         ...filter,
         server: serverName,
+        group: groupId ?? filter.group,
+      },
+      handler,
+    });
+  }
+
+  registerGroupMiddleware(groupId: string, handler: Middleware): void {
+    this.routes.push({ kind: "middleware", scopeGroup: groupId, handler });
+  }
+
+  registerGroupOperation(groupId: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler): void {
+    this.routes.push({ kind: "operation", scopeGroup: groupId, operation, handler });
+  }
+
+  registerGroupEvent(groupId: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): void {
+    this.eventHandlers.push({
+      eventName,
+      filter: {
+        ...filter,
+        group: groupId,
       },
       handler,
     });
@@ -1236,6 +1278,10 @@ export class McpProxy {
       return false;
     }
 
+    if (entry.scopeGroup && !context.subject?.hasGroup(entry.scopeGroup)) {
+      return false;
+    }
+
     if (entry.kind === "tool") {
       return context.operation === "tool:call" && entry.pattern !== undefined && matchesToolPattern(entry.pattern, request);
     }
@@ -1245,6 +1291,10 @@ export class McpProxy {
 
   private matchesOperationRoute(entry: RouteEntry, context: ProxyContext): boolean {
     if (entry.scopeServer && entry.scopeServer !== context.server?.name) {
+      return false;
+    }
+
+    if (entry.scopeGroup && !context.subject?.hasGroup(entry.scopeGroup)) {
       return false;
     }
 
@@ -1339,12 +1389,8 @@ export class McpProxy {
    * Forward a tool call to the selected server.
    * @pk
    */
-  private async forwardToolCall(params: CallToolRequest["params"], user: UserContext): Promise<CallToolResult> {
-    const { serverName, toolName } = fromProxyToolName(params.name);
-    const server = this.serverByName.get(serverName);
-    if (!server) {
-      return new ResponseController().deny(`Unknown MCP server "${serverName}"`);
-    }
+  private async forwardToolCall(params: CallToolRequest["params"], user: UserContext, server: McpServer): Promise<CallToolResult> {
+    const { toolName } = fromProxyToolName(params.name);
 
     return server.callTool(
       {
@@ -1355,8 +1401,13 @@ export class McpProxy {
     );
   }
 
-  private requireServer(serverName: string): McpServer {
-    const server = this.serverByName.get(serverName);
+  private requireServer(
+    serverName: string,
+    user: UserContext,
+    subject: ResolvedSubject | undefined,
+    operation: string,
+  ): McpServer {
+    const server = this.serverCatalog.serverForContext(serverName, { user, subject, operation });
     if (!server) {
       throw new Error(`Unknown MCP server "${serverName}"`);
     }
@@ -1590,20 +1641,21 @@ class McpProxyServerHandle implements ProxyServerHandle {
   constructor(
     private readonly proxy: McpProxy,
     readonly name: string,
+    private readonly groupId?: string,
   ) {}
 
   use(handler: Middleware): ProxyServerHandle {
-    this.proxy.registerServerMiddleware(this.name, handler);
+    this.proxy.registerServerMiddleware(this.name, handler, this.groupId);
     return this;
   }
 
   tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): ProxyServerHandle {
-    this.proxy.registerServerTool(this.name, pattern, handler);
+    this.proxy.registerServerTool(this.name, pattern, handler, this.groupId);
     return this;
   }
 
   operation(operation: ProxyContext["operation"], handler: ProxyOperationHandler): ProxyServerHandle {
-    this.proxy.registerServerOperation(this.name, operation, handler);
+    this.proxy.registerServerOperation(this.name, operation, handler, this.groupId);
     return this;
   }
 
@@ -1619,7 +1671,44 @@ class McpProxyServerHandle implements ProxyServerHandle {
     if (!handler) {
       throw new Error(`Missing handler for proxy event "${eventName}"`);
     }
-    this.proxy.registerServerEvent(this.name, eventName, filter, handler);
+    this.proxy.registerServerEvent(this.name, eventName, filter, handler, this.groupId);
+    return this;
+  }
+}
+
+class McpProxyGroupHandle implements ProxyGroupHandle {
+  constructor(
+    private readonly proxy: McpProxy,
+    readonly id: string,
+  ) {}
+
+  server(name: string): ProxyServerHandle {
+    return new McpProxyServerHandle(this.proxy, name, this.id);
+  }
+
+  use(handler: Middleware): ProxyGroupHandle {
+    this.proxy.registerGroupMiddleware(this.id, handler);
+    return this;
+  }
+
+  operation(operation: ProxyContext["operation"], handler: ProxyOperationHandler): ProxyGroupHandle {
+    this.proxy.registerGroupOperation(this.id, operation, handler);
+    return this;
+  }
+
+  on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyGroupHandle;
+  on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyGroupHandle;
+  on(
+    eventName: ProxyEventName,
+    filterOrHandler: ProxyEventFilter | ProxyEventHandler,
+    maybeHandler?: ProxyEventHandler,
+  ): ProxyGroupHandle {
+    const filter = typeof filterOrHandler === "function" ? {} : filterOrHandler;
+    const handler = typeof filterOrHandler === "function" ? filterOrHandler : maybeHandler;
+    if (!handler) {
+      throw new Error(`Missing handler for proxy event "${eventName}"`);
+    }
+    this.proxy.registerGroupEvent(this.id, eventName, filter, handler);
     return this;
   }
 }
@@ -1733,14 +1822,6 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
     failureLevel: options.failureLevel ?? "error",
   };
 }
-
-
-
-
-
-
-
-
 
 
 

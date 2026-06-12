@@ -17,7 +17,7 @@ import { Logger } from "../src/logger.js";
 import { McpProxy } from "../src/proxy/McpProxy.js";
 import { McpServer } from "../src/server/McpServer.js";
 import { FentarisErrorCode } from "../src/errors.js";
-import { Policy } from "../src/governance.js";
+import { Policy, group, user } from "../src/governance.js";
 import {
   fromProxyPromptName,
   fromProxyResourceTemplateUri,
@@ -1092,5 +1092,109 @@ describe("McpProxy", () => {
           ],
         }),
     ).toThrow(/Duplicate MCP server name/);
+  });
+
+  it("shows group-scoped MCP servers only to members", async () => {
+    const alice = user("alice");
+    const bob = user("bob");
+    const linear = new McpServer({ name: "linear", transport: new MockTransport() });
+    const proxy = new McpProxy({
+      groups: [
+        group({ id: "engineering", users: [alice], policy: Policy.allowAll("engineering"), servers: [linear] }),
+        group({ id: "sales", users: [bob], policy: Policy.allowAll("sales") }),
+      ],
+    });
+
+    await expect(proxy.listTools(undefined, { id: "alice" })).resolves.toMatchObject({
+      tools: [expect.objectContaining({ name: toProxyToolName("linear", "create_issue") })],
+    });
+    await expect(proxy.listTools(undefined, { id: "bob" })).resolves.toEqual({ tools: [] });
+  });
+
+  it("prevents non-members from calling group-scoped MCP servers", async () => {
+    const alice = user("alice");
+    const bob = user("bob");
+    const transport = new MockTransport();
+    const proxy = new McpProxy({
+      groups: [
+        group({ id: "engineering", users: [alice], policy: Policy.allowAll("engineering"), servers: [new McpServer({ name: "linear", transport })] }),
+        group({ id: "sales", users: [bob], policy: Policy.allowAll("sales") }),
+      ],
+    });
+
+    const result = await proxy.callTool({ name: toProxyToolName("linear", "create_issue") }, { id: "bob" });
+
+    expect(result.isError).toBe(true);
+    expect(transport.callTool).not.toHaveBeenCalled();
+  });
+
+  it("isolates group-scoped middleware for shared MCP servers", async () => {
+    const shared = new McpServer({ name: "linear", transport: new MockTransport() });
+    const proxy = new McpProxy({
+      groups: [
+        group({ id: "engineering", users: [user("alice")], policy: Policy.allowAll("engineering"), servers: [shared] }),
+        group({ id: "sales", users: [user("bob")], policy: Policy.allowAll("sales"), servers: [shared] }),
+      ],
+    });
+    const seen: string[] = [];
+    proxy.group("engineering").server("linear").use((ctx, next) => {
+      seen.push(ctx.subject?.id ?? "unknown");
+      return next();
+    });
+
+    await proxy.callTool({ name: toProxyToolName("linear", "create_issue") }, { id: "alice" });
+    await proxy.callTool({ name: toProxyToolName("linear", "create_issue") }, { id: "bob" });
+
+    expect(seen).toEqual(["alice"]);
+  });
+
+  it("keeps global MCP servers visible and callable", async () => {
+    const transport = new MockTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    await expect(proxy.listTools()).resolves.toMatchObject({
+      tools: [expect.objectContaining({ name: toProxyToolName("github", "create_issue") })],
+    });
+    await expect(proxy.callTool({ name: toProxyToolName("github", "create_issue") })).resolves.toMatchObject({
+      content: [{ type: "text", text: "called:create_issue" }],
+    });
+  });
+
+  it("validates duplicate and ambiguous scoped MCP bindings", () => {
+    const alice = user("alice");
+
+    expect(
+      () =>
+        new McpProxy({
+          groups: [
+            group({
+              id: "engineering",
+              users: [alice],
+              policy: Policy.allowAll("engineering"),
+              servers: [
+                new McpServer({ name: "linear", transport: new MockTransport() }),
+                new McpServer({ name: "linear", transport: new MockTransport() }),
+              ],
+            }),
+          ],
+        }),
+    ).toThrow(/Duplicate MCP server name "linear" in group "engineering"/);
+
+    expect(
+      () =>
+        new McpProxy({
+          servers: [new McpServer({ name: "linear", transport: new MockTransport() })],
+          groups: [
+            group({
+              id: "engineering",
+              users: [alice],
+              policy: Policy.allowAll("engineering"),
+              servers: [new McpServer({ name: "linear", transport: new MockTransport() })],
+            }),
+          ],
+        }),
+    ).toThrow(/Ambiguous MCP server "linear"/);
   });
 });

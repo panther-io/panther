@@ -1,5 +1,6 @@
 import { getCapabilityPermission, normalizeApprovalResult, toCapabilityPermissions, toCapabilityRequest } from "../policy/index.js";
 import type { CredentialSource, CredentialSourceMap } from "../credentials/index.js";
+import type { McpServer } from "../server/McpServer.js";
 import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
 import type { MiddlewareContext } from "../types/middleware.js";
 import type { CapabilityPermission, Policy as PolicyContract, PolicyDecision, ToolPermission } from "../types/policy.js";
@@ -45,16 +46,10 @@ export class Group {
   readonly users: User[];
   readonly policy: PolicyContract;
   readonly credentials: CredentialSourceMap;
+  readonly servers: McpServer[];
   readonly metadata?: Record<string, unknown>;
 
-  constructor(options: {
-    id: string;
-    name?: string;
-    users: User[];
-    policy: PolicyContract;
-    credentials?: CredentialSourceMap;
-    metadata?: Record<string, unknown>;
-  }) {
+  constructor(options: GroupOptions) {
     if (!options.id.trim()) {
       throw new Error("Group id cannot be empty");
     }
@@ -67,9 +62,24 @@ export class Group {
     this.users = [...options.users];
     this.policy = options.policy;
     this.credentials = { ...(options.credentials ?? {}) };
+    this.servers = [...(options.servers ?? [])];
     this.metadata = options.metadata;
   }
 }
+
+/**
+ * Group declaration options.
+ * @pk
+ */
+export type GroupOptions = {
+  id: string;
+  name?: string;
+  users: User[];
+  policy: PolicyContract;
+  credentials?: CredentialSourceMap;
+  servers?: McpServer[];
+  metadata?: Record<string, unknown>;
+};
 
 /**
  * User declaration options.

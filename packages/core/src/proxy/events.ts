@@ -46,6 +46,10 @@ export function matchesEventFilter(filter: ProxyEventFilter, context: ProxyConte
     return false;
   }
 
+  if (filter.group && !context.subject?.hasGroup(filter.group)) {
+    return false;
+  }
+
   if (filter.tool && filter.tool !== context.tool?.name) {
     return false;
   }
