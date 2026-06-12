@@ -213,13 +213,14 @@ function validateIdentity(config: McpProxyOptions, groups: Group[], diagnostics:
 
 function validateCredentialReferences(config: McpProxyOptions, groups: Group[], diagnostics: FentarisDiagnostic[]): void {
   const defaultCredentials = config.defaults?.credentials ?? {};
+  const authBacked = Boolean(config.auth);
   for (const [index, server] of (config.servers ?? []).entries()) {
-    validateServerCredentials(server, defaultCredentials, ["servers", index], diagnostics);
+    validateServerCredentials(server, defaultCredentials, ["servers", index], diagnostics, authBacked);
   }
   for (const [groupIndex, group] of groups.entries()) {
     const available = { ...defaultCredentials, ...group.credentials };
     for (const [serverIndex, server] of group.servers.entries()) {
-      validateServerCredentials(server, available, ["groups", groupIndex, "servers", serverIndex], diagnostics);
+      validateServerCredentials(server, available, ["groups", groupIndex, "servers", serverIndex], diagnostics, authBacked);
     }
     for (const user of group.users) {
       for (const source of user.apiKeys) {
@@ -251,11 +252,12 @@ function validateServerCredentials(
   available: CredentialSourceMap,
   path: Array<string | number>,
   diagnostics: FentarisDiagnostic[],
+  authBacked: boolean,
 ): void {
   const bindings = typeof server.getCredentialBindings === "function" ? server.getCredentialBindings() : [];
   for (const binding of bindings) {
     const reference = bindingReference(binding);
-    if (!reference || available[reference.reference]) {
+    if (!reference || available[reference.reference] || authBacked) {
       continue;
     }
     diagnostics.push(diagnostic("error", "FENTARIS_CONFIG_CREDENTIAL_MISSING", "Credential reference cannot be resolved", `Server "${server.name}" references credential "${reference.reference}", but no source is visible in this scope.`, {

@@ -20,6 +20,8 @@ import type {
   FentarisConfigValidationResult,
   FentarisDiagnostic,
   FentarisDiagnosticFormatterOptions,
+} from "@fentaris/core";
+import type {
   FentarisTransport,
   LoggerDriver,
   LogEntry,
