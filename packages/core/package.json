@@ -4,12 +4,24 @@
   "description": "Fentaris MCP Proxy - Core",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./extensions": {
+      "types": "./dist/extensions.d.ts",
+      "import": "./dist/extensions.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
+    "typecheck:extensions": "tsc -p tsconfig.extension-api.json",
     "test": "vitest run test",
     "clean": "rm -rf dist"
   },

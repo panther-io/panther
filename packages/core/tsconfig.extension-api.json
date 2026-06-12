@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "paths": {
+      "@fentaris/core": ["./src/index.ts"],
+      "@fentaris/core/extensions": ["./src/extensions.ts"]
+    }
+  },
+  "include": ["test-d/**/*.ts"]
+}

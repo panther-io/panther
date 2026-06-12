@@ -80,6 +80,7 @@ export type {
   ProxyPromptContext,
   ProxyResourceContext,
   ProxyRuntime,
+  ProxyGroupHandle,
   ProxyServerContext,
   ProxyServerHandle,
   ProxyToolContext,

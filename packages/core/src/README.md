@@ -19,3 +19,6 @@ New runtime code should live in a domain folder that owns the concern:
 - `types/`
 
 Keep the existing flat source files as compatibility barrels until a later breaking-change migration.
+Consumers should import supported APIs from `@fentaris/core` or documented
+subpaths such as `@fentaris/core/extensions`; files under `src/` and generated
+`dist/` implementation paths are internal package layout.

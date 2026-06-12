@@ -12,6 +12,7 @@ export type CompiledToolPattern = {
 export type RouteEntry = {
   kind: "middleware" | "tool" | "operation";
   scopeServer?: string;
+  scopeGroup?: string;
   operation?: ProxyContext["operation"];
   pattern?: CompiledToolPattern;
   handler: Middleware | ProxyToolHandler | ProxyOperationHandler;

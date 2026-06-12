@@ -1,0 +1,210 @@
+---
+title: "Extension API"
+description: "Public API tiers and supported extension contracts for @fentaris/core."
+---
+
+`@fentaris/core` has three supported API tiers:
+
+- High-level application builders for most apps.
+- Advanced low-level APIs for explicit proxy and transport wiring.
+- Extension contracts for third-party integrations.
+
+Use `@fentaris/core` as the primary import path. Use `@fentaris/core/extensions` when implementing custom extension contracts and you need names such as `Policy` without colliding with top-level declaration helpers.
+
+Avoid deep imports from `@fentaris/core/dist/*` or source-layout paths. Those paths are package internals and can move during pre-alpha.
+
+## High-level app builders
+
+Prefer `fentaris()` with declaration helpers for new applications:
+
+```ts theme={null}
+import { fentaris, group, mcp, policy, server, stdio, user } from "@fentaris/core";
+
+const proxy = fentaris({
+  servers: [
+    mcp("github", {
+      transport: stdio({ command: "github-mcp-server" }),
+    }),
+    server({
+      name: "internal",
+      transport: stdio({ command: "internal-mcp-server" }),
+    }),
+  ],
+  users: [user("alice")],
+  groups: [
+    group({
+      id: "admins",
+      users: [user("alice")],
+      policy: policy("admins").server("*").allow("*"),
+    }),
+  ],
+});
+```
+
+This syntax is the recommended default for application authors because it keeps server, user, group, policy, and credential declarations together.
+
+## Advanced low-level APIs
+
+Use `createProxy()`, `McpProxy`, `McpServer`, and explicit transports when you need direct construction or custom downstream exposure:
+
+```ts theme={null}
+import {
+  McpProxy,
+  McpServer,
+  HttpProxyExposureTransport,
+  StreamableHttpMcpTransport,
+  createProxy,
+} from "@fentaris/core";
+
+const proxy = createProxy({
+  servers: [
+    new McpServer({
+      name: "crm",
+      transport: new StreamableHttpMcpTransport({
+        url: new URL("https://crm.example.com/mcp"),
+      }),
+    }),
+  ],
+});
+
+const explicitProxy = new McpProxy({
+  servers: [
+    new McpServer({
+      name: "crm",
+      transport: new StreamableHttpMcpTransport({
+        url: new URL("https://crm.example.com/mcp"),
+      }),
+    }),
+  ],
+});
+
+await explicitProxy.listen(new HttpProxyExposureTransport({ port: 4000 }));
+await proxy.start({ port: 3000 });
+```
+
+## Extension contracts
+
+Extension authors can implement contracts from `@fentaris/core/extensions`.
+
+### Upstream transport
+
+```ts theme={null}
+import type { FentarisTransport } from "@fentaris/core/extensions";
+
+class CustomTransport implements FentarisTransport {
+  async listTools() {
+    return { tools: [{ name: "search", inputSchema: { type: "object" as const } }] };
+  }
+
+  async callTool() {
+    return { content: [{ type: "text" as const, text: "ok" }] };
+  }
+
+  async close() {}
+}
+```
+
+### Downstream exposure transport
+
+```ts theme={null}
+import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "@fentaris/core/extensions";
+
+class CustomExposure implements ProxyExposureTransport<ProxyExposureHandle> {
+  async listen(runtime: ProxyRuntime) {
+    runtime.logger.info("custom exposure started");
+    return { async close() {} };
+  }
+}
+```
+
+### Policy
+
+```ts theme={null}
+import type { Policy, PolicyDecision, ToolCallRequest } from "@fentaris/core/extensions";
+
+class CustomPolicy implements Policy {
+  readonly name = "custom";
+
+  getPermissions() {
+    return [{ tool: "*", effect: "allow" as const }];
+  }
+
+  evaluate(request: ToolCallRequest): PolicyDecision {
+    return { allowed: request.toolName !== "dangerous" };
+  }
+}
+```
+
+### Registry
+
+```ts theme={null}
+import type { Registry } from "@fentaris/core/extensions";
+
+class CustomRegistry implements Registry {
+  async getUser(userId: string) {
+    return { id: userId, plan: "team" };
+  }
+
+  async getSecrets() {
+    return { token: "redacted" };
+  }
+
+  async getTokens() {
+    return null;
+  }
+}
+```
+
+### Rate limiter
+
+```ts theme={null}
+import type { RateLimiter } from "@fentaris/core/extensions";
+
+class CustomRateLimiter implements RateLimiter {
+  async checkLimit() {
+    return true;
+  }
+
+  async recordCall() {}
+
+  async getRemainingCalls() {
+    return 99;
+  }
+}
+```
+
+### Logger driver
+
+```ts theme={null}
+import type { LoggerDriver, LogEntry } from "@fentaris/core/extensions";
+
+class CustomLoggerDriver implements LoggerDriver {
+  write(entry: LogEntry): void {
+    console.log(entry.level, entry.message);
+  }
+}
+```
+
+### Middleware and events
+
+```ts theme={null}
+import type { Middleware, ProxyEventHandler } from "@fentaris/core/extensions";
+
+const middleware: Middleware = async (ctx, next) => {
+  ctx.log.info("operation", { operation: ctx.operation });
+  return next();
+};
+
+const eventHandler: ProxyEventHandler = ({ ctx, durationMs }) => {
+  ctx.log.info("completed", { operation: ctx.operation, durationMs });
+};
+```
+
+## Import policy
+
+| Tier | Import path | Stability |
+| --- | --- | --- |
+| High-level builders | `@fentaris/core` | Public |
+| Advanced runtime APIs | `@fentaris/core` | Public advanced |
+| Extension contracts | `@fentaris/core/extensions` or top-level type aliases | Public extension |
+| Source files and `dist/*` internals | Deep package paths | Internal compatibility only |

@@ -158,6 +158,7 @@ export type {
   ProxyExposureHandle,
   ProxyExposureTransport,
   ProxyRuntime,
+  ProxyGroupHandle,
   ProxyHookEvent,
   ProxyMiddleware,
   ProxyNext,
@@ -219,7 +220,7 @@ export {
   sensitive,
   user,
 } from "./governance/index.js";
-export type { CapabilityPermissionOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions, UserOptions } from "./governance/index.js";
+export type { CapabilityPermissionOptions, GroupOptions, ManualApprovalOptions, SubjectIndex, ToolPermissionOptions, UserOptions } from "./governance/index.js";
 /**
  * Credential declaration helpers.
  * @pk

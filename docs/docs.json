@@ -94,6 +94,7 @@
           "reference/mcp-server",
           "reference/stdio-transport",
           "reference/logger",
+          "reference/extension-api",
           "reference/types",
           "reference-auto/index",
           "reference-auto/status"
