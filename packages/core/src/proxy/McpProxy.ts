@@ -53,7 +53,6 @@ import { getCapabilityPermission, toCapabilityPermissions } from "../policy.js";
 import { FentarisAuth } from "../auth.js";
 import { resolveCredentialSource, type CredentialSourceMap } from "../credentials/index.js";
 import {
-  buildSubjectIndex,
   evaluateGroupPolicies,
   filterToolsByGroupPolicies,
   type Group,
@@ -61,6 +60,8 @@ import {
 } from "../governance.js";
 import { HttpProxyExposureTransport } from "../transports/exposure/HttpProxyExposureTransport.js";
 import { ResponseController } from "../types/middleware.js";
+import { assertValidFentarisConfig } from "../config/index.js";
+import { resolveFentarisConfig } from "../config/resolve.js";
 import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
 import type { CredentialSourceMetadata, IdentityMetadata, ResolvedSubject, UserContext } from "../types/shared.js";
 import type {
@@ -195,18 +196,19 @@ export class McpProxy {
    * @pk
    */
   constructor(options: McpProxyOptions) {
-    this.servers = [...(options.servers ?? [])];
+    const resolved = resolveFentarisConfig(options);
+    this.servers = resolved.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
     this.auth = options.auth;
     this.policy = options.policy;
-    this.groups = options.groups ?? [];
-    this.defaultCredentials = { ...(options.defaults?.credentials ?? {}) };
+    this.groups = resolved.groups;
+    this.defaultCredentials = resolved.defaults.credentials;
     this.identityOptions = normalizeIdentityOptions(
       options.identity ?? options.auth?.identityStrategy() ?? declaredApiKeyIdentityStrategy(this.groups),
       Boolean(options.auth) || hasDeclaredApiKeys(this.groups),
     );
-    this.subjectIndex = this.groups.length > 0 ? buildSubjectIndex(this.groups) : undefined;
+    this.subjectIndex = resolved.subjectIndex;
     this.serverCatalog = new ServerCatalog({ servers: this.servers, groups: this.groups, subjectIndex: this.subjectIndex });
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
@@ -1628,6 +1630,7 @@ export class McpProxy {
  * @pk
  */
 export function createProxy(options: McpProxyOptions): McpProxy {
+  assertValidFentarisConfig(options);
   return new McpProxy(options);
 }
 
@@ -1822,8 +1825,6 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
     failureLevel: options.failureLevel ?? "error",
   };
 }
-
-
 
 
 

@@ -174,6 +174,26 @@ export class Policy implements PolicyContract {
     ];
   }
 
+  /**
+   * Return the server names explicitly declared by this policy.
+   * @pk
+   */
+  getDeclaredServerNames(): string[] {
+    return [...new Set([...this.permissionsByServer.keys(), ...this.capabilityPermissionsByServer.keys()])];
+  }
+
+  /**
+   * Return policy declarations for static configuration validation.
+   * @pk
+   */
+  getDeclaredPermissions(): Array<{ serverName: string; permissions: ToolPermission[]; capabilityPermissions: CapabilityPermission[] }> {
+    return this.getDeclaredServerNames().map((serverName) => ({
+      serverName,
+      permissions: this.permissionsByServer.get(serverName) ?? [],
+      capabilityPermissions: this.capabilityPermissionsByServer.get(serverName) ?? [],
+    }));
+  }
+
   async evaluate(
     request: ToolCallRequest | CapabilityOperationRequest,
     user: UserContext,

@@ -32,6 +32,27 @@ export type {
  */
 export { McpProxy, createProxy, fentaris } from "./proxy/index.js";
 /**
+ * TypeScript-first configuration validation and diagnostic APIs.
+ * @pk
+ */
+export {
+  FentarisConfigError,
+  assertValidFentarisConfig,
+  defineFentarisConfig,
+  formatFentarisDiagnostics,
+  validateFentarisConfig,
+} from "./config/index.js";
+export type {
+  FentarisConfigPath,
+  FentarisConfigValidationResult,
+  FentarisDiagnostic,
+  FentarisDiagnosticFormat,
+  FentarisDiagnosticFormatterOptions,
+  FentarisDiagnosticRelatedEntry,
+  FentarisDiagnosticSeverity,
+  FentarisDiagnosticSuggestion,
+} from "./config/index.js";
+/**
  * MCP proxy options.
  * @pk
  */
