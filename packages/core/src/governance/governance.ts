@@ -1,7 +1,7 @@
 import { getCapabilityPermission, normalizeApprovalResult, toCapabilityPermissions, toCapabilityRequest } from "../policy/index.js";
 import type { CredentialSource, CredentialSourceMap } from "../credentials/index.js";
 import type { McpServer } from "../server/McpServer.js";
-import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
+import type { CapabilityOperationRequest, ToolApprovalRequest, ToolCallRequest } from "../types/mcp-operation.js";
 import type { MiddlewareContext } from "../types/middleware.js";
 import type { CapabilityPermission, Policy as PolicyContract, PolicyDecision, ToolPermission } from "../types/policy.js";
 import type { ApprovalHandler, ApprovalMetadata, ApprovalResult, ResolvedSubject, SubjectMetadata, UserContext } from "../types/shared.js";
@@ -416,11 +416,11 @@ type ApprovalHelper = {
  * @pk
  */
 export type ManualApprovalOptions = {
-  requestId?: string | ((request: ToolCallRequest, context: MiddlewareContext) => string);
-  url?: string | ((request: ToolCallRequest, context: MiddlewareContext) => string | undefined);
-  reason?: string | ((request: ToolCallRequest, context: MiddlewareContext) => string | undefined);
-  metadata?: Record<string, unknown> | ((request: ToolCallRequest, context: MiddlewareContext) => Record<string, unknown> | undefined);
-  resolve?: ApprovalHandler<ToolCallRequest>;
+  requestId?: string | ((request: ToolApprovalRequest, context: MiddlewareContext) => string);
+  url?: string | ((request: ToolApprovalRequest, context: MiddlewareContext) => string | undefined);
+  reason?: string | ((request: ToolApprovalRequest, context: MiddlewareContext) => string | undefined);
+  metadata?: Record<string, unknown> | ((request: ToolApprovalRequest, context: MiddlewareContext) => Record<string, unknown> | undefined);
+  resolve?: ApprovalHandler<ToolApprovalRequest>;
 };
 
 /**

@@ -220,6 +220,7 @@ export { ResponseController } from "./types/index.js";
  */
 export type {
   ErrorMapper,
+  ApprovalDecisionController,
   ApprovalHandler,
   ApprovalMetadata,
   ApprovalResult,
@@ -257,6 +258,7 @@ export type {
   CapabilityPermission,
   CapabilityTargetKind,
   McpOperationName,
+  ToolApprovalRequest,
   ProxyAuthContext,
   ProxyContext,
   ProxyEventFilter,
