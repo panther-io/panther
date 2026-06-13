@@ -89,3 +89,18 @@ export type {
   ProxyTransportContext,
 } from "./proxy.js";
 export type { FentarisTransport } from "./transport.js";
+export type {
+  HealthCheckContext,
+  HealthCheckHandler,
+  HealthCheckResult,
+  HealthConfig,
+  HealthReport,
+  HealthStatus,
+} from "../health/index.js";
+export type {
+  RuntimeLifecycle,
+  RuntimeLifecycleMetadata,
+  RuntimeLifecycleOptions,
+  RuntimeLifecycleSnapshot,
+  RuntimeLifecycleState,
+} from "../lifecycle/index.js";
