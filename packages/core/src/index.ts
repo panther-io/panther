@@ -76,6 +76,7 @@ export type {
   RuntimeEventMap,
   RuntimeEventName,
   RuntimeExtensionEvent,
+  RuntimeHealthEvent,
   RuntimeLifecycleEvent,
   RuntimeMcpEvent,
   RuntimePolicyEvent,
@@ -85,6 +86,32 @@ export type {
   RuntimeProfilerHandlerEntry,
   RuntimeTransportEvent,
 } from "./profiler/index.js";
+/**
+ * Runtime lifecycle and health APIs.
+ * @pk
+ */
+export { health } from "./health/index.js";
+export type {
+  HealthBuilderOptions,
+  HealthCheckContext,
+  HealthCheckHandler,
+  HealthCheckResult,
+  HealthConfig,
+  HealthGroupContext,
+  HealthIncludeCategory,
+  HealthReport,
+  HealthRuntimeContext,
+  HealthServerContext,
+  HealthStatus,
+  HealthTransportContext,
+} from "./health/index.js";
+export type {
+  RuntimeLifecycle,
+  RuntimeLifecycleMetadata,
+  RuntimeLifecycleOptions,
+  RuntimeLifecycleSnapshot,
+  RuntimeLifecycleState,
+} from "./lifecycle/index.js";
 /**
  * MCP proxy server.
  * @pk
@@ -115,7 +142,7 @@ export type {
  * MCP proxy options.
  * @pk
  */
-export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxyStartOptions } from "./proxy/index.js";
+export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxyStartOptions, McpProxyStopOptions } from "./proxy/index.js";
 /**
  * MCP server wrapper.
  * @pk

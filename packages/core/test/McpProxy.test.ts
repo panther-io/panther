@@ -14,6 +14,7 @@ import type {
   ReadResourceResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Logger } from "../src/logger.js";
+import { health } from "../src/health/index.js";
 import { McpProxy } from "../src/proxy/McpProxy.js";
 import { McpServer } from "../src/server/McpServer.js";
 import { FentarisErrorCode } from "../src/errors.js";
@@ -30,6 +31,7 @@ import {
 } from "../src/nameMapping.js";
 import type { LogEntry, LoggerDriver } from "../src/logger.js";
 import type { FentarisTransport } from "../src/types.js";
+import type { RuntimeEvent } from "../src/profiler/index.js";
 
 class MemoryLogDriver implements LoggerDriver {
   readonly entries: LogEntry[] = [];
@@ -59,6 +61,12 @@ class MockTransport implements FentarisTransport {
   });
 
   readonly close = vi.fn(async (): Promise<void> => {});
+}
+
+class SlowCloseTransport extends MockTransport {
+  override readonly close = vi.fn(async (): Promise<void> => {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
 }
 
 class FeatureTransport extends MockTransport {
@@ -224,6 +232,142 @@ describe("proxied resource URIs", () => {
 });
 
 describe("McpProxy", () => {
+  it("exposes lifecycle state and idempotent stop behavior", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+
+    expect(proxy.state().state).toBe("created");
+
+    await proxy.stop();
+    await proxy.stop();
+
+    expect(proxy.state().state).toBe("stopped");
+  });
+
+  it("starts idempotently while startup is in progress", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+    });
+
+    const first = proxy.start({ port: 0 });
+    const second = proxy.start({ port: 0 });
+    await Promise.all([first, second]);
+    expect(proxy.state().state).toBe("ready");
+
+    await proxy.stop();
+  });
+
+  it("normalizes shutdown timeout failures", async () => {
+    const transport = new SlowCloseTransport();
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport })],
+    });
+
+    await proxy.start({ port: 0 });
+    await expect(proxy.stop({ shutdownTimeoutMs: 1 })).rejects.toMatchObject({
+      code: "FENTARIS_TIMEOUT_ERROR",
+    });
+    expect(proxy.state().state).toBe("failed");
+  });
+
+  it("normalizes builder and object health configuration", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+      health: health({ include: ["runtime"] })
+        .timeout(50)
+        .check("database", () => ({ status: "ok", metadata: { region: "local" } })),
+    });
+
+    const report = await proxy.health();
+
+    expect(report.status).toBe("degraded");
+    expect(report.checks.map((check) => check.name)).toContain("database");
+    expect(report.checks.find((check) => check.name === "database")?.metadata).toEqual({ region: "local" });
+  });
+
+  it("runs object-configured built-in health checks", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+      health: { checks: true, include: ["runtime", "mcp", "transport"] },
+    });
+
+    const report = await proxy.health();
+
+    expect(report.checks.map((check) => check.name)).toEqual(
+      expect.arrayContaining(["runtime.lifecycle", "mcp.github.availability", "mcp.catalog", "transport.exposure"]),
+    );
+    expect(report.status).toBe("degraded");
+  });
+
+  it("normalizes custom health check errors and timeouts", async () => {
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+      health: health()
+        .check("throws", () => {
+          throw new Error("database unavailable");
+        })
+        .check("slow", async () => {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          return { status: "ok" };
+        }, { timeoutMs: 1 }),
+    });
+
+    const report = await proxy.health();
+
+    expect(report.status).toBe("down");
+    expect(report.checks.find((check) => check.name === "throws")?.status).toBe("degraded");
+    expect(report.checks.find((check) => check.name === "slow")?.status).toBe("down");
+  });
+
+  it("exposes safe server and group health context helpers", async () => {
+    const engineering = group({
+      id: "engineering",
+      users: [user("ada")],
+      policy: Policy.allowAll(),
+      servers: [new McpServer({ name: "linear", transport: new MockTransport() })],
+    });
+    const proxy = new McpProxy({
+      groups: [engineering],
+      health: health()
+        .include(["groups"])
+        .check("linear-ping", (ctx) => ctx.server("linear").ping())
+        .check("engineering-servers", (ctx) => ({
+          status: "ok",
+          metadata: { servers: ctx.group("engineering").servers() },
+        }))
+        .check("unknown-ping", (ctx) => ctx.server("missing").ping()),
+    });
+
+    const report = await proxy.health();
+
+    expect(report.checks.find((check) => check.name === "linear-ping")?.status).toBe("ok");
+    expect(report.checks.find((check) => check.name === "unknown-ping")?.status).toBe("unknown");
+    expect(report.checks.find((check) => check.name === "engineering-servers")?.metadata).toEqual({
+      servers: [{ name: "linear", displayName: "linear" }],
+    });
+  });
+
+  it("emits lifecycle and health profiler events", async () => {
+    const events: RuntimeEvent[] = [];
+    const proxy = new McpProxy({
+      servers: [new McpServer({ name: "github", transport: new MockTransport() })],
+      health: health().check("custom", () => "ok"),
+      profiler: {
+        level: "debug",
+        track: ["lifecycle", "health", "timeouts", "errors"],
+        sink: (event) => events.push(event),
+      },
+    });
+
+    await proxy.health();
+    await proxy.stop();
+
+    expect(events.map((event) => event.name)).toEqual(
+      expect.arrayContaining(["health.check.start", "health.check.success", "health.status", "runtime.stop"]),
+    );
+  });
+
   it("aggregates upstream tools with server namespaces", async () => {
     const githubTransport = new MockTransport();
     const notionTransport = new MockTransport();
