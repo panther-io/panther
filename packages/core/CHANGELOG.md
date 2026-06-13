@@ -1,5 +1,15 @@
 # @fentaris/core
 
+## 0.3.0
+
+### Minor Changes
+
+- be8e9e1: Add TypeScript-first config validation APIs, structured diagnostics, diagnostic renderers, and automatic high-level startup validation.
+
+### Patch Changes
+
+- a2cd723: Add the runtime profiler API, typed runtime events, structured runtime errors, redacted sink dispatch, and automatic proxy instrumentation.
+
 ## 0.2.0
 
 ### Minor Changes
