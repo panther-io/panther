@@ -1,4 +1,5 @@
 export type {
+  ApprovalDecisionController,
   ApprovalHandler,
   ApprovalMetadata,
   ApprovalResult,
@@ -32,6 +33,7 @@ export type {
   ProxyOperationResult,
   ReadResourceParams,
   ReadResourceResponse,
+  ToolApprovalRequest,
   ToolCallRequest,
 } from "./mcp-operation.js";
 export { ResponseController } from "./middleware.js";

@@ -23,7 +23,7 @@ import {
   sensitive,
   user,
 } from "../../src/index.js";
-import type { FentarisTransport } from "../../src/types.js";
+import type { FentarisTransport, MiddlewareContext, ToolApprovalRequest } from "../../src/types.js";
 
 class EnvTransport implements FentarisTransport {
   readonly env: Record<string, string>;
@@ -103,7 +103,20 @@ describe("governance auth DX", () => {
       recordCall: vi.fn(async () => undefined),
       getRemainingCalls: vi.fn(async () => 1),
     };
-    const approval = vi.fn(async () => true);
+    const approvalRequests: unknown[] = [];
+    const approvalHandler = vi.fn(async (request: ToolApprovalRequest, context: MiddlewareContext) => {
+      approvalRequests.push({
+        serverName: request.serverName,
+        operation: request.operation,
+        target: request.target,
+        targetKind: request.targetKind,
+        toolName: request.toolName,
+        proxyToolName: request.proxyToolName,
+        arguments: request.arguments,
+        raw: request.raw,
+      });
+      return context.approval.approve({ reason: "owner-group" });
+    });
     const allowPolicy = policy("writers")
       .mcp("github")
       .allow("*", { limiter, metadata: { scope: "repo" }, ...sensitive({ reason: "destructive" }) })
@@ -114,7 +127,7 @@ describe("governance auth DX", () => {
       groups: [
         group({ id: "writers", users: [user("alice")], policy: allowPolicy }),
         group({ id: "blocked", users: [user("alice")], policy: denyPolicy }),
-        group({ id: "approvers", users: [user("alice")], policy: policy("approvers").mcp("github").allow("read", { approval }) }),
+        group({ id: "approvers", users: [user("alice")], policy: policy("approvers").mcp("github").allow("read", { approval: approvalHandler }) }),
       ],
       servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
     });
@@ -122,12 +135,53 @@ describe("governance auth DX", () => {
     const tools = await proxy.listTools(undefined, { id: "alice" });
     expect(tools.tools.map((tool) => tool.name)).toEqual(["github__read"]);
 
-    await proxy.callTool({ name: "github__read" }, { id: "alice" });
-    expect(approval).toHaveBeenCalledOnce();
+    await proxy.callTool({ name: "github__read", arguments: { owner: "alice" } }, { id: "alice" });
+    expect(approvalHandler).toHaveBeenCalledOnce();
+    expect(approvalRequests).toEqual([
+      {
+        serverName: "github",
+        operation: "tool:call",
+        target: "read",
+        targetKind: "tool",
+        toolName: "read",
+        proxyToolName: "github__read",
+        arguments: { owner: "alice" },
+        raw: { name: "github__read", arguments: { owner: "alice" } },
+      },
+    ]);
 
     const denied = await proxy.callTool({ name: "github__write" }, { id: "alice" });
     expect(denied.isError).toBe(true);
     expect(denied._meta?.error).toMatchObject({ message: expect.stringMatching(/denied/) });
+  });
+
+  it("denies approval callbacks through context helpers with structured metadata", async () => {
+    const proxy = new McpProxy({
+      groups: [
+        group({
+          id: "reviewed",
+          users: [user("alice")],
+          policy: policy("reviewed").mcp("github").allow(
+            "delete",
+            approval((request, context) =>
+              context.approval.deny("Owner group required", {
+                operation: request.operation,
+                server: request.serverName,
+                target: request.target,
+              }),
+            ),
+          ),
+        }),
+      ],
+      servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
+    });
+
+    const result = await proxy.callTool({ name: "github__delete" }, { id: "alice" });
+
+    expect(result.isError).toBe(true);
+    expect(result._meta?.error).toMatchObject({ message: "Owner group required" });
+    expect(JSON.stringify(result._meta)).toContain('"operation":"tool:call"');
+    expect(JSON.stringify(result._meta)).toContain('"target":"delete"');
   });
 
   it("returns structured metadata for manual approval workflows", async () => {
