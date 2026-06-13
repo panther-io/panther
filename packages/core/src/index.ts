@@ -147,7 +147,7 @@ export type { AutoLogOptions, IdentityResolverOptions, McpProxyOptions, McpProxy
  * MCP server wrapper.
  * @pk
  */
-export { McpServer, bearer, header, mcp, server } from "./server/index.js";
+export { McpServer, bearer, header, mcp } from "./server/index.js";
 /**
  * MCP server option types.
  * @pk
@@ -267,6 +267,9 @@ export type {
   ProxyRuntime,
   ProxyGroupHandle,
   ProxyHookEvent,
+  ProxyMcpDeclarationConfig,
+  ProxyMcpDeclarationOptions,
+  ProxyMcpHandle,
   ProxyMiddleware,
   ProxyNext,
   ProxyOperation,
@@ -277,7 +280,6 @@ export type {
   ProxyPromptContext,
   ProxyResourceContext,
   ProxyServerContext,
-  ProxyServerHandle,
   ProxyToolHandler,
   ProxyToolPattern,
   ProxyToolContext,
@@ -312,7 +314,7 @@ export { bearerTokenIdentityStrategy, headerIdentityStrategy } from "./identity/
 export {
   Group,
   Policy,
-  PolicyServerBuilder,
+  PolicyMcpBuilder,
   User,
   allow,
   allowCapability,

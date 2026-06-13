@@ -85,7 +85,7 @@ export type HealthTransportContext = {
 
 export type HealthCheckContext = {
   runtime: HealthRuntimeContext;
-  server(name: string): HealthServerContext;
+  mcp(name: string): HealthServerContext;
   group(id: string): HealthGroupContext;
   transport(nameOrType?: string): HealthTransportContext;
   policy: { state(): HealthCheckResult };
@@ -187,7 +187,7 @@ export function createHealthContext(state: HealthCheckState): HealthCheckContext
     runtime: {
       state: () => cloneLifecycle(state.lifecycle),
     },
-    server(name) {
+    mcp(name) {
       const server = serverByName.get(name);
       return {
         name,
@@ -448,7 +448,7 @@ function builtInChecks(include: HealthIncludeCategory[], state: HealthCheckState
       checks.push({
         name: `mcp.${server.name}.availability`,
         timeoutMs: 5_000,
-        handler: (ctx) => ctx.server(server.name).state(),
+        handler: (ctx) => ctx.mcp(server.name).state(),
       });
     }
     if (state.servers.length === 0) {

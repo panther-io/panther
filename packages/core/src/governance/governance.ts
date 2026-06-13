@@ -116,15 +116,15 @@ export class Policy implements PolicyContract {
    * @pk
    */
   static allowAll(name = "allow-all"): Policy {
-    return new Policy({ name }).server("*").allow("*");
+    return new Policy({ name }).mcp("*").allow("*");
   }
 
   /**
-   * Select a server for fluent permission declarations.
+   * Select an upstream MCP server for fluent permission declarations.
    * @pk
    */
-  server(serverName: string): PolicyServerBuilder {
-    return new PolicyServerBuilder(this, serverName);
+  mcp(serverName: string): PolicyMcpBuilder {
+    return new PolicyMcpBuilder(this, serverName);
   }
 
   /**
@@ -286,10 +286,10 @@ export class Policy implements PolicyContract {
 }
 
 /**
- * Builder returned by `policy.server(name)`.
+ * Builder returned by `policy.mcp(name)`.
  * @pk
  */
-export class PolicyServerBuilder {
+export class PolicyMcpBuilder {
   constructor(
     private readonly policy: Policy,
     private readonly serverName: string,
