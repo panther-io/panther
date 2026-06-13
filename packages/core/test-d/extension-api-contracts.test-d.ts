@@ -2,14 +2,24 @@ import {
   McpProxy,
   McpServer,
   ConsoleLoggerDriver,
+  FentarisConfigError,
   Logger,
+  assertValidFentarisConfig,
+  defineFentarisConfig,
   fentaris,
+  formatFentarisDiagnostics,
   group,
   mcp,
   policy,
   server,
   stdio,
   user,
+  validateFentarisConfig,
+} from "@fentaris/core";
+import type {
+  FentarisConfigValidationResult,
+  FentarisDiagnostic,
+  FentarisDiagnosticFormatterOptions,
 } from "@fentaris/core";
 import type {
   FentarisTransport,
@@ -135,6 +145,21 @@ const application = fentaris({
     }),
   ],
 });
+
+const typedConfig = defineFentarisConfig({
+  servers: [
+    mcp("typed", {
+      transport: new CustomTransport(),
+    }),
+  ],
+});
+
+const validation: FentarisConfigValidationResult = validateFentarisConfig(typedConfig);
+const diagnostics: FentarisDiagnostic[] = validation.diagnostics;
+const formatterOptions: FentarisDiagnosticFormatterOptions = { format: "plain", color: "never", unicode: "never" };
+formatFentarisDiagnostics(diagnostics, formatterOptions);
+assertValidFentarisConfig(typedConfig);
+new FentarisConfigError(diagnostics).format({ format: "compact" });
 
 const proxy = new McpProxy({
   servers: [new McpServer({ name: "custom", transport: new CustomTransport() })],

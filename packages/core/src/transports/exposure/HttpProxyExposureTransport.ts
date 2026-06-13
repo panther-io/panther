@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server as HttpServer, type Ser
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { FentarisErrorCode } from "../../errors.js";
+import { FentarisTransportError, createRuntimeEvent, runtimeErrorToEventPayload } from "../../profiler/index.js";
 import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../../types/proxy.js";
 import type {
   IdentityMetadata,
@@ -79,6 +80,20 @@ export class HttpProxyExposureTransport implements ProxyExposureTransport<HttpPr
         await handleMcpRequest(req, res, sessions, runtime, user, identity, subject);
       } catch (error) {
         runtime.logger.error("Error handling MCP proxy request", { error: safeErrorMessage(error) });
+        await runtime.emitRuntimeEvent(createRuntimeEvent({
+          name: "transport.error",
+          category: "errors",
+          level: "error",
+          transport: "http",
+          requestId: req.headers["x-request-id"] as string | undefined,
+          error: runtimeErrorToEventPayload(new FentarisTransportError("HTTP MCP proxy request failed", {
+            cause: error,
+            context: {
+              method: req.method,
+              url: req.url,
+            },
+          })),
+        }));
         if (!res.headersSent) {
           sendJsonRpcError(res, 500, -32603, "Internal server error");
         }

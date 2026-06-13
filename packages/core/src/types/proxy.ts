@@ -10,6 +10,7 @@ import type {
   ReadResourceRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "../logging/index.js";
+import type { RuntimeEvent } from "../profiler/index.js";
 import type {
   CompleteResult,
   ListPromptsResult,
@@ -279,6 +280,7 @@ export type ProxyRuntime = {
   resolveStdioUser(): Promise<{ user: UserContext; identity?: IdentityMetadata; subject?: ResolvedSubject }>;
   emitSessionStart(context: LifecycleHookContext): Promise<void>;
   emitSessionEnd(context: LifecycleHookContext): Promise<void>;
+  emitRuntimeEvent(event: RuntimeEvent): Promise<void>;
   logger: Logger;
   identityRequired: boolean;
 };

@@ -1,5 +1,6 @@
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { FentarisTransportError, createRuntimeEvent, runtimeErrorToEventPayload } from "../../profiler/index.js";
 import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../../types/proxy.js";
 import type {
   IdentityMetadata,
@@ -35,7 +36,18 @@ export class StdioProxyExposureTransport implements ProxyExposureTransport {
     const sdkServer = runtime.createSdkServer(resolved.user, resolved.identity, resolved.subject) as McpSdkServer;
     const transport = new StdioServerTransport();
 
-    await sdkServer.connect(transport);
+    try {
+      await sdkServer.connect(transport);
+    } catch (error) {
+      await runtime.emitRuntimeEvent(createRuntimeEvent({
+        name: "transport.error",
+        category: "errors",
+        level: "error",
+        transport: "stdio",
+        error: runtimeErrorToEventPayload(new FentarisTransportError("Stdio MCP proxy transport failed", { cause: error })),
+      }));
+      throw error;
+    }
     await runtime.emitSessionStart({
       user: resolved.user,
       identity: resolved.identity,

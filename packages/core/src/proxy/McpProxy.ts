@@ -37,6 +37,19 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { DefaultErrorMapper, FentarisErrorCode } from "../errors.js";
 import { Logger } from "../logger.js";
+import {
+  FentarisExtensionError,
+  FentarisMcpError,
+  FentarisPolicyError,
+  FentarisTimeoutError,
+  FentarisTransportError,
+  RuntimeProfiler,
+  createRuntimeEvent,
+  normalizeRuntimeProfiler,
+  runtimeErrorToEventPayload,
+  type RuntimeEvent,
+  type RuntimeProfilerConfig,
+} from "../profiler/index.js";
 import { McpServer, type ServerCredentialBinding } from "../server/McpServer.js";
 import {
   fromProxyPromptName,
@@ -53,7 +66,6 @@ import { getCapabilityPermission, toCapabilityPermissions } from "../policy.js";
 import { FentarisAuth } from "../auth.js";
 import { resolveCredentialSource, type CredentialSourceMap } from "../credentials/index.js";
 import {
-  buildSubjectIndex,
   evaluateGroupPolicies,
   filterToolsByGroupPolicies,
   type Group,
@@ -61,6 +73,8 @@ import {
 } from "../governance.js";
 import { HttpProxyExposureTransport } from "../transports/exposure/HttpProxyExposureTransport.js";
 import { ResponseController } from "../types/middleware.js";
+import { FentarisConfigError, assertValidFentarisConfig } from "../config/index.js";
+import { resolveFentarisConfig } from "../config/resolve.js";
 import type { CapabilityOperationRequest, ToolCallRequest } from "../types/mcp-operation.js";
 import type { CredentialSourceMetadata, IdentityMetadata, ResolvedSubject, UserContext } from "../types/shared.js";
 import type {
@@ -123,6 +137,7 @@ export type McpProxyOptions = {
   auth?: FentarisAuth;
   registry?: Registry;
   autoLog?: boolean | AutoLogOptions;
+  profiler?: RuntimeProfilerConfig;
   errorMapper?: ErrorMapper;
   name?: string;
   version?: string;
@@ -182,6 +197,7 @@ export class McpProxy {
   private readonly auth?: FentarisAuth;
   private readonly registry?: Registry;
   private readonly autoLog: Required<AutoLogOptions> | null;
+  private readonly profiler: RuntimeProfiler;
   private readonly errorMapper: ErrorMapper;
   private readonly name: string;
   private readonly version: string;
@@ -195,21 +211,23 @@ export class McpProxy {
    * @pk
    */
   constructor(options: McpProxyOptions) {
-    this.servers = [...(options.servers ?? [])];
+    const resolved = resolveFentarisConfig(options);
+    this.servers = resolved.servers;
     this.logger = options.logger ?? new Logger();
     this.userResolver = options.user;
     this.auth = options.auth;
     this.policy = options.policy;
-    this.groups = options.groups ?? [];
-    this.defaultCredentials = { ...(options.defaults?.credentials ?? {}) };
+    this.groups = resolved.groups;
+    this.defaultCredentials = resolved.defaults.credentials;
     this.identityOptions = normalizeIdentityOptions(
       options.identity ?? options.auth?.identityStrategy() ?? declaredApiKeyIdentityStrategy(this.groups),
       Boolean(options.auth) || hasDeclaredApiKeys(this.groups),
     );
-    this.subjectIndex = this.groups.length > 0 ? buildSubjectIndex(this.groups) : undefined;
+    this.subjectIndex = resolved.subjectIndex;
     this.serverCatalog = new ServerCatalog({ servers: this.servers, groups: this.groups, subjectIndex: this.subjectIndex });
     this.registry = options.registry;
     this.autoLog = normalizeAutoLog(options.autoLog);
+    this.profiler = new RuntimeProfiler(options.profiler === undefined ? null : normalizeRuntimeProfiler(options.profiler, this.logger));
     this.errorMapper = options.errorMapper ?? new DefaultErrorMapper();
     this.name = options.name ?? "fentaris-core-proxy";
     this.version = options.version ?? "0.1.0";
@@ -265,6 +283,19 @@ export class McpProxy {
       }
     }
 
+    if (!server && !this.serverByName.has(name)) {
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_SERVER",
+          title: "Scoped server handle references an unknown server",
+          message: `Server handle "${name}" does not match a configured MCP server.`,
+          path: ["proxy", "server", name],
+          hint: "Configure the server first or pass the MCP server when registering the handle.",
+        },
+      ]);
+    }
+
     return new McpProxyServerHandle(this, name);
   }
 
@@ -274,7 +305,16 @@ export class McpProxy {
    */
   group(groupId: string): ProxyGroupHandle {
     if (!this.groups.some((group) => group.id === groupId)) {
-      throw new Error(`Unknown group "${groupId}"`);
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_GROUP",
+          title: "Scoped group handle references an unknown group",
+          message: `Group handle "${groupId}" does not match a configured group.`,
+          path: ["proxy", "group", groupId],
+          hint: "Declare the group in config.groups before registering scoped routes.",
+        },
+      ]);
     }
 
     return new McpProxyGroupHandle(this, groupId);
@@ -375,6 +415,16 @@ export class McpProxy {
     const callback = typeof optionsOrCallback === "function" ? optionsOrCallback : onStarted;
     const port = options.port ?? this.defaultPort ?? 3000;
     const path = options.path ?? this.defaultPath;
+    const startedAt = Date.now();
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "runtime.start",
+      category: "lifecycle",
+      level: "info",
+      runtime: this.name,
+      version: this.version,
+      operation: "runtime:start",
+      message: "Runtime starting",
+    }));
     const handle = await this.listen(
       new HttpProxyExposureTransport({
         port,
@@ -386,6 +436,17 @@ export class McpProxy {
       }),
     );
     this.httpServer = handle.server;
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "runtime.ready",
+      category: "lifecycle",
+      level: "info",
+      runtime: this.name,
+      version: this.version,
+      operation: "runtime:ready",
+      startupMs: Date.now() - startedAt,
+      durationMs: Date.now() - startedAt,
+      message: "Runtime ready",
+    }));
 
     return this.httpServer;
   }
@@ -395,9 +456,20 @@ export class McpProxy {
    * @pk
    */
   async listen<THandle extends ProxyExposureHandle>(transport: ProxyExposureTransport<THandle>): Promise<THandle> {
-    const handle = await transport.listen(this.createRuntime());
-    this.exposureHandles.add(handle);
-    return handle;
+    try {
+      const handle = await transport.listen(this.createRuntime());
+      this.exposureHandles.add(handle);
+      return handle;
+    } catch (error) {
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: "transport.error",
+        category: "errors",
+        level: "error",
+        operation: "transport:listen",
+        error: runtimeErrorToEventPayload(new FentarisTransportError("Proxy exposure transport failed", { cause: error })),
+      }));
+      throw error;
+    }
   }
 
   /**
@@ -405,10 +477,20 @@ export class McpProxy {
    * @pk
    */
   async close(): Promise<void> {
+    const startedAt = Date.now();
     await Promise.all([...this.exposureHandles].map((handle) => handle.close()));
     this.exposureHandles.clear();
     this.httpServer = null;
     await Promise.all(this.serverCatalog.allServers().map((server) => server.close()));
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "runtime.stop",
+      category: "lifecycle",
+      level: "info",
+      runtime: this.name,
+      operation: "runtime:stop",
+      durationMs: Date.now() - startedAt,
+      message: "Runtime stopped",
+    }));
   }
 
   /**
@@ -459,14 +541,20 @@ export class McpProxy {
     });
 
     for (const hook of this.listToolsHooks) {
-      const result = await hook(tools, {
-        user: resolvedUser,
-        subject: resolvedSubject,
-        identity,
-        log,
-        policy: this.policy,
-        credentialSources: context.credentials.sources,
-      });
+      let result;
+      try {
+        result = await hook(tools, {
+          user: resolvedUser,
+          subject: resolvedSubject,
+          identity,
+          log,
+          policy: this.policy,
+          credentialSources: context.credentials.sources,
+        });
+      } catch (error) {
+        await this.emitExtensionError("hook", error, context);
+        throw error;
+      }
       if (Array.isArray(result)) {
         tools = result;
       } else if (result?.tools) {
@@ -540,6 +628,22 @@ export class McpProxy {
       decision: context.policyDecision,
       can: createPolicyCan({ groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, resolvedSubject),
     };
+    if (context.policyDecision) {
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: context.policyDecision.allowed ? "policy.allowed" : "policy.denied",
+        category: "policy",
+        level: context.policyDecision.allowed ? "info" : "warn",
+        allowed: context.policyDecision.allowed,
+        reason: context.policyDecision.reason,
+        matchedGroups: context.policy.matchedGroups,
+        matchedPermissions: context.policy.matchedPermissions,
+        server: serverName,
+        group: context.policy.matchedGroups[0],
+        user: resolvedUser.id,
+        operation: "tool:call",
+        metadata: context.policyDecision.metadata,
+      }));
+    }
 
     const startedAt = Date.now();
     this.writeAutoLog("start", log, request, context, startedAt);
@@ -554,6 +658,18 @@ export class McpProxy {
 
       if (!context.policyDecision || context.policyDecision.allowed) {
         await emitProxyEvent(this.eventHandlers, "tool:start", { ctx: context, durationMs: 0 });
+        await this.emitRuntimeEvent(createRuntimeEvent({
+          name: "mcp.call.start",
+          category: "mcp",
+          level: "info",
+          server: serverName,
+          group: context.policy.matchedGroups[0],
+          user: resolvedUser.id,
+          operation: "tool:call",
+          target: toolName,
+          arguments: params.arguments,
+          message: "MCP tool call started",
+        }));
       }
       const hookResult = await dispatchCallHooks(this.callHooks, request, context);
       const result =
@@ -584,13 +700,72 @@ export class McpProxy {
         }));
       const response = context.res.applyInjections(result);
       this.writeAutoLog("success", log, request, context, startedAt, response);
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: "mcp.call.success",
+        category: "mcp",
+        level: response.isError ? "warn" : "info",
+        server: serverName,
+        group: context.policy.matchedGroups[0],
+        user: resolvedUser.id,
+        operation: "tool:call",
+        target: toolName,
+        result: response,
+        durationMs: Date.now() - startedAt,
+        message: "MCP tool call completed",
+      }));
       await emitProxyEvent(this.eventHandlers, "tool:success", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
       await emitProxyEvent(this.eventHandlers, "tool:after", { ctx: context, result: response, durationMs: Date.now() - startedAt, success: true });
       return response;
     } catch (error) {
       const normalizedError = normalizeError(error);
+      const runtimeError = new FentarisMcpError(normalizedError.message, {
+        cause: normalizedError,
+        context: { server: serverName, operation: "tool:call", tool: toolName, user: resolvedUser.id },
+      });
+      if (isTimeoutError(normalizedError)) {
+        await this.emitRuntimeEvent(createRuntimeEvent({
+          name: "mcp.call.timeout",
+          category: "timeouts",
+          level: "warn",
+          server: serverName,
+          group: context.policy.matchedGroups[0],
+          user: resolvedUser.id,
+          operation: "tool:call",
+          target: toolName,
+          timeoutMs: parseTimeoutMs(normalizedError.message) ?? 0,
+          durationMs: Date.now() - startedAt,
+          error: runtimeErrorToEventPayload(new FentarisTimeoutError(normalizedError.message, {
+            cause: normalizedError,
+            context: { server: serverName, operation: "tool:call", tool: toolName, user: resolvedUser.id },
+          })),
+          message: "MCP tool call timed out",
+        }));
+      }
       const mappedError = this.errorMapper.mapError(normalizedError, { serverName, toolName });
       this.writeAutoLog("failure", log, request, context, startedAt, undefined, normalizedError);
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: "mcp.call.error",
+        category: "errors",
+        level: "error",
+        server: serverName,
+        group: context.policy.matchedGroups[0],
+        user: resolvedUser.id,
+        operation: "tool:call",
+        target: toolName,
+        durationMs: Date.now() - startedAt,
+        error: runtimeErrorToEventPayload(runtimeError),
+        message: "MCP tool call failed",
+      }));
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: "runtime.error",
+        category: "errors",
+        level: "error",
+        operation: "runtime:error",
+        server: serverName,
+        group: context.policy.matchedGroups[0],
+        user: resolvedUser.id,
+        error: runtimeErrorToEventPayload(runtimeError),
+      }));
       await emitLifecycle(this.lifecycleHooks, "toolFailure", {
         user: resolvedUser,
         subject: resolvedSubject,
@@ -962,6 +1137,19 @@ export class McpProxy {
    */
   async emitSessionStart(context: Parameters<LifecycleHook>[1]): Promise<void> {
     await emitLifecycle(this.lifecycleHooks, "sessionStart", context);
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "runtime.ready",
+      category: "lifecycle",
+      level: "info",
+      runtime: this.name,
+      version: this.version,
+      operation: "session:start",
+      user: context.user.id,
+      startupMs: 0,
+      durationMs: 0,
+      metadata: { sessionId: context.sessionId },
+      message: "Runtime session started",
+    }));
     const proxyContext = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "session:start",
       user: context.user,
@@ -987,6 +1175,16 @@ export class McpProxy {
    */
   async emitSessionEnd(context: Parameters<LifecycleHook>[1]): Promise<void> {
     await emitLifecycle(this.lifecycleHooks, "sessionEnd", context);
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "runtime.stop",
+      category: "lifecycle",
+      level: "info",
+      runtime: this.name,
+      operation: "session:end",
+      user: context.user.id,
+      metadata: { sessionId: context.sessionId },
+      message: "Runtime session ended",
+    }));
     const proxyContext = createProxyContext({ registry: this.registry, serverByName: this.serverByName, groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, {
       operation: "session:end",
       user: context.user,
@@ -1007,18 +1205,22 @@ export class McpProxy {
   }
 
   registerServerMiddleware(serverName: string, handler: Middleware, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.routes.push({ kind: "middleware", scopeServer: serverName, scopeGroup: groupId, handler });
   }
 
   registerServerTool(serverName: string, pattern: ProxyToolPattern, handler: ProxyToolHandler, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.routes.push({ kind: "tool", scopeServer: serverName, scopeGroup: groupId, pattern: compileToolPattern(pattern, serverName), handler });
   }
 
   registerServerOperation(serverName: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.routes.push({ kind: "operation", scopeServer: serverName, scopeGroup: groupId, operation, handler });
   }
 
   registerServerEvent(serverName: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler, groupId?: string): void {
+    this.assertServerHandleVisible(serverName, groupId);
     this.eventHandlers.push({
       eventName,
       filter: {
@@ -1031,14 +1233,17 @@ export class McpProxy {
   }
 
   registerGroupMiddleware(groupId: string, handler: Middleware): void {
+    this.assertGroupHandleKnown(groupId);
     this.routes.push({ kind: "middleware", scopeGroup: groupId, handler });
   }
 
   registerGroupOperation(groupId: string, operation: ProxyContext["operation"], handler: ProxyOperationHandler): void {
+    this.assertGroupHandleKnown(groupId);
     this.routes.push({ kind: "operation", scopeGroup: groupId, operation, handler });
   }
 
   registerGroupEvent(groupId: string, eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): void {
+    this.assertGroupHandleKnown(groupId);
     this.eventHandlers.push({
       eventName,
       filter: {
@@ -1049,6 +1254,58 @@ export class McpProxy {
     });
   }
 
+  assertServerHandleVisible(serverName: string, groupId?: string): void {
+    if (!this.serverByName.has(serverName)) {
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_SERVER",
+          title: "Scoped server handle references an unknown server",
+          message: `Server handle "${serverName}" does not match a configured MCP server.`,
+          path: groupId ? ["proxy", "group", groupId, "server", serverName] : ["proxy", "server", serverName],
+          hint: "Configure the server before registering scoped routes.",
+        },
+      ]);
+    }
+
+    if (groupId && !this.groupCanSeeServer(groupId, serverName)) {
+      throw new FentarisConfigError([
+        {
+          severity: "error",
+          code: "FENTARIS_CONFIG_HANDLE_SERVER_NOT_VISIBLE",
+          title: "Scoped server handle is not visible to the group",
+          message: `Server "${serverName}" is not visible to group "${groupId}".`,
+          path: ["proxy", "group", groupId, "server", serverName],
+          hint: "Declare the server globally or in the same group.",
+        },
+      ]);
+    }
+  }
+
+  assertGroupHandleKnown(groupId: string): void {
+    if (this.groups.some((group) => group.id === groupId)) {
+      return;
+    }
+    throw new FentarisConfigError([
+      {
+        severity: "error",
+        code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_GROUP",
+        title: "Scoped group handle references an unknown group",
+        message: `Group handle "${groupId}" does not match a configured group.`,
+        path: ["proxy", "group", groupId],
+      },
+    ]);
+  }
+
+  private groupCanSeeServer(groupId: string, serverName: string): boolean {
+    const group = this.groups.find((entry) => entry.id === groupId);
+    if (!group) {
+      return false;
+    }
+
+    return this.servers.some((server) => server.name === serverName) || group.servers.some((server) => server.name === serverName);
+  }
+
   private createRuntime(): ProxyRuntime {
     return {
       createSdkServer: (user, identity, subject) => createSdkServer(this as unknown as Parameters<typeof createSdkServer>[0], user, identity, subject),
@@ -1056,9 +1313,36 @@ export class McpProxy {
       resolveStdioUser: () => this.resolveStdioUser(),
       emitSessionStart: (context) => this.emitSessionStart(context),
       emitSessionEnd: (context) => this.emitSessionEnd(context),
+      emitRuntimeEvent: (event) => this.emitRuntimeEvent(event),
       logger: this.logger,
       identityRequired: Boolean(this.identityOptions?.required),
     };
+  }
+
+  private async emitRuntimeEvent(event: RuntimeEvent): Promise<void> {
+    await this.profiler.emit(event);
+  }
+
+  private async emitExtensionError(
+    boundary: "hook" | "middleware" | "route" | "sink" | "extension",
+    error: unknown,
+    context?: ProxyContext,
+  ): Promise<void> {
+    const normalized = normalizeError(error);
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "extension.error",
+      category: "errors",
+      level: "error",
+      boundary,
+      server: context?.server?.name,
+      group: context?.policy.matchedGroups[0],
+      user: context?.user.id,
+      operation: context?.operation,
+      error: runtimeErrorToEventPayload(new FentarisExtensionError(normalized.message, {
+        cause: normalized,
+        context: context ? capabilityErrorContext(context) : {},
+      })),
+    }));
   }
 
   private async enforceCapabilityPolicy(
@@ -1097,6 +1381,23 @@ export class McpProxy {
       decision,
       can: createPolicyCan({ groups: this.groups, subjectIndex: this.subjectIndex, policy: this.policy }, subject),
     };
+
+    if (decision) {
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: decision.allowed ? "policy.allowed" : "policy.denied",
+        category: "policy",
+        level: decision.allowed ? "info" : "warn",
+        allowed: decision.allowed,
+        reason: decision.reason,
+        matchedGroups: context.policy.matchedGroups,
+        matchedPermissions: context.policy.matchedPermissions,
+        server: request.serverName,
+        group: context.policy.matchedGroups[0],
+        user: user.id,
+        operation: request.operation,
+        metadata: decision.metadata,
+      }));
+    }
 
     if (decision && !decision.allowed) {
       throw new PolicyDeniedError(decision.reason ?? `Operation "${request.operation}" denied by policy`, FentarisErrorCode.PolicyDenied, context);
@@ -1167,7 +1468,13 @@ export class McpProxy {
       return nextResult;
     };
 
-    const result = await dispatchRouteHandler(route.handler, request, context, next);
+    let result;
+    try {
+      result = await dispatchRouteHandler(route.handler, request, context, next);
+    } catch (error) {
+      await this.emitExtensionError(route.kind === "middleware" ? "middleware" : "route", error, context);
+      throw error;
+    }
 
     if (result) {
       return result as CallToolResult;
@@ -1203,13 +1510,19 @@ export class McpProxy {
       return nextResult;
     };
 
-    const result = await dispatchRouteHandler(route.handler, context.tool ? {
-      serverName: context.server?.name ?? "",
-      toolName: context.tool.name,
-      proxyToolName: context.tool.proxyName,
-      arguments: context.args,
-      raw: context.raw as CallToolRequest["params"],
-    } : capabilityToolRequest(context), context, next);
+    let result;
+    try {
+      result = await dispatchRouteHandler(route.handler, context.tool ? {
+        serverName: context.server?.name ?? "",
+        toolName: context.tool.name,
+        proxyToolName: context.tool.proxyName,
+        arguments: context.args,
+        raw: context.raw as CallToolRequest["params"],
+      } : capabilityToolRequest(context), context, next);
+    } catch (error) {
+      await this.emitExtensionError(route.kind === "middleware" ? "middleware" : "route", error, context);
+      throw error;
+    }
 
     if (result) {
       if (isStructuredPolicyErrorResult(result)) {
@@ -1233,19 +1546,78 @@ export class McpProxy {
   ): Promise<ProxyOperationResult> {
     const startedAt = Date.now();
     await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "start"), { ctx: context, durationMs: 0 });
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "mcp.call.start",
+      category: "mcp",
+      level: "info",
+      server: context.server?.name,
+      group: context.policy.matchedGroups[0],
+      user: context.user.id,
+      operation: context.operation,
+      target: context.resource?.uri ?? context.resource?.uriTemplate ?? context.prompt?.name ?? context.completion?.target,
+      message: "MCP operation started",
+    }));
     this.writeCapabilityAuditLog("start", context, startedAt);
 
     try {
       const result = await terminal();
       const durationMs = Date.now() - startedAt;
       this.writeCapabilityAuditLog("success", context, startedAt, result);
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: "mcp.call.success",
+        category: "mcp",
+        level: "info",
+        server: context.server?.name,
+        group: context.policy.matchedGroups[0],
+        user: context.user.id,
+        operation: context.operation,
+        target: context.resource?.uri ?? context.resource?.uriTemplate ?? context.prompt?.name ?? context.completion?.target,
+        result,
+        durationMs,
+        message: "MCP operation completed",
+      }));
       await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "success"), { ctx: context, result, durationMs, success: true });
       await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "after"), { ctx: context, result, durationMs, success: true });
       return result;
     } catch (error) {
       const normalizedError = normalizeError(error);
       const durationMs = Date.now() - startedAt;
+      const runtimeError = normalizedError instanceof PolicyDeniedError
+        ? new FentarisPolicyError(normalizedError.message, { cause: normalizedError, context: capabilityErrorContext(context) })
+        : new FentarisMcpError(normalizedError.message, { cause: normalizedError, context: capabilityErrorContext(context) });
       this.writeCapabilityAuditLog("failure", context, startedAt, undefined, normalizedError);
+      if (isTimeoutError(normalizedError)) {
+        await this.emitRuntimeEvent(createRuntimeEvent({
+          name: "mcp.call.timeout",
+          category: "timeouts",
+          level: "warn",
+          server: context.server?.name,
+          group: context.policy.matchedGroups[0],
+          user: context.user.id,
+          operation: context.operation,
+          target: context.resource?.uri ?? context.resource?.uriTemplate ?? context.prompt?.name ?? context.completion?.target,
+          timeoutMs: parseTimeoutMs(normalizedError.message) ?? 0,
+          durationMs,
+          error: runtimeErrorToEventPayload(new FentarisTimeoutError(normalizedError.message, {
+            cause: normalizedError,
+            context: capabilityErrorContext(context),
+          })),
+          message: "MCP operation timed out",
+        }));
+      }
+      await this.emitRuntimeEvent(createRuntimeEvent({
+        name: "mcp.call.error",
+        category: "errors",
+        level: "error",
+        server: context.server?.name,
+        group: context.policy.matchedGroups[0],
+        user: context.user.id,
+        operation: context.operation,
+        target: context.resource?.uri ?? context.resource?.uriTemplate ?? context.prompt?.name ?? context.completion?.target,
+        durationMs,
+        error: runtimeErrorToEventPayload(runtimeError),
+        message: "MCP operation failed",
+      }));
       await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "error"), { ctx: context, error: normalizedError, durationMs, success: false });
       await emitProxyEvent(this.eventHandlers, operationEventName(context.operation, "after"), { ctx: context, error: normalizedError, durationMs, success: false });
       throw error;
@@ -1258,7 +1630,20 @@ export class McpProxy {
     }
 
     const startedAt = Date.now();
+    const runtimeError = new FentarisPolicyError(error.message, { cause: error, context: capabilityErrorContext(error.context) });
     this.writeCapabilityAuditLog("failure", error.context, startedAt, undefined, error);
+    await this.emitRuntimeEvent(createRuntimeEvent({
+      name: "mcp.call.error",
+      category: "errors",
+      level: "error",
+      server: error.context.server?.name,
+      group: error.context.policy.matchedGroups[0],
+      user: error.context.user.id,
+      operation: error.context.operation,
+      durationMs: 0,
+      error: runtimeErrorToEventPayload(runtimeError),
+      message: "MCP operation denied",
+    }));
     await emitProxyEvent(this.eventHandlers, operationEventName(error.context.operation, "error"), {
       ctx: error.context,
       error,
@@ -1628,6 +2013,7 @@ export class McpProxy {
  * @pk
  */
 export function createProxy(options: McpProxyOptions): McpProxy {
+  assertValidFentarisConfig(options);
   return new McpProxy(options);
 }
 
@@ -1823,9 +2209,22 @@ function normalizeAutoLog(autoLog: McpProxyOptions["autoLog"] | undefined): Requ
   };
 }
 
+function capabilityErrorContext(context: ProxyContext): Record<string, unknown> {
+  return {
+    server: context.server?.name,
+    group: context.policy.matchedGroups[0],
+    user: context.user.id,
+    operation: context.operation,
+    target: context.tool?.name ?? context.resource?.uri ?? context.resource?.uriTemplate ?? context.prompt?.name ?? context.completion?.target,
+    transport: context.transport,
+  };
+}
 
+function isTimeoutError(error: Error): boolean {
+  return /timed out|timeout/i.test(error.message);
+}
 
-
-
-
-
+function parseTimeoutMs(message: string): number | undefined {
+  const match = message.match(/after\s+(\d+)ms/i);
+  return match ? Number(match[1]) : undefined;
+}
