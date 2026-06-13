@@ -9,6 +9,32 @@
  */
 export { Logger, ConsoleLoggerDriver, RedisLoggerDriver } from "./logging/index.js";
 /**
+ * Runtime profiler, event, sink, and runtime error APIs.
+ * @pk
+ */
+export {
+  FentarisExtensionError,
+  FentarisMcpError,
+  FentarisPolicyError,
+  FentarisRuntimeError,
+  FentarisTimeoutError,
+  FentarisTransportError,
+  RuntimeProfiler,
+  createRuntimeEvent,
+  functionProfilerSink,
+  jsonProfilerSink,
+  loggerProfilerSink,
+  normalizeRuntimeError,
+  normalizeRuntimeProfiler,
+  prettyProfilerSink,
+  profiler,
+  redactProfilerValue,
+  renderRuntimeError,
+  runtimeErrorEvent,
+  runtimeErrorToEventPayload,
+  toRuntimeErrorPayload,
+} from "./profiler/index.js";
+/**
  * Standard error mapping.
  * @pk
  */
@@ -26,6 +52,39 @@ export type {
   RedisLoggerClient,
   RedisLoggerDriverOptions,
 } from "./logging/index.js";
+export type {
+  LoggerSinkOptions,
+  NormalizedProfilerRedaction,
+  NormalizedRuntimeProfiler,
+  ProfilerFailureMode,
+  ProfilerFilter,
+  ProfilerFunctionSink,
+  ProfilerHandlerOptions,
+  ProfilerObjectConfig,
+  ProfilerPrettySinkOptions,
+  ProfilerRedactionOptions,
+  ProfilerRedactionRule,
+  ProfilerSink,
+  ProfilerSinkLike,
+  ProfilerTrack,
+  RuntimeEvent,
+  RuntimeEventBase,
+  RuntimeEventCategory,
+  RuntimeEventDimensions,
+  RuntimeEventHandler,
+  RuntimeEventLevel,
+  RuntimeEventMap,
+  RuntimeEventName,
+  RuntimeExtensionEvent,
+  RuntimeLifecycleEvent,
+  RuntimeMcpEvent,
+  RuntimePolicyEvent,
+  RuntimeProfilerConfig,
+  RuntimeProfilerErrorPayload,
+  RuntimeProfilerEvent,
+  RuntimeProfilerHandlerEntry,
+  RuntimeTransportEvent,
+} from "./profiler/index.js";
 /**
  * MCP proxy server.
  * @pk

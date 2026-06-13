@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server as HttpServer, type Ser
 import { Server as McpSdkServer } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { FentarisErrorCode } from "../../errors.js";
+import { FentarisTransportError, createRuntimeEvent, runtimeErrorToEventPayload } from "../../profiler/index.js";
 import type { ProxyExposureHandle, ProxyExposureTransport, ProxyRuntime } from "../../types/proxy.js";
 import type {
   IdentityMetadata,
@@ -88,6 +89,19 @@ export class SseProxyExposureTransport implements ProxyExposureTransport<SseProx
         sendText(res, 404, "Not Found");
       } catch (error) {
         runtime.logger.error("Error handling SSE MCP proxy request", { error: error instanceof Error ? error.message : String(error) });
+        await runtime.emitRuntimeEvent(createRuntimeEvent({
+          name: "transport.error",
+          category: "errors",
+          level: "error",
+          transport: "sse",
+          error: runtimeErrorToEventPayload(new FentarisTransportError("SSE MCP proxy request failed", {
+            cause: error,
+            context: {
+              method: req.method,
+              url: req.url,
+            },
+          })),
+        }));
         if (!res.headersSent) {
           sendJsonRpcError(res, 500, -32603, "Internal server error");
         }
