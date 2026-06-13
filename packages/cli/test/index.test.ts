@@ -103,7 +103,7 @@ describe("project template", () => {
     expect(rendered.files[".gitignore"]).toContain(".fentaris/");
     expect(rendered.files["README.md"]).toContain("Quick start");
     expect(rendered.files["src/index.ts"]).toContain("https://mcp.specification.website/mcp");
-    expect(rendered.files["src/index.ts"]).toContain("app.server(");
+    expect(rendered.files["src/index.ts"]).toContain("app.mcp(");
     expect(rendered.files["src/index.ts"]).toContain("credentialJson");
     expect(rendered.files["src/index.ts"]).toContain("rateLimitMiddleware");
     expect(rendered.files["src/index.ts"]).toContain("admin-full-access");

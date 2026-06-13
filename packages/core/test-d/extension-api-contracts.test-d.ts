@@ -11,7 +11,6 @@ import {
   group,
   mcp,
   policy,
-  server,
   stdio,
   user,
   validateFentarisConfig,
@@ -135,13 +134,13 @@ const application = fentaris({
     mcp("github", {
       transport: stdio({ command: "github-mcp-server" }),
     }),
-    server("custom", { transport: new CustomTransport() }),
+    mcp("custom", { transport: new CustomTransport() }),
   ],
   groups: [
     group({
       id: "admins",
       users: [user("u_123")],
-      policy: policy("admins").server("*").allow("*"),
+      policy: policy("admins").mcp("*").allow("*"),
     }),
   ],
 });

@@ -15,7 +15,7 @@ import type {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Logger } from "../src/logger.js";
 import { health } from "../src/health/index.js";
-import { McpProxy } from "../src/proxy/McpProxy.js";
+import { McpProxy, fentaris } from "../src/proxy/McpProxy.js";
 import { McpServer } from "../src/server/McpServer.js";
 import { FentarisErrorCode } from "../src/errors.js";
 import { Policy, group, user } from "../src/governance.js";
@@ -331,12 +331,12 @@ describe("McpProxy", () => {
       groups: [engineering],
       health: health()
         .include(["groups"])
-        .check("linear-ping", (ctx) => ctx.server("linear").ping())
+        .check("linear-ping", (ctx) => ctx.mcp("linear").ping())
         .check("engineering-servers", (ctx) => ({
           status: "ok",
           metadata: { servers: ctx.group("engineering").servers() },
         }))
-        .check("unknown-ping", (ctx) => ctx.server("missing").ping()),
+        .check("unknown-ping", (ctx) => ctx.mcp("missing").ping()),
     });
 
     const report = await proxy.health();
@@ -560,17 +560,17 @@ describe("McpProxy", () => {
     const transport = new FeatureTransport();
     const proxy = new McpProxy({
       policy: new Policy({ name: "capabilities" })
-        .server("github")
+        .mcp("github")
         .allowCapability({ operation: "resources:list", targetKind: "resource" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "resource:read", target: "file:///shared.md", targetKind: "resource" })
-        .server("github")
+        .mcp("github")
         .allowCapability({ operation: "resource-templates:list", targetKind: "resourceTemplate" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "resource-templates:list", target: "file:///{path}", targetKind: "resourceTemplate" })
-        .server("github")
+        .mcp("github")
         .allowCapability({ operation: "prompts:list", targetKind: "prompt" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "prompt:get", target: "summarize", targetKind: "prompt" }),
       servers: [new McpServer({ name: "github", transport })],
     });
@@ -584,11 +584,11 @@ describe("McpProxy", () => {
     const transport = new FeatureTransport();
     const proxy = new McpProxy({
       policy: new Policy({ name: "blocked" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "resource:read", target: "file:///shared.md", targetKind: "resource" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "prompt:get", target: "summarize", targetKind: "prompt" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "completion:complete", target: "summarize", targetKind: "completion" }),
       servers: [new McpServer({ name: "github", transport })],
     });
@@ -724,9 +724,9 @@ describe("McpProxy", () => {
     const proxy = new McpProxy({
       logger: new Logger({ level: "debug", driver }),
       policy: new Policy({ name: "audit" })
-        .server("github")
+        .mcp("github")
         .allowCapability({ operation: "resource:read", target: "file:///shared.md", targetKind: "resource" })
-        .server("github")
+        .mcp("github")
         .denyCapability({ operation: "prompt:get", target: "summarize", targetKind: "prompt" }),
       servers: [new McpServer({ name: "github", transport })],
     });
@@ -1037,6 +1037,27 @@ describe("McpProxy", () => {
     expect(transport.callTool).not.toHaveBeenCalled();
   });
 
+  it("registers upstream MCP servers through the non config-first API", async () => {
+    const transport = new MockTransport();
+    const app = fentaris();
+    const github = app.mcp({ name: "github", transport });
+    const seen: string[] = [];
+
+    github.tool("create_issue", (ctx, next) => {
+      seen.push(`${ctx.server?.name}:${ctx.tool?.name}`);
+      return next();
+    });
+
+    const ping = await github.ping();
+    const healthReport = await github.health();
+    const result = await app.callTool({ name: "github__create_issue" });
+
+    expect(ping.status).toBe("ok");
+    expect(healthReport.status).toBe("ok");
+    expect(result).toMatchObject({ content: [{ type: "text", text: "called:create_issue" }] });
+    expect(seen).toEqual(["github:create_issue"]);
+  });
+
   it("routes matching public tool patterns in registration order", async () => {
     const transport = new MockTransport();
     const proxy = new McpProxy({
@@ -1048,7 +1069,7 @@ describe("McpProxy", () => {
       seen.push(`global:${ctx.server?.name}`);
       return next();
     });
-    proxy.server("github").use((ctx, next) => {
+    proxy.mcp("github").use((ctx, next) => {
       seen.push(`server:${ctx.server?.name}`);
       return next();
     });
@@ -1081,10 +1102,10 @@ describe("McpProxy", () => {
 
     expect(() => proxy.tool("github__create_issue", () => undefined)).toThrow(/dot notation/);
     expect(() => proxy.tool("github", () => undefined)).toThrow(/server.tool/);
-    expect(() => proxy.server("github").tool("notion.create_issue", () => undefined)).toThrow(/cannot target server/);
+    expect(() => proxy.mcp("github").tool("notion.create_issue", () => undefined)).toThrow(/cannot target server/);
   });
 
-  it("keeps server handles scoped to their server", async () => {
+  it("keeps MCP handles scoped to their upstream", async () => {
     const githubTransport = new MockTransport();
     const notionTransport = new MockTransport();
     const proxy = new McpProxy({
@@ -1095,7 +1116,7 @@ describe("McpProxy", () => {
     });
     const seen: string[] = [];
 
-    proxy.server("github").tool("create_issue", (ctx, next) => {
+    proxy.mcp("github").tool("create_issue", (ctx, next) => {
       seen.push(`${ctx.server?.name}:${ctx.tool?.name}`);
       return next();
     });
@@ -1108,7 +1129,7 @@ describe("McpProxy", () => {
     expect(githubTransport.callTool).toHaveBeenCalledOnce();
   });
 
-  it("emits unified tool events and filtered server-scoped events", async () => {
+  it("emits unified tool events and filtered MCP-scoped events", async () => {
     const proxy = new McpProxy({
       servers: [new McpServer({ name: "github", transport: new MockTransport() })],
     });
@@ -1117,7 +1138,7 @@ describe("McpProxy", () => {
     proxy.on("tool:start", ({ ctx }) => {
       events.push(`start:${ctx.server?.name}:${ctx.tool?.name}`);
     });
-    proxy.server("github").on("tool:success", ({ ctx, result }) => {
+    proxy.mcp("github").on("tool:success", ({ ctx, result }) => {
       events.push(`success:${ctx.server?.name}:${result?.content[0]?.type}`);
     });
     proxy.on("tool:after", { server: "github" }, ({ durationMs }) => {
@@ -1281,7 +1302,7 @@ describe("McpProxy", () => {
       ],
     });
     const seen: string[] = [];
-    proxy.group("engineering").server("linear").use((ctx, next) => {
+    proxy.group("engineering").mcp("linear").use((ctx, next) => {
       seen.push(ctx.subject?.id ?? "unknown");
       return next();
     });

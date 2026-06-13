@@ -61,11 +61,12 @@ import {
 import {
   normalizeHealthConfig,
   runHealthChecks,
+  type HealthCheckResult,
   type HealthConfig,
   type HealthReport,
   type NormalizedHealthConfig,
 } from "../health/index.js";
-import { McpServer, type ServerCredentialBinding } from "../server/McpServer.js";
+import { McpServer, type McpServerOptions, type ServerCredentialBinding } from "../server/McpServer.js";
 import {
   fromProxyPromptName,
   fromProxyResourceTemplateUri,
@@ -115,7 +116,9 @@ import type {
   ProxyExposureTransport,
   ProxyRuntime,
   ProxyGroupHandle,
-  ProxyServerHandle,
+  ProxyMcpDeclarationConfig,
+  ProxyMcpDeclarationOptions,
+  ProxyMcpHandle,
   ProxyOperationHandler,
   ProxyToolHandler,
   ProxyToolPattern,
@@ -239,7 +242,7 @@ export class McpProxy {
    * Create a new MCP proxy instance.
    * @pk
    */
-  constructor(options: McpProxyOptions) {
+  constructor(options: McpProxyOptions = {}) {
     const resolved = resolveFentarisConfig(options);
     this.servers = resolved.servers;
     this.logger = options.logger ?? new Logger();
@@ -305,13 +308,25 @@ export class McpProxy {
   }
 
   /**
-   * Register or retrieve a scoped server handle.
+   * Register or retrieve a scoped upstream MCP handle.
    * @pk
    */
-  server(name: string, server?: McpServer): ProxyServerHandle {
-    if (server) {
+  mcp(name: string): ProxyMcpHandle;
+  mcp(name: string, options: ProxyMcpDeclarationOptions): ProxyMcpHandle;
+  mcp(name: string, server: McpServer): ProxyMcpHandle;
+  mcp(config: ProxyMcpDeclarationConfig): ProxyMcpHandle;
+  mcp(
+    nameOrConfig: string | ProxyMcpDeclarationConfig,
+    optionsOrServer?: ProxyMcpDeclarationOptions | McpServer,
+  ): ProxyMcpHandle {
+    const name = typeof nameOrConfig === "string" ? nameOrConfig : nameOrConfig.name;
+    const declaration = typeof nameOrConfig === "string" ? optionsOrServer : nameOrConfig;
+    if (declaration) {
+      const server = declaration instanceof McpServer
+        ? declaration
+        : new McpServer({ ...(declaration as Omit<McpServerOptions, "name">), name });
       if (server.name !== name) {
-        throw new Error(`Server handle "${name}" cannot register MCP server "${server.name}"`);
+        throw new Error(`MCP handle "${name}" cannot register MCP server "${server.name}"`);
       }
       if (!this.serverByName.has(name)) {
         this.servers.push(server);
@@ -320,20 +335,20 @@ export class McpProxy {
       }
     }
 
-    if (!server && !this.serverByName.has(name)) {
+    if (!declaration && !this.serverByName.has(name)) {
       throw new FentarisConfigError([
         {
           severity: "error",
           code: "FENTARIS_CONFIG_HANDLE_UNKNOWN_SERVER",
-          title: "Scoped server handle references an unknown server",
-          message: `Server handle "${name}" does not match a configured MCP server.`,
-          path: ["proxy", "server", name],
-          hint: "Configure the server first or pass the MCP server when registering the handle.",
+          title: "Scoped MCP handle references an unknown upstream",
+          message: `MCP handle "${name}" does not match a configured upstream MCP server.`,
+          path: ["proxy", "mcp", name],
+          hint: "Configure the upstream first or pass MCP options when registering the handle.",
         },
       ]);
     }
 
-    return new McpProxyServerHandle(this, name);
+    return new McpProxyMcpHandle(this, name);
   }
 
   /**
@@ -597,6 +612,22 @@ export class McpProxy {
       }));
     }
     return report;
+  }
+
+  /**
+   * Ping a configured upstream MCP server by listing tools.
+   * @pk
+   */
+  async pingMcp(name: string): Promise<HealthCheckResult> {
+    return this.checkMcpHealth(name);
+  }
+
+  /**
+   * Check a configured upstream MCP server health.
+   * @pk
+   */
+  async mcpHealth(name: string): Promise<HealthCheckResult> {
+    return this.checkMcpHealth(name);
   }
 
   /**
@@ -2142,13 +2173,51 @@ export class McpProxy {
       context.log.info("MCP capability operation", metadata);
     }
   }
+
+  private async checkMcpHealth(name: string): Promise<HealthCheckResult> {
+    const checkedAt = new Date();
+    const startedAt = Date.now();
+    const server = this.serverByName.get(name);
+    if (!server) {
+      return {
+        name: `mcp.${name}.ping`,
+        status: "unknown",
+        message: `MCP server "${name}" is not configured`,
+        checkedAt,
+        durationMs: Date.now() - startedAt,
+        metadata: { name },
+      };
+    }
+
+    try {
+      await server.listTools();
+      return {
+        name: `mcp.${name}.ping`,
+        status: "ok",
+        message: "MCP server ping succeeded",
+        checkedAt,
+        durationMs: Date.now() - startedAt,
+        metadata: { name: server.name, displayName: server.displayName },
+      };
+    } catch (error) {
+      return {
+        name: `mcp.${name}.ping`,
+        status: "down",
+        message: "MCP server ping failed",
+        checkedAt,
+        durationMs: Date.now() - startedAt,
+        metadata: { name: server.name, displayName: server.displayName },
+        error: runtimeErrorToEventPayload(new FentarisMcpError("MCP server ping failed", { cause: error })),
+      };
+    }
+  }
 }
 
 /**
  * Create a Fentaris proxy with the express-like routing API.
  * @pk
  */
-export function createProxy(options: McpProxyOptions): McpProxy {
+export function createProxy(options: McpProxyOptions = {}): McpProxy {
   assertValidFentarisConfig(options);
   return new McpProxy(options);
 }
@@ -2159,35 +2228,35 @@ export function createProxy(options: McpProxyOptions): McpProxy {
  */
 export const fentaris = createProxy;
 
-class McpProxyServerHandle implements ProxyServerHandle {
+class McpProxyMcpHandle implements ProxyMcpHandle {
   constructor(
     private readonly proxy: McpProxy,
     readonly name: string,
     private readonly groupId?: string,
   ) {}
 
-  use(handler: Middleware): ProxyServerHandle {
+  use(handler: Middleware): ProxyMcpHandle {
     this.proxy.registerServerMiddleware(this.name, handler, this.groupId);
     return this;
   }
 
-  tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): ProxyServerHandle {
+  tool(pattern: ProxyToolPattern, handler: ProxyToolHandler): ProxyMcpHandle {
     this.proxy.registerServerTool(this.name, pattern, handler, this.groupId);
     return this;
   }
 
-  operation(operation: ProxyContext["operation"], handler: ProxyOperationHandler): ProxyServerHandle {
+  operation(operation: ProxyContext["operation"], handler: ProxyOperationHandler): ProxyMcpHandle {
     this.proxy.registerServerOperation(this.name, operation, handler, this.groupId);
     return this;
   }
 
-  on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyServerHandle;
-  on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyServerHandle;
+  on(eventName: ProxyEventName, handler: ProxyEventHandler): ProxyMcpHandle;
+  on(eventName: ProxyEventName, filter: ProxyEventFilter, handler: ProxyEventHandler): ProxyMcpHandle;
   on(
     eventName: ProxyEventName,
     filterOrHandler: ProxyEventFilter | ProxyEventHandler,
     maybeHandler?: ProxyEventHandler,
-  ): ProxyServerHandle {
+  ): ProxyMcpHandle {
     const filter = typeof filterOrHandler === "function" ? {} : filterOrHandler;
     const handler = typeof filterOrHandler === "function" ? filterOrHandler : maybeHandler;
     if (!handler) {
@@ -2195,6 +2264,14 @@ class McpProxyServerHandle implements ProxyServerHandle {
     }
     this.proxy.registerServerEvent(this.name, eventName, filter, handler, this.groupId);
     return this;
+  }
+
+  ping(): Promise<HealthCheckResult> {
+    return this.proxy.pingMcp(this.name);
+  }
+
+  health(): Promise<HealthCheckResult> {
+    return this.proxy.mcpHealth(this.name);
   }
 }
 
@@ -2204,8 +2281,8 @@ class McpProxyGroupHandle implements ProxyGroupHandle {
     readonly id: string,
   ) {}
 
-  server(name: string): ProxyServerHandle {
-    return new McpProxyServerHandle(this.proxy, name, this.id);
+  mcp(name: string): ProxyMcpHandle {
+    return new McpProxyMcpHandle(this.proxy, name, this.id);
   }
 
   use(handler: Middleware): ProxyGroupHandle {

@@ -18,15 +18,14 @@ Avoid deep imports from `@fentaris/core/dist/*` or source-layout paths. Those pa
 Prefer `fentaris()` with declaration helpers for new applications:
 
 ```ts theme={null}
-import { fentaris, group, mcp, policy, server, stdio, user } from "@fentaris/core";
+import { fentaris, group, mcp, policy, stdio, user } from "@fentaris/core";
 
 const proxy = fentaris({
   servers: [
     mcp("github", {
       transport: stdio({ command: "github-mcp-server" }),
     }),
-    server({
-      name: "internal",
+    mcp("internal", {
       transport: stdio({ command: "internal-mcp-server" }),
     }),
   ],
@@ -35,7 +34,7 @@ const proxy = fentaris({
     group({
       id: "admins",
       users: [user("alice")],
-      policy: policy("admins").server("*").allow("*"),
+      policy: policy("admins").mcp("*").allow("*"),
     }),
   ],
 });

@@ -105,16 +105,16 @@ describe("governance auth DX", () => {
     };
     const approval = vi.fn(async () => true);
     const allowPolicy = policy("writers")
-      .server("github")
+      .mcp("github")
       .allow("*", { limiter, metadata: { scope: "repo" }, ...sensitive({ reason: "destructive" }) })
-      .server("github")
+      .mcp("github")
       .deny("delete");
-    const denyPolicy = policy("blocked").server("github").deny("write");
+    const denyPolicy = policy("blocked").mcp("github").deny("write");
     const proxy = new McpProxy({
       groups: [
         group({ id: "writers", users: [user("alice")], policy: allowPolicy }),
         group({ id: "blocked", users: [user("alice")], policy: denyPolicy }),
-        group({ id: "approvers", users: [user("alice")], policy: policy("approvers").server("github").allow("read", { approval }) }),
+        group({ id: "approvers", users: [user("alice")], policy: policy("approvers").mcp("github").allow("read", { approval }) }),
       ],
       servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
     });
@@ -136,7 +136,7 @@ describe("governance auth DX", () => {
         group({
           id: "reviewed",
           users: [user("alice")],
-          policy: policy("reviewed").server("github").allow(
+          policy: policy("reviewed").mcp("github").allow(
             "delete",
             approval.manual({
               requestId: (request, context) => `${context.user.id}:${request.serverName}:${request.toolName}`,
@@ -299,19 +299,19 @@ describe("governance auth DX", () => {
 
   it("supports permission helper objects", () => {
     expect(allow("read", { metadata: { scope: "repo" } })).toMatchObject({ tool: "read", effect: "allow" });
-    expect(policy("named").server("github").allow("read").name).toBe("named");
+    expect(policy("named").mcp("github").allow("read").name).toBe("named");
   });
 
   it("keeps tool policy compatibility while accepting capability permissions", async () => {
     const globalPolicy = policy("global")
-      .server("github")
+      .mcp("github")
       .allow("read")
-      .server("github")
+      .mcp("github")
       .denyCapability({ operation: "resource:read", target: "file://secret.md", targetKind: "resource" });
     const groupPolicy = policy("group")
-      .server("github")
+      .mcp("github")
       .allow("read")
-      .server("github")
+      .mcp("github")
       .allowCapability({ operation: "prompt:get", target: "review", targetKind: "prompt" });
 
     await expect(
@@ -353,7 +353,7 @@ describe("governance auth DX", () => {
       metadata: { locale: "it" },
     });
     const proxy = new McpProxy({
-      groups: [group({ id: "admins", users: [alice], policy: policy("admins").server("github").allow("read", { metadata: { scope: "repo" } }) })],
+      groups: [group({ id: "admins", users: [alice], policy: policy("admins").mcp("github").allow("read", { metadata: { scope: "repo" } }) })],
       servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
     });
     const seen: unknown[] = [];
@@ -442,7 +442,7 @@ describe("governance auth DX", () => {
 
   it("reports denied policy metadata through the structured policy domain", async () => {
     const proxy = new McpProxy({
-      groups: [group({ id: "blocked", users: [user("alice")], policy: policy("blocked").server("github").deny("delete") })],
+      groups: [group({ id: "blocked", users: [user("alice")], policy: policy("blocked").mcp("github").deny("delete") })],
       servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
     });
     const seen: unknown[] = [];
@@ -488,9 +488,9 @@ describe("governance auth DX", () => {
     const approval = vi.fn(async () => true);
     const groupProxy = new McpProxy({
       groups: [
-        group({ id: "admins", users: [user("alice")], policy: policy("admins").server("github").allow("delete") }),
-        group({ id: "blocked", users: [user("alice")], policy: policy("blocked").server("github").deny("delete") }),
-        group({ id: "readers", users: [user("alice")], policy: policy("readers").server("github").allow("read", { approval }) }),
+        group({ id: "admins", users: [user("alice")], policy: policy("admins").mcp("github").allow("delete") }),
+        group({ id: "blocked", users: [user("alice")], policy: policy("blocked").mcp("github").deny("delete") }),
+        group({ id: "readers", users: [user("alice")], policy: policy("readers").mcp("github").allow("read", { approval }) }),
       ],
       servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
     });
@@ -507,7 +507,7 @@ describe("governance auth DX", () => {
     const groupResult = await groupProxy.callTool({ name: "github__delete" }, { id: "alice" });
 
     const globalProxy = new McpProxy({
-      policy: policy("global").server("github").allow("read").server("github").deny("delete"),
+      policy: policy("global").mcp("github").allow("read").mcp("github").deny("delete"),
       servers: [new McpServer({ name: "github", transport: new EnvTransport() })],
     });
     const globalChecks: unknown[] = [];
